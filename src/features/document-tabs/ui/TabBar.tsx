@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Network, X } from 'lucide-react'
-import { GRAPH_TAB_ID, useTabStore } from '@/domain/workspace/tabStore'
+import { GRAPH_TAB_ID, useTabStore } from '../model/tabStore'
 
 export function TabBar() {
   const { documentTabs, activeTabId, activateTab, closeDocument } = useTabStore()

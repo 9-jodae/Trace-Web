@@ -11,11 +11,11 @@ Priority: explicit user request, `AGENTS.md`, applicable `docs/ai/` workflow or 
 | `commit-and-pr`   | `commit-and-pr`   | `commit-and-pr.md`   | `workflows/commit-and-pr.md`   |
 | `review-response` | `review-response` | `review-response.md` | `workflows/review-response.md` |
 
-| Task                 | Workflow                       | Rules                                                                |
-| -------------------- | ------------------------------ | -------------------------------------------------------------------- |
-| Add a feature        | `workflows/add-feature.md`     | `rules/react-typescript.md`, `rules/testing.md`, `rules/security.md` |
-| Verify changes       | `workflows/verify.md`          | `rules/testing.md`                                                   |
-| Commit and open a PR | `workflows/commit-and-pr.md`   | `rules/security.md`                                                  |
-| Respond to PR review | `workflows/review-response.md` | Applicable rules above                                               |
+| Task                 | Workflow                       | Rules                                                                                |
+| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
+| Add a feature        | `workflows/add-feature.md`     | `rules/fsd.md`, `rules/react-typescript.md`, `rules/testing.md`, `rules/security.md` |
+| Verify changes       | `workflows/verify.md`          | `rules/testing.md`                                                                   |
+| Commit and open a PR | `workflows/commit-and-pr.md`   | `rules/security.md`                                                                  |
+| Respond to PR review | `workflows/review-response.md` | Applicable rules above                                                               |
 
 Keep this harness in English. Keep human documentation, user-facing text, commits, PR bodies, and reports in Korean, as specified in `AGENTS.md`.

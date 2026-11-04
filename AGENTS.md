@@ -4,9 +4,10 @@ This is the single source of repository rules. Keep AI harness files (`AGENTS.md
 
 ## Structure and ownership
 
-- Keep one Vite app with simple layers. Put app wiring in `src/app`, shared code in `src/global`, and feature code in `src/domain/<feature>`. Follow `docs/ai/rules/react-typescript.md`.
-- Call the server only through `src/global/api/client.ts`. Keep server state in TanStack Query and client UI state in Zustand stores inside the owning domain.
-- Add a feature in this order: API types and calls, query hooks, store if needed, components, route, tests. Follow `docs/ai/workflows/add-feature.md`.
+- Follow Feature-Sliced Design (FSD). Layers from top to bottom: `app`, `pages`, `widgets`, `features`, `entities`, `shared`. A module imports only from layers below it, and never from another slice on the same layer. Follow `docs/ai/rules/fsd.md` and `docs/ai/rules/react-typescript.md`.
+- Import a slice only through its `index.ts` public API. Inside a slice, use relative imports. `npm run lint` runs Steiger to enforce these rules.
+- Call the server only through `@/shared/api`. Keep server state in TanStack Query and client UI state in Zustand stores in the `model` segment of the owning slice.
+- Add a feature in this order: entity types and API, feature model and UI, widget composition, page and route, tests. Follow `docs/ai/workflows/add-feature.md`.
 - The server (`9-jodae/docs199-Server`) owns API contracts and access rules. Match its `docs/` and response envelope; never re-implement authorization decisions in the client.
 
 ## Safety and verification

@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from '@/app/App'
-import '@/global/styles/index.css'
+import { App } from '@/app'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root 요소를 찾을 수 없습니다')

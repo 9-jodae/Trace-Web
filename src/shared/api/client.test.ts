@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiRequestError, unwrap } from '@/global/api/client'
+import { ApiRequestError, unwrap } from './client'
 
 describe('unwrap', () => {
   it('성공 응답에서 data를 꺼낸다', () => {

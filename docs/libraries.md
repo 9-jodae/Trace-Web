@@ -16,6 +16,7 @@
 | Markdown 원문    | react-markdown, remark-gfm              | Notion·Obsidian·MD 문서 표시                                     |
 | 아이콘           | lucide-react                            | 가볍고 일관된 아이콘 세트                                        |
 | 린트·포맷        | oxlint, Prettier                        | Vite 기본 템플릿의 oxlint, 코드 정렬은 Prettier                  |
+| 구조 검사        | Steiger, @feature-sliced/steiger-plugin | FSD 공식 린터. 레이어 간 가져오기 규칙과 공개 API를 검사         |
 | 테스트           | Vitest, Testing Library, jsdom          | Vite 설정을 그대로 쓰는 테스트 도구                              |
 
 DOCX·PPTX·XLSX 원문 뷰어, 폼 라이브러리, 컴포넌트 라이브러리는 화면이 정해진 뒤 결정합니다.

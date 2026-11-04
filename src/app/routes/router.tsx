@@ -1,5 +1,5 @@
 import { createBrowserRouter } from 'react-router'
-import { WorkspacePage } from '@/domain/workspace/WorkspacePage'
+import { WorkspacePage } from '@/pages/workspace'
 
 export const router = createBrowserRouter([
   {

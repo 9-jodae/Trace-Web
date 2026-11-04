@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-  GRAPH_TAB_ID,
-  MAX_DOCUMENT_TABS,
-  resetTabStore,
-  useTabStore,
-} from '@/domain/workspace/tabStore'
+import { GRAPH_TAB_ID, MAX_DOCUMENT_TABS, resetTabStore, useTabStore } from './tabStore'
 
 const open = (id: string) => useTabStore.getState().openDocument({ documentId: id, title: id })
 const ids = () => useTabStore.getState().documentTabs.map((tab) => tab.documentId)

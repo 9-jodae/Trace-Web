@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
-import { useTokenStore } from '@/global/auth/tokenStore'
-import type { ApiError, ApiResponse } from '@/global/api/types'
+import { API_BASE_URL } from '@/shared/config'
+import { useTokenStore } from './token'
+import type { ApiError, ApiResponse } from './types'
 
 export class ApiRequestError extends Error {
   readonly status: number
@@ -17,7 +18,7 @@ export class ApiRequestError extends Error {
 }
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
+  baseURL: API_BASE_URL,
   timeout: 30_000,
 })
 

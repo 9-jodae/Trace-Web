@@ -16,13 +16,13 @@ npm run dev
 
 ## 개발
 
-[개발 규약](docs/conventions.md), [구조](docs/architecture.md), [라이브러리 선택](docs/libraries.md)을 확인하세요. PR 전에는 `npm run verify`를 실행합니다.
+[개발 규약](docs/conventions.md), [구조(FSD)](docs/architecture.md), [라이브러리 선택](docs/libraries.md)을 확인하세요. PR 전에는 `npm run verify`를 실행합니다.
 
-| 명령             | 내용                               |
-| ---------------- | ---------------------------------- |
-| `npm run dev`    | 개발 서버 (포트 3000)              |
-| `npm run build`  | 타입 검사 후 프로덕션 빌드         |
-| `npm run lint`   | oxlint 검사                        |
-| `npm run format` | Prettier 정렬                      |
-| `npm test`       | Vitest 테스트                      |
-| `npm run verify` | 린트, 포맷 검사, 테스트, 빌드 전체 |
+| 명령             | 내용                                 |
+| ---------------- | ------------------------------------ |
+| `npm run dev`    | 개발 서버 (포트 3000)                |
+| `npm run build`  | 타입 검사 후 프로덕션 빌드           |
+| `npm run lint`   | oxlint 검사와 FSD 구조 검사(Steiger) |
+| `npm run format` | Prettier 정렬                        |
+| `npm test`       | Vitest 테스트                        |
+| `npm run verify` | 린트, 포맷 검사, 테스트, 빌드 전체   |

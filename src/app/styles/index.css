@@ -50,6 +50,35 @@ body,
   }
 }
 
+/* 답변을 기다리는 동안 돌면서 밝기가 같이 번쩍이는 로딩 아이콘. */
+@keyframes loading-flash {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0.55;
+    filter: drop-shadow(0 0 2px rgba(125, 211, 252, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(125, 211, 252, 0.95));
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0.55;
+    filter: drop-shadow(0 0 2px rgba(125, 211, 252, 0.4));
+  }
+}
+
+.loading-flash {
+  animation: loading-flash 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-flash {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
 /* 문서 뷰어의 Markdown 원문(prose-invert)을 워크스페이스 다크 테마 토큰 색에 맞춥니다. */
 .prose-invert {
   --tw-prose-body: var(--color-ink-dim);

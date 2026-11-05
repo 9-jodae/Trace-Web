@@ -73,7 +73,7 @@ export function MessageList({
       })}
       {pending && (
         <li className="flex items-center gap-2 self-start text-sm text-ink-muted" role="status">
-          <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+          <Loader2 className="loading-flash size-4 shrink-0 text-sky-300" aria-hidden />
           답변을 만드는 중입니다. 최대 1분 정도 걸릴 수 있습니다.
         </li>
       )}

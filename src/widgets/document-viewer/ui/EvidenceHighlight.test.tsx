@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatView, resetChatStore, useChatStore } from '@/features/ask-question'
@@ -49,9 +49,9 @@ const makeEvidence = (overrides: Partial<EvidenceChunk> = {}): EvidenceChunk => 
   extension: 'md',
   versionId: 'v2',
   versionNumber: 2,
-  content: '연차 유급휴가는 다음 해로 최대 5일까지 이월할 수 있다.',
-  charStart: 15,
-  charEnd: 22,
+  content: '## 제14조 연차\n\n연차 유급휴가는 다음 해로 최대 **5일까지** 이월할 수 있다.',
+  charStart: 0,
+  charEnd: 10,
   page: 3,
   previousChunk: '제14조 (연차 휴가의 사용)',
   nextChunk: '이월된 연차는 상반기 안에 먼저 사용한다.',
@@ -109,28 +109,43 @@ function renderHarness() {
   )
 }
 
-const ORIGINAL_TEXT = '# 취업규칙 원문\n\n사내 규정 본문입니다.'
+const ORIGINAL_TEXT =
+  '# 취업규칙 원문\n\n## 제14조 연차\n\n연차 유급휴가는 다음 해로 최대 **5일까지** 이월할 수 있다.\n\n' +
+  '## 제15조 반차\n\n반차는 오전과 오후로 나누어 신청한다.'
+
+/** jsdom에는 CSS Custom Highlight API가 없어 칠한 범위를 확인할 수 있게 흉내 냅니다. */
+function stubHighlightApi() {
+  const registry = new Map<string, Set<Range>>()
+  vi.stubGlobal('CSS', { highlights: registry })
+  vi.stubGlobal('Highlight', class extends Set<Range> {})
+  return () =>
+    [...(registry.get('evidence-text') ?? [])].map((range) => range.toString().replace(/\s+/g, ' '))
+}
 
 let restore: () => void = () => {}
 
-describe('인용 클릭부터 근거 표시까지 흐름', () => {
+describe('인용 클릭부터 원문 안 근거 표시까지 흐름', () => {
+  let painted: () => string[]
+  let scrollSpy: ReturnType<typeof vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>>
+
   beforeEach(() => {
     resetTabStore()
     resetChatStore()
-  })
-
-  afterEach(() => {
-    restore()
-    vi.restoreAllMocks()
-  })
-
-  it('채팅 인용을 누르면 문서 탭이 열리고 앞뒤 문맥과 하이라이트된 근거 구절이 보인다', async () => {
-    const scrollSpy = vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>()
+    painted = stubHighlightApi()
+    scrollSpy = vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>()
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: scrollSpy,
     })
+  })
 
+  afterEach(() => {
+    restore()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('채팅 근거를 누르면 원문 위에 덮지 않고, 인용이 없으면 청크 전체를 칠하지 않은 채 근거 위치로 이동한다', async () => {
     useChatStore.setState({
       conversationId: 'conv-1',
       messages: [
@@ -153,12 +168,10 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
         return ok(
           makeEvidence({
             chunkId: 'c2',
-            content: '반차는 오전과 오후로 나누어 신청한다.',
+            content: '## 제15조 반차\n\n반차는 오전과 오후로 나누어 신청한다.',
             charStart: null,
             charEnd: null,
             page: null,
-            previousChunk: null,
-            nextChunk: null,
           }),
         )
       }
@@ -169,42 +182,39 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^1\s*취업규칙$/ }))
 
-    const evidenceSection = await screen.findByRole('region', { name: '답변 근거' })
-    expect(within(evidenceSection).getByText('제14조 (연차 휴가의 사용)')).toBeInTheDocument()
+    const bar = await screen.findByRole('region', { name: '답변 근거' })
     expect(
-      within(evidenceSection).getByText('이월된 연차는 상반기 안에 먼저 사용한다.'),
+      await within(bar).findByText('표시할 핵심 문구가 없어 근거 위치로 이동했습니다'),
     ).toBeInTheDocument()
-    expect(within(evidenceSection).getByText('v2')).toBeInTheDocument()
-    expect(within(evidenceSection).getByText('3쪽')).toBeInTheDocument()
+    expect(within(bar).getByText('v2')).toBeInTheDocument()
+    expect(within(bar).getByText('3쪽')).toBeInTheDocument()
 
-    const mark = evidenceSection.querySelector('mark')
-    expect(mark).not.toBeNull()
-    expect(mark).toHaveTextContent('최대 5일까지')
+    // 근거 청크를 덮개로 다시 그리지 않습니다. 앞뒤 문맥 청크도 따로 보여주지 않습니다.
+    expect(container.querySelector('mark')).toBeNull()
+    expect(screen.queryByText('제14조 (연차 휴가의 사용)')).not.toBeInTheDocument()
+    expect(painted()).toEqual([])
     expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' })
-
-    // 원문 영역도 아래에 함께 표시되며 EvidenceChunk.downloadUrl은 노출되지 않습니다.
-    expect(await screen.findByText('사내 규정 본문입니다.')).toBeInTheDocument()
     expect(container.textContent).not.toContain('/api/documents/d1/versions/v2/download')
 
-    // 같은 문서의 다른 인용(2번 취업규칙)을 누르면 새 탭 없이 근거만 바뀌고, null 위치는 전체 강조됩니다.
+    // 같은 문서의 다른 근거를 누르면 새 탭 없이 그 근거 위치로 이동합니다.
+    scrollSpy.mockClear()
     await userEvent.click(screen.getByRole('button', { name: /^2\s*취업규칙$/ }))
-
     expect(useTabStore.getState().documentTabs).toHaveLength(1)
-    const updatedSection = await screen.findByRole('region', { name: '답변 근거' })
-    const fullMark =
-      await within(updatedSection).findByText('반차는 오전과 오후로 나누어 신청한다.')
-    expect(fullMark.tagName).toBe('MARK')
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled())
+    expect(painted()).toEqual([])
 
-    // 그래프 노드 클릭처럼 chunkId 없이 같은 문서를 열면 근거 영역이 닫힙니다.
+    // 그래프 노드 클릭처럼 chunkId 없이 같은 문서를 열면 근거 표시가 사라집니다.
     await userEvent.click(screen.getByRole('button', { name: '그래프 노드 열기' }))
     expect(screen.queryByRole('region', { name: '답변 근거' })).not.toBeInTheDocument()
+    await waitFor(() => expect(painted()).toEqual([]))
   })
 
-  it('근거 영역을 접었다 펼칠 수 있고 닫기 버튼으로 닫을 수 있다', async () => {
+  it('인용과 청크 안 키워드만 칠하고, 근거로 이동과 닫기를 할 수 있다', async () => {
     useTabStore.getState().openDocument({
       documentId: 'd1',
       title: '취업규칙',
       chunkId: 'c1',
+      highlights: { quotes: ['반차는 오전과 오후로'], keywords: ['다음 해로', '나누어'] },
     })
 
     restore = mockServer((config) => {
@@ -216,17 +226,38 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     renderHarness()
 
-    const evidenceSection = await screen.findByRole('region', { name: '답변 근거' })
-    expect(await within(evidenceSection).findByText('최대 5일까지')).toBeInTheDocument()
+    const bar = await screen.findByRole('region', { name: '답변 근거' })
+    await within(bar).findByText('원문에 표시했습니다')
+    // 인용은 다른 청크에 있어도 칠하고, 키워드는 누른 청크(제14조) 안의 것만 칠합니다.
+    expect(painted()).toEqual(['다음 해로', '반차는 오전과 오후로'])
 
-    await userEvent.click(within(evidenceSection).getByRole('button', { name: '근거 접기' }))
-    expect(within(evidenceSection).queryByText('최대 5일까지')).not.toBeInTheDocument()
+    scrollSpy.mockClear()
+    await userEvent.click(within(bar).getByRole('button', { name: '근거로 이동' }))
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
 
-    await userEvent.click(within(evidenceSection).getByRole('button', { name: '근거 펼치기' }))
-    expect(within(evidenceSection).getByText('최대 5일까지')).toBeInTheDocument()
-
-    await userEvent.click(within(evidenceSection).getByRole('button', { name: '답변 근거 닫기' }))
+    await userEvent.click(within(bar).getByRole('button', { name: '답변 근거 닫기' }))
     expect(screen.queryByRole('region', { name: '답변 근거' })).not.toBeInTheDocument()
+    await waitFor(() => expect(painted()).toEqual([]))
+  })
+
+  it('원문에서 근거를 못 찾으면 버전 차이를 알려준다', async () => {
+    useTabStore.getState().openDocument({ documentId: 'd1', title: '취업규칙', chunkId: 'c1' })
+
+    restore = mockServer((config) => {
+      if (config.url === '/api/documents/d1') return ok(sampleDetail)
+      if (config.url === '/api/documents/d1/download') return file(ORIGINAL_TEXT)
+      if (config.url === '/api/evidence/c1') {
+        return ok(makeEvidence({ versionNumber: 1, content: '개정 전에만 있던 문장이다.' }))
+      }
+      return fail(404, 'NOT_FOUND')
+    })
+
+    renderHarness()
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '근거는 v1 기준이라 지금 원문(v2)에서 위치를 찾지 못했습니다',
+    )
+    expect(painted()).toEqual([])
   })
 
   it('근거 조회가 404이면 구분 없는 안내 문구를 보여주고 원문 영역은 정상 동작한다', async () => {
@@ -239,25 +270,20 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
     restore = mockServer((config) => {
       if (config.url === '/api/documents/d1') return ok(sampleDetail)
       if (config.url === '/api/documents/d1/download') return file(ORIGINAL_TEXT)
-      if (config.url === '/api/evidence/outdated-chunk') return fail(404, 'NOT_FOUND')
       return fail(404, 'NOT_FOUND')
     })
 
     renderHarness()
 
-    const evidenceSection = await screen.findByRole('region', { name: '답변 근거' })
-    expect(await within(evidenceSection).findByRole('alert')).toHaveTextContent(
+    const bar = await screen.findByRole('region', { name: '답변 근거' })
+    expect(await within(bar).findByRole('alert')).toHaveTextContent(
       '이 근거는 문서가 개정·삭제되었거나 볼 권한이 없어 표시할 수 없습니다',
     )
-    expect(await screen.findByText('사내 규정 본문입니다.')).toBeInTheDocument()
+    expect(await screen.findByText('반차는 오전과 오후로 나누어 신청한다.')).toBeInTheDocument()
   })
 
   it('그 밖의 오류면 오류 문구와 다시 시도 버튼을 보여주고 다시 시도할 수 있다', async () => {
-    useTabStore.getState().openDocument({
-      documentId: 'd1',
-      title: '취업규칙',
-      chunkId: 'c1',
-    })
+    useTabStore.getState().openDocument({ documentId: 'd1', title: '취업규칙', chunkId: 'c1' })
 
     let evidenceCalls = 0
     restore = mockServer((config) => {
@@ -272,12 +298,12 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     renderHarness()
 
-    const evidenceSection = await screen.findByRole('region', { name: '답변 근거' })
-    expect(await within(evidenceSection).findByRole('alert')).toHaveTextContent(
-      '서버 오류가 발생했습니다',
-    )
+    const bar = await screen.findByRole('region', { name: '답변 근거' })
+    expect(await within(bar).findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다')
 
-    await userEvent.click(within(evidenceSection).getByRole('button', { name: '다시 시도' }))
-    expect(await within(evidenceSection).findByText('최대 5일까지')).toBeInTheDocument()
+    await userEvent.click(within(bar).getByRole('button', { name: '다시 시도' }))
+    expect(
+      await within(bar).findByText('표시할 핵심 문구가 없어 근거 위치로 이동했습니다'),
+    ).toBeInTheDocument()
   })
 })

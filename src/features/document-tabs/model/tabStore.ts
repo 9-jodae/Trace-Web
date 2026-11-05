@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { EvidencePhrases } from '@/entities/evidence'
 
 export const GRAPH_TAB_ID = 'graph'
 
@@ -10,10 +11,10 @@ export interface DocumentTab {
   title: string
   /** 마지막으로 활성화된 순서. 탭이 넘칠 때 가장 오래 안 본 탭을 닫는 데 씁니다. */
   lastViewed: number
-  /** 탭 상단에 표시할 답변 근거 청크 ID. 없으면 근거 영역을 표시하지 않습니다. */
+  /** 원문에서 찾아갈 답변 근거 청크 ID. 없으면 근거를 표시하지 않습니다. */
   focusChunkId?: string
-  /** 근거 영역에서 표시할 핵심 문장과 키워드. 없으면 서버가 준 범위를 표시합니다. */
-  focusHighlights?: string[]
+  /** 원문 안에 칠할 인용과 키워드. 없으면 근거 위치로 이동만 합니다. */
+  focusHighlights?: EvidencePhrases
 }
 
 interface TabState {
@@ -24,7 +25,7 @@ interface TabState {
     documentId: string
     title: string
     chunkId?: string
-    highlights?: string[]
+    highlights?: EvidencePhrases
   }) => void
   activateTab: (tabId: string) => void
   closeDocument: (documentId: string) => void

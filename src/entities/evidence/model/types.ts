@@ -24,3 +24,13 @@ export interface EvidenceChunk {
    */
   downloadUrl: string
 }
+
+/**
+ * 문서 원문 안에 칠할 근거 문구입니다.
+ * - `quotes`: AI가 그 문서에서 그대로 발췌한 인용. 문서 어디에 있든 칠합니다.
+ * - `keywords`: 핵심 키워드. 짧아서 문서 곳곳에 나오므로 누른 근거 청크 구간 안에서만 칠합니다.
+ */
+export interface EvidencePhrases {
+  quotes: string[]
+  keywords: string[]
+}

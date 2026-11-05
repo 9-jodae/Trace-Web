@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { DeleteDocumentButton } from '@/features/delete-document'
@@ -6,15 +6,18 @@ import { DocumentAccessCard } from '@/features/edit-document-access'
 import { ReviseDocumentButton } from '@/features/revise-document'
 import { useDepartments } from '@/entities/department'
 import {
-  adminDownloadUrl,
+  adminDownloadDocument,
   adminErrorMessage,
+  documentFileName,
   documentTypeColor,
   documentTypeLabel,
   isNotFoundError,
   useAdminDocument,
+  type Document,
   type DocumentDetail,
 } from '@/entities/document'
 import { useSources } from '@/entities/source'
+import { saveBlob } from '@/shared/lib'
 import { buttonSecondary } from '@/shared/ui'
 import { Sidebar } from '@/widgets/sidebar'
 import { DocumentInfoCard } from './DocumentInfoCard'
@@ -94,7 +97,7 @@ function DetailContent({ detail, listPath }: { detail: DocumentDetail; listPath:
           v{document.currentVersion}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <OpenOriginalButton documentId={document.id} />
+          <DownloadOriginalButton document={document} />
           <ReviseDocumentButton detail={detail} />
           <DeleteDocumentButton
             documentId={document.id}
@@ -112,21 +115,23 @@ function DetailContent({ detail, listPath }: { detail: DocumentDetail; listPath:
   )
 }
 
-/** 누를 때마다 새 URL을 발급받아 새 창으로 엽니다. URL은 화면이나 로그에 남기지 않습니다. */
-function OpenOriginalButton({ documentId }: { documentId: string }) {
+/**
+ * 누를 때마다 현재 버전 원문을 인증 헤더와 함께 받아 파일로 저장합니다.
+ * 다운로드 주소는 인증이 필요해 새 창으로 바로 열 수 없습니다.
+ */
+function DownloadOriginalButton({ document }: { document: Document }) {
   const [error, setError] = useState<string | null>(null)
-  const [opening, setOpening] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
-  const open = async () => {
+  const download = async () => {
     setError(null)
-    setOpening(true)
+    setDownloading(true)
     try {
-      const { url } = await adminDownloadUrl(documentId)
-      window.open(url, '_blank', 'noopener,noreferrer')
+      saveBlob(await adminDownloadDocument(document.id), documentFileName(document))
     } catch (failure) {
       setError(adminErrorMessage(failure))
     } finally {
-      setOpening(false)
+      setDownloading(false)
     }
   }
 
@@ -139,12 +144,12 @@ function OpenOriginalButton({ documentId }: { documentId: string }) {
       )}
       <button
         type="button"
-        disabled={opening}
-        onClick={() => void open()}
+        disabled={downloading}
+        onClick={() => void download()}
         className={buttonSecondary}
       >
-        <ExternalLink className="size-4" aria-hidden />
-        원문 열기
+        <Download className="size-4" aria-hidden />
+        원문 다운로드
       </button>
     </div>
   )

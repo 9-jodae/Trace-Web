@@ -1,39 +1,33 @@
-import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-const MARKDOWN_STALE_TIME = 10 * 60 * 1000
-
-async function fetchMarkdownText(url: string): Promise<string> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error('MARKDOWN_FETCH_ERROR')
-  return response.text()
-}
-
-export function MarkdownContent({
-  documentId,
-  url,
-  attempt,
-  onError,
-}: {
-  documentId: string
-  url: string
-  attempt: number
-  onError: () => void
-}) {
-  const { data, isPending, error } = useQuery({
-    queryKey: ['document', 'markdown', documentId, url, attempt] as const,
-    queryFn: () => fetchMarkdownText(url),
-    staleTime: MARKDOWN_STALE_TIME,
-    retry: false,
-  })
+/**
+ * 미리 받은 Markdown 파일을 글자로 풀어 보여줍니다. 파일 자체는 쿼리 캐시에 있으므로 글자는 따로
+ * 캐시하지 않고, 부모가 새 파일마다 key를 바꿔 다시 풉니다.
+ */
+export function MarkdownContent({ file, onError }: { file: Blob; onError: () => void }) {
+  const [text, setText] = useState<string | null>(null)
+  const onErrorRef = useRef(onError)
 
   useEffect(() => {
-    if (error) onError()
-  }, [error, onError])
+    onErrorRef.current = onError
+  }, [onError])
 
-  if (isPending) {
+  useEffect(() => {
+    const controller = new AbortController()
+    file.text().then(
+      (value) => {
+        if (!controller.signal.aborted) setText(value)
+      },
+      () => {
+        if (!controller.signal.aborted) onErrorRef.current()
+      },
+    )
+    return () => controller.abort()
+  }, [file])
+
+  if (text === null) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-sm text-ink-muted">
         원문을 불러오는 중…
@@ -41,11 +35,9 @@ export function MarkdownContent({
     )
   }
 
-  if (error || data === undefined) return null
-
   return (
     <article className="prose prose-sm prose-invert max-w-none p-6 leading-relaxed">
-      <Markdown remarkPlugins={[remarkGfm]}>{data}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
     </article>
   )
 }

@@ -1,4 +1,4 @@
-export { ApiRequestError, http, request, unwrap } from './client'
+export { ApiRequestError, http, request, requestBlob, unwrap } from './client'
 export { toErrorMessage } from './errorMessage'
 export { toFieldErrors } from './fieldErrors'
 export { queryClient } from './queryClient'

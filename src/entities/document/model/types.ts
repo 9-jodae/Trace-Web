@@ -68,11 +68,6 @@ export interface DocumentDetail {
   job: IngestionJob | null
 }
 
-// GET /api/documents/{id}/download-url
-export interface DownloadUrl {
-  url: string
-}
-
 // ─── 관리자 API(/api/admin) ───────────────────────────────────────────────
 
 /** GET /api/admin/documents 쿼리 중 관리 화면에서 쓰는 것 */

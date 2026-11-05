@@ -6,7 +6,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentDetail } from '@/entities/document'
 import { useTokenStore } from '@/shared/api'
-import { fail, mockServer, ok } from '@/shared/testing'
+import { fail, file, mockServer, ok, stubDownload } from '@/shared/testing'
 import { AdminDocumentDetailPage } from './AdminDocumentDetailPage'
 
 const ME = {
@@ -187,21 +187,61 @@ describe('AdminDocumentDetailPage', () => {
     expect(screen.getByText('이전 버전의 처리 결과')).toBeInTheDocument()
   })
 
-  it('원문 열기는 누를 때 URL을 받아 새 창으로 열고 화면에 URL을 남기지 않는다', async () => {
-    const secret = 'https://storage.local/doc.md?X-Amz-Signature=secret'
+  it('원문 다운로드는 관리자 다운로드 API에서 인증 헤더와 함께 받아 원래 파일 이름으로 저장한다', async () => {
+    const download = stubDownload()
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const downloads: InternalAxiosRequestConfig[] = []
     serve(
       () => ok(makeDetail()),
-      (url) => (url === '/api/admin/documents/d1/download-url' ? ok({ url: secret }) : undefined),
+      (url, config) => {
+        if (url !== '/api/admin/documents/d1/download') return undefined
+        downloads.push(config)
+        return file('# 출장비 규정')
+      },
     )
     renderAt()
 
-    await userEvent.click(await screen.findByRole('button', { name: '원문 열기' }))
+    try {
+      await userEvent.click(await screen.findByRole('button', { name: '원문 다운로드' }))
 
-    await waitFor(() =>
-      expect(openSpy).toHaveBeenCalledWith(secret, '_blank', 'noopener,noreferrer'),
+      await waitFor(() => expect(download.saved).toHaveLength(1))
+      expect(download.saved[0]?.fileName).toBe('출장비.md')
+      expect(await download.saved[0]?.blob?.text()).toBe('# 출장비 규정')
+      expect(downloads[0]?.headers.Authorization).toBe('Bearer token')
+      expect(openSpy).not.toHaveBeenCalled()
+    } finally {
+      download.restore()
+    }
+  })
+
+  it('원문 다운로드에 실패하면 버튼 옆에 오류 문구를 보여준다', async () => {
+    const download = stubDownload()
+    serve(
+      () => ok(makeDetail()),
+      (url) =>
+        url === '/api/admin/documents/d1/download'
+          ? {
+              status: 502,
+              body: new Blob([
+                JSON.stringify({
+                  success: false,
+                  data: null,
+                  error: { code: 'STORAGE_ERROR', message: '' },
+                }),
+              ]),
+            }
+          : undefined,
     )
-    expect(document.body.textContent).not.toContain(secret)
+    renderAt()
+
+    try {
+      await userEvent.click(await screen.findByRole('button', { name: '원문 다운로드' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/파일 저장소/)
+      expect(download.saved).toHaveLength(0)
+    } finally {
+      download.restore()
+    }
   })
 
   it('404면 삭제되었을 수 있다고 알리고 이전 필터로 목록에 돌아간다', async () => {

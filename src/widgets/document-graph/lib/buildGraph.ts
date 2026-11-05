@@ -4,12 +4,16 @@ import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
  * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
- * type은 엣지 색을 구분하는 데만 씁니다(REFERENCES=파랑, CONFLICTS=주황).
+ * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=주황, TOPIC=청록).
+ * label은 선 위에 표시할 글자로, 충돌과 주제에만 넘깁니다.
  */
+type LinkType = 'REFERENCES' | 'CONFLICTS' | 'TOPIC'
+
 export interface DocumentLink {
   source: string
   target: string
-  type?: 'REFERENCES' | 'CONFLICTS'
+  type?: LinkType
+  label?: string
 }
 
 export interface NodeAttributes {
@@ -25,9 +29,10 @@ export interface NodeAttributes {
 }
 
 export interface EdgeAttributes {
-  type: 'REFERENCES' | 'CONFLICTS'
+  type: LinkType
   size: number
   color: string
+  label?: string
 }
 
 /** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색(파란 톤에 맞춤). */
@@ -105,6 +110,18 @@ export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
 const REFERENCE_EDGE_COLOR = 'rgba(96,165,250,0.25)'
 /** CONFLICTS 엣지 색(주황, 문서끼리 값이 다르다는 경고 느낌). */
 const CONFLICT_EDGE_COLOR = 'rgba(251,146,60,0.55)'
+/** TOPIC 엣지 색(청록, 같은 주제로 묶인 문서). */
+const TOPIC_EDGE_COLOR = 'rgba(45, 212, 191, 0.75)'
+
+const EDGE_STYLE: Record<LinkType, { rank: number; size: number; color: string }> = {
+  REFERENCES: { rank: 0, size: 1, color: REFERENCE_EDGE_COLOR },
+  TOPIC: { rank: 1, size: 1.2, color: TOPIC_EDGE_COLOR },
+  CONFLICTS: { rank: 2, size: 1.5, color: CONFLICT_EDGE_COLOR },
+}
+
+function edgeStyle(type: LinkType) {
+  return { type, size: EDGE_STYLE[type].size, color: EDGE_STYLE[type].color }
+}
 
 /**
  * 문서 그래프를 만듭니다. 근거 문서가 있으면 크게 강조하고 나머지는 흐리게 표시합니다.
@@ -156,33 +173,28 @@ export function buildDocumentGraph({
   for (const link of links) {
     if (link.source === link.target) continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
-    const isConflict = link.type === 'CONFLICTS'
+    const type = link.type ?? 'REFERENCES'
     if (graph.hasEdge(link.source, link.target)) {
-      // 같은 문서 쌍에 참조·충돌이 둘 다 있으면 충돌이 우선합니다(그래프는 쌍마다 선 하나만
-      // 그릴 수 있고, 서버가 엣지를 무작위 순서로 보내므로 도착 순서에 기대면 안 됩니다).
-      if (!isConflict) continue
+      // 그래프는 문서 쌍마다 선 하나만 그립니다. 서버의 엣지 순서와 무관하게 충돌, 주제, 참조
+      // 순으로 선의 종류를 정하고, 글자는 합쳐서 모두 보여 줍니다.
       const edgeKey = graph.edge(link.source, link.target)
-      if (graph.getEdgeAttribute(edgeKey, 'type') === 'CONFLICTS') continue
-      graph.mergeEdgeAttributes(edgeKey, {
-        type: 'CONFLICTS',
-        size: 1.5,
-        color: CONFLICT_EDGE_COLOR,
-      })
+      const current = graph.getEdgeAttributes(edgeKey)
+      const label = [current.label, link.label].filter(Boolean).join(' · ') || undefined
+      const stronger = EDGE_STYLE[type].rank > EDGE_STYLE[current.type].rank
+      graph.mergeEdgeAttributes(edgeKey, stronger ? { ...edgeStyle(type), label } : { label })
       continue
     }
-    graph.addEdge(link.source, link.target, {
-      type: isConflict ? 'CONFLICTS' : 'REFERENCES',
-      size: isConflict ? 1.5 : 1,
-      color: isConflict ? CONFLICT_EDGE_COLOR : REFERENCE_EDGE_COLOR,
-    })
+    graph.addEdge(link.source, link.target, { ...edgeStyle(type), label: link.label })
   }
 
   let hasReferences = false
   let hasConflicts = false
+  let hasTopics = false
   graph.forEachEdge((_edge, attributes) => {
     if (attributes.type === 'CONFLICTS') hasConflicts = true
+    else if (attributes.type === 'TOPIC') hasTopics = true
     else hasReferences = true
   })
 
-  return { graph, legend, hasReferences, hasConflicts }
+  return { graph, legend, hasReferences, hasConflicts, hasTopics }
 }

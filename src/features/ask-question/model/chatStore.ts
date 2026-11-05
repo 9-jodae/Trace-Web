@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerKeyword, AnswerSource } from '@/entities/answer'
 
 export type ChatMessage =
   | { id: string; kind: 'question'; text: string }
@@ -11,6 +11,7 @@ export type ChatMessage =
       evidence: AnswerEvidence[]
       /** 과거 대화를 다시 열 때 문서 삭제·개정·권한 변경으로 불러오지 못한 근거 수. 있을 때만 둡니다. */
       missingSourceCount?: number
+      keywords?: AnswerKeyword[]
     }
   | { id: string; kind: 'error'; text: string }
 
@@ -36,6 +37,7 @@ interface ChatState {
     text: string,
     sources: AnswerSource[],
     evidence: AnswerEvidence[],
+    keywords?: AnswerKeyword[],
   ) => void
   addError: (text: string) => void
   startNewConversation: () => void
@@ -68,14 +70,14 @@ export const useChatStore = create<ChatState>()((set) => ({
       messages: [...state.messages, { id: `m${state.sequence + 1}`, kind: 'question', text }],
     })),
 
-  addAnswer: (conversationId, text, sources, evidence) =>
+  addAnswer: (conversationId, text, sources, evidence, keywords = []) =>
     set((state) => ({
       conversationId,
       sequence: state.sequence + 1,
       evidenceDocumentIds: [...new Set(sources.map((source) => source.documentId))],
       messages: [
         ...state.messages,
-        { id: `m${state.sequence + 1}`, kind: 'answer', text, sources, evidence },
+        { id: `m${state.sequence + 1}`, kind: 'answer', text, sources, evidence, keywords },
       ],
     })),
 

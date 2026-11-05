@@ -31,6 +31,12 @@ export interface AnswerEvidence {
   charEnd: number | null
 }
 
+/** 답변의 핵심 키워드(docs199-Server #78). 근거 청크 원문에 그대로 있는 문구입니다. */
+export interface AnswerKeyword {
+  text: string
+  chunkId: string
+}
+
 /**
  * 질문 검색 필터(docs199-Server #48). 같은 필드의 배열 값은 OR, 서로 다른 필드는 AND입니다.
  * 빈 배열은 서버가 400으로 거부하므로 보내지 않습니다. AI 서버가 실제로 적용하는지는 아직 미확정입니다.
@@ -54,6 +60,8 @@ export interface Answer {
   contextProbability: number | null
   sources: AnswerSource[]
   evidence: AnswerEvidence[]
+  /** Spring이 전달하기 전에는 없을 수 있습니다. */
+  keywords?: AnswerKeyword[]
   failedSources: string[]
   fallbackReason: string | null
 }

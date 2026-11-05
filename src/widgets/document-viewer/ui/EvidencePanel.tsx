@@ -8,7 +8,15 @@ import { ApiRequestError, toErrorMessage } from '@/shared/api'
  * 문서 뷰어 상단에 고정되는 답변 근거 영역입니다.
  * EvidenceChunk.downloadUrl은 사용하지 않으며 화면이나 로그에 노출하지 않습니다.
  */
-export function EvidencePanel({ documentId, chunkId }: { documentId: string; chunkId: string }) {
+export function EvidencePanel({
+  documentId,
+  chunkId,
+  highlights,
+}: {
+  documentId: string
+  chunkId: string
+  highlights?: string[]
+}) {
   const closeEvidence = useTabStore((state) => state.closeEvidence)
   const { data: evidence, isPending, error, refetch } = useEvidence(chunkId)
   const [collapsed, setCollapsed] = useState(false)
@@ -87,7 +95,7 @@ export function EvidencePanel({ documentId, chunkId }: { documentId: string; chu
               </div>
             )
           ) : (
-            evidence && <EvidencePassage evidence={evidence} />
+            evidence && <EvidencePassage evidence={evidence} highlights={highlights} />
           )}
         </div>
       )}

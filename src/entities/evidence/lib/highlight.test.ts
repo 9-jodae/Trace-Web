@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { splitHighlight } from './highlight'
+import { splitHighlight, splitHighlights } from './highlight'
 
 describe('splitHighlight', () => {
   it('정상 범위면 앞·강조·뒤 텍스트로 나눈다', () => {
@@ -68,5 +68,31 @@ describe('splitHighlight', () => {
       mark: '녕하세요',
       after: ' 반갑습니다',
     })
+  })
+})
+
+describe('splitHighlights', () => {
+  const marked = (content: string, phrases: string[]) =>
+    splitHighlights(content, phrases)
+      .filter((segment) => segment.marked)
+      .map((segment) => segment.text)
+
+  it('핵심 문구만 표시하고 나머지는 그대로 둔다', () => {
+    expect(splitHighlights('연차는 최대 5일 이월한다.', ['최대 5일'])).toEqual([
+      { text: '연차는 ', marked: false },
+      { text: '최대 5일', marked: true },
+      { text: ' 이월한다.', marked: false },
+    ])
+  })
+
+  it('같은 문구는 모두 표시하고 겹치면 합친다', () => {
+    expect(marked('연차 연차', ['연차'])).toEqual(['연차', '연차'])
+    expect(marked('미사용 연차는 최대 5일', ['연차는 최대', '최대 5일'])).toEqual([
+      '연차는 최대 5일',
+    ])
+  })
+
+  it('원문에 없거나 빈 문구는 무시한다', () => {
+    expect(splitHighlights('본문', ['없음', ''])).toEqual([{ text: '본문', marked: false }])
   })
 })

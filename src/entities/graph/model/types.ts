@@ -1,6 +1,7 @@
 // docs199-Server의 GraphResponse(GET /api/graph, Issue #22, docs/graph-api.md)와 맞춥니다.
 
-export type RelationType = 'REFERENCES' | 'CONFLICTS'
+/** `TOPIC`은 docs199-Server #83이 머지되면 내려옵니다. */
+export type RelationType = 'REFERENCES' | 'CONFLICTS' | 'TOPIC'
 
 /** CONFLICTS 엣지에만 있습니다. thisValue는 source 쪽 값, otherValue는 target 쪽 값입니다. */
 export interface GraphConflictDetail {
@@ -29,9 +30,9 @@ export interface GraphEdge {
   source: string
   target: string
   type: RelationType
-  /** type에서 고정으로 계산되는 표시용 문자열("참조"/"충돌"). */
+  /** 표시용 문자열. 참조와 충돌은 "참조"/"충돌", 주제는 공유 주제를 이은 값입니다. */
   label: string
-  detail: GraphConflictDetail | null
+  detail: GraphConflictDetail | { topics: string[] } | null
 }
 
 export interface GraphResponse {

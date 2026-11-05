@@ -50,6 +50,10 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     (state) => state.documentTabs.find((tab) => tab.documentId === documentId)?.focusChunkId,
   )
 
+  const focusHighlights = useTabStore(
+    (state) => state.documentTabs.find((tab) => tab.documentId === documentId)?.focusHighlights,
+  )
+
   const { data, isPending, error, refetch } = useDocument(documentId)
 
   const initialJobStatus = data?.job?.status ?? null
@@ -151,7 +155,12 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       )}
 
       {focusChunkId && (
-        <EvidencePanel key={focusChunkId} documentId={documentId} chunkId={focusChunkId} />
+        <EvidencePanel
+          key={focusChunkId}
+          documentId={documentId}
+          chunkId={focusChunkId}
+          highlights={focusHighlights}
+        />
       )}
 
       <div className="min-h-0 flex-1 overflow-auto">

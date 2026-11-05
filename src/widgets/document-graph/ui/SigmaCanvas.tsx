@@ -12,6 +12,42 @@ export interface NodeHover {
   y: number
 }
 
+// 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.
+const SIGMA_OPTIONS = {
+  // 라벨 글자색 기본값(검정)이 다크 배경에서 안 보여서 밝은 색으로 바꿉니다.
+  // backdrop(호버 시 뜨는 흰 알약 배경)도 꺼서 우리가 직접 그리는 HoverTooltip과 안 겹치게 합니다.
+  // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
+  styles: {
+    nodes: {
+      ...DEFAULT_STYLES.nodes,
+      labelColor: '#e8edf5',
+      labelVisibility: 'auto',
+      backdropVisibility: 'hidden',
+    },
+    // 충돌과 주제에 붙은 글자만 선 위에 보여 줍니다.
+    edges: [
+      DEFAULT_STYLES.edges,
+      {
+        labelColor: '#5eead4',
+        labelSize: 12,
+        labelVisibility: 'visible',
+        labelPosition: 'above',
+      },
+      {
+        when: (attributes: { type?: string }) => attributes.type === 'CONFLICTS',
+        then: { labelColor: '#fb923c' },
+      },
+    ],
+  },
+  settings: {
+    // 임계값을 높여 한 화면에 라벨이 한꺼번에 너무 많이 떠서 겹치는 걸 줄입니다.
+    labelRenderedSizeThreshold: 16,
+    // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
+    enableNodeDrag: true,
+    renderEdgeLabels: true,
+  },
+}
+
 // WebGL로 그리는 부분만 따로 두어 필요할 때 불러옵니다(sigma는 WebGL이 없으면 불러올 때 실패합니다).
 export default function SigmaCanvas({
   graph,
@@ -30,25 +66,7 @@ export default function SigmaCanvas({
       // @react-sigma/core의 기본 CSS가 --sigma-background-color를 흰색(#fff)으로 깔아버려서
       // 우리 다크 배경·글로우가 다 가려졌습니다. 투명하게 덮어써서 뒤 배경이 보이게 합니다.
       style={{ '--sigma-background-color': 'transparent' } as CSSProperties}
-      options={{
-        // 라벨 글자색 기본값(검정)이 다크 배경에서 안 보여서 밝은 색으로 바꿉니다.
-        // backdrop(호버 시 뜨는 흰 알약 배경)도 꺼서 우리가 직접 그리는 HoverTooltip과 안 겹치게 합니다.
-        // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
-        styles: {
-          nodes: {
-            ...DEFAULT_STYLES.nodes,
-            labelColor: '#e8edf5',
-            labelVisibility: 'auto',
-            backdropVisibility: 'hidden',
-          },
-        },
-        settings: {
-          // 임계값을 높여 한 화면에 라벨이 한꺼번에 너무 많이 떠서 겹치는 걸 줄입니다.
-          labelRenderedSizeThreshold: 16,
-          // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
-          enableNodeDrag: true,
-        },
-      }}
+      options={SIGMA_OPTIONS as never}
     >
       <GraphLoader graph={graph} />
       <GraphEvents onNodeClick={onNodeClick} onNodeHover={onNodeHover} onReady={onReady} />

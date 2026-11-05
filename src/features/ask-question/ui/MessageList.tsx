@@ -1,6 +1,11 @@
 import { FileText, Quote } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
+import {
+  NO_EVIDENCE_ANSWER,
+  type AnswerEvidence,
+  type AnswerKeyword,
+  type AnswerSource,
+} from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
 
@@ -13,7 +18,7 @@ export function MessageList({
 }: {
   messages: ChatMessage[]
   pending: boolean
-  onOpenSource: (source: AnswerSource) => void
+  onOpenSource: (source: AnswerSource, highlights?: string[]) => void
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
@@ -51,6 +56,7 @@ export function MessageList({
                 sources={message.sources}
                 evidence={message.evidence}
                 missingSourceCount={message.missingSourceCount ?? 0}
+                keywords={message.keywords}
                 onOpen={onOpenSource}
                 originalQuestion={originalQuestion}
                 onRetryWithoutFilters={onRetryWithoutFilters}
@@ -80,6 +86,7 @@ function AnswerBubble({
   sources,
   evidence,
   missingSourceCount,
+  keywords = [],
   onOpen,
   originalQuestion,
   onRetryWithoutFilters,
@@ -89,11 +96,19 @@ function AnswerBubble({
   sources: AnswerSource[]
   evidence: AnswerEvidence[]
   missingSourceCount: number
-  onOpen: (source: AnswerSource) => void
+  keywords?: AnswerKeyword[]
+  onOpen: (source: AnswerSource, highlights?: string[]) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
+  // 문서를 열 때 이 청크의 핵심 문장과 키워드만 표시합니다.
+  const open = (source: AnswerSource) =>
+    onOpen(source, [
+      ...evidence.filter((item) => item.chunkId === source.id).map((item) => item.quote),
+      ...keywords.filter((item) => item.chunkId === source.id).map((item) => item.text),
+    ])
+
   return (
     <div className="flex max-w-96 flex-col gap-3 text-[15px]">
       <AnswerMarkdown text={text} />
@@ -104,7 +119,7 @@ function AnswerBubble({
               <button
                 type="button"
                 onClick={() =>
-                  onOpen({
+                  open({
                     id: item.chunkId,
                     text: item.quote,
                     source: item.source,
@@ -132,7 +147,7 @@ function AnswerBubble({
             <li key={source.id}>
               <button
                 type="button"
-                onClick={() => onOpen(source)}
+                onClick={() => open(source)}
                 className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
               >
                 <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
@@ -143,7 +158,9 @@ function AnswerBubble({
           ))}
         </ul>
       )}
-      {sources.length === 0 && missingSourceCount === 0 && (
+      {/* 인사 답변과 되묻는 문장에는 붙이지 않고 거절 문장에만 재시도 버튼을 보여 줍니다.
+          임시 판별입니다. docs199-Server #82가 머지되면 answerType === 'NO_EVIDENCE'로 바꿉니다. */}
+      {sources.length === 0 && missingSourceCount === 0 && text.trim() === NO_EVIDENCE_ANSWER && (
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"

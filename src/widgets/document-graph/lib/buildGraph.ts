@@ -91,8 +91,9 @@ export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
   }
 
   interleaved.forEach((document, index) => {
-    // 노드 지름(최대 11)보다 훨씬 넉넉한 간격으로 벌려야 다닥다닥 붙어 보이지 않습니다.
-    const r = 20 * Math.sqrt(index)
+    // 노드 지름(근거로 커지면 최대 11)보다 훨씬 넉넉한 간격으로 벌려야 다닥다닥 붙어 보이지
+    // 않습니다. 근거 노드끼리의 겹침은 separateEvidenceNodes가 한 번 더 보정합니다.
+    const r = 36 * Math.sqrt(index)
     positions.set(document.id, {
       x: r * Math.cos(index * GOLDEN_ANGLE),
       y: r * Math.sin(index * GOLDEN_ANGLE),

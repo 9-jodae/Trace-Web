@@ -28,7 +28,7 @@ src/
     login/                  로그인 화면
     workspace/              메인 화면 (그래프·문서 탭 + 채팅)
     admin-documents/        문서 관리 목록 (소스 선택·추가, 업로드, URL 쿼리 필터)
-    admin-document-detail/  문서 관리 상세 (처리 상태, 기본 정보, 권한, 버전 이력, 개정·삭제)
+    admin-document-detail/  문서 관리 상세 (처리 상태, 기본 정보, 권한, 버전 이력, 내용 편집·개정·삭제)
   widgets/
     editor-area/            그래프·문서 탭 영역 (그래프와 문서 뷰어는 페이지가 넣어 줌)
     chat-panel/             채팅 패널 (근거를 누르면 문서 탭 열기)
@@ -46,6 +46,7 @@ src/
     create-source/          소스 추가 모달
     upload-documents/       업로드 모달 (lib: 경로 만들기·미리 거르기·묶기, model: 묶음 순차 전송)
     edit-document-access/   열람 권한 보기·수정
+    edit-document-text/     md·txt 내용 편집, 저장하면 새 버전 (PDF는 서버 지원 대기)
     revise-document/        파일 1개로 새 버전 만들기
     delete-document/        소프트 삭제 확인
   entities/

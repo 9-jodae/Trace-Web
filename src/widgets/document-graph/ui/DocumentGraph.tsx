@@ -42,7 +42,7 @@ export function DocumentGraph() {
         source: edge.source,
         target: edge.target,
         type: edge.type,
-        label: edge.type === 'REFERENCES' ? undefined : edge.label,
+        label: edge.label,
       })),
     [graphData],
   )

@@ -16,10 +16,12 @@ export const DOCUMENT_TYPE_COLOR: Record<string, string> = {
   APPROVAL: '#60a5fa',
   REPORT: '#3b82f6',
   PRESENTATION: '#1d4ed8',
-  ETC: '#64748b',
+  // ETC·분류 전·흐림(DIMMED_COLOR)이 전부 어두운 슬레이트라 서로 구분이 안 된다는 리뷰 지적에
+  // 따라, ETC를 더 밝게 띄워 셋의 명도 차이를 넓혔습니다(여전히 같은 슬레이트 계열).
+  ETC: '#94a3b8',
 }
 
-export const UNCLASSIFIED_TYPE_COLOR = '#334155'
+export const UNCLASSIFIED_TYPE_COLOR = '#475569'
 
 export function documentTypeLabel(documentType: string | null): string {
   if (documentType === null) return '분류 전'

@@ -9,7 +9,7 @@ import { RecentConversations, useOpenConversation } from '@/features/conversatio
 import { GRAPH_TAB_ID, useTabStore } from '@/features/document-tabs'
 import { conversationKeys } from '@/entities/conversation'
 import { useMe, type Role } from '@/entities/user'
-import logo from './assets/logo.svg'
+import { SERVICE_NAME, serviceLogo } from '@/shared/brand'
 
 const ADMIN_ROLES: readonly Role[] = ['DOC_ADMIN', 'SYSTEM_ADMIN']
 const ADMIN_PATH = '/admin/documents'
@@ -29,8 +29,8 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-[249px] shrink-0 flex-col gap-6 bg-panel px-4 py-5">
       <div className="flex items-center gap-3 px-1 py-0.5">
-        <img src={logo} alt="" className="size-9" />
-        <p className="text-[17px] font-semibold tracking-tight text-ink">문서119</p>
+        <img src={serviceLogo} alt="" className="size-9" />
+        <p className="text-[17px] font-semibold tracking-tight text-ink">{SERVICE_NAME}</p>
       </div>
 
       <NewQuestionButton />

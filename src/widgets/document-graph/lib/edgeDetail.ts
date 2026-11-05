@@ -3,6 +3,7 @@ import { isResolvedPair, type ModifiedDocument } from './buildGraph'
 
 export type EdgeDetailItem =
   | { kind: 'CONFLICT'; item: string; values: { title: string; value: string }[] }
+  | { kind: 'SECURITY'; fromTitle: string; toTitle: string }
   | { kind: 'MODIFIED'; modifiedTitle: string; referrerTitle: string }
   | { kind: 'REFERENCE'; fromTitle: string; toTitle: string }
   | { kind: 'TOPIC'; topics: string[] }
@@ -43,6 +44,15 @@ export function describeEdge({
         { title: titleOf(edge.target), value: detail.otherValue },
       ],
     })
+  }
+  for (const edge of pair) {
+    if (edge.warnings?.some((warning) => warning.type === 'SECURITY_RISK')) {
+      items.push({
+        kind: 'SECURITY',
+        fromTitle: titleOf(edge.source),
+        toTitle: titleOf(edge.target),
+      })
+    }
   }
   for (const edge of pair) {
     if (edge.type !== 'REFERENCES') continue

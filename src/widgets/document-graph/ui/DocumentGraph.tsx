@@ -65,6 +65,7 @@ export function DocumentGraph() {
         target: edge.target,
         type: edge.type,
         label: edge.label,
+        securityRisk: edge.warnings?.some((warning) => warning.type === 'SECURITY_RISK'),
       })),
     [graphData],
   )
@@ -320,6 +321,19 @@ function EdgeDetailRow({ item }: { item: EdgeDetailItem }) {
           </p>
         </div>
       )
+    case 'SECURITY':
+      return (
+        <div className="rounded-md bg-red-400/10 p-2">
+          <p className="font-semibold text-red-300">경고! 보안 위험 · 열람 등급 불일치</p>
+          <p className="mt-1 text-ink-dim">
+            {item.fromTitle}의 보안 등급이 참조하는 {item.toTitle}보다 낮습니다. 높은 등급 내용이
+            담겨 있지 않은지 확인해 주세요.
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            등급만 비교한 경고이며 실제 내용을 비교한 결과는 아닙니다.
+          </p>
+        </div>
+      )
     case 'TOPIC':
       return <p className="text-ink-dim">같은 주제: {item.topics.join(', ')}</p>
     case 'REFERENCE':
@@ -443,7 +457,7 @@ function Legend({
           {hasWarnings && (
             <li className="flex items-center gap-2 text-ink-dim">
               <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
-              경고: 내용 확인 필요
+              경고
             </li>
           )}
           {hasConflicts && (

@@ -14,6 +14,8 @@ export interface DocumentLink {
   target: string
   type?: LinkType
   label?: string
+  /** 참조하는 문서의 보안 등급이 더 낮은 선 */
+  securityRisk?: boolean
 }
 
 export interface NodeAttributes {
@@ -241,6 +243,25 @@ export function isResolvedPair(pairs: [string, string][], first: string, second:
 
 const WARNING_EDGE_COLOR = 'rgba(248,113,113,0.95)'
 
+export const SECURITY_RISK_WARNING = '경고! 보안 위험 · 열람 등급 불일치'
+
+function markWarning(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  link: DocumentLink,
+  warning: string,
+) {
+  if (!graph.hasEdge(link.source, link.target)) return
+  const edge = graph.edge(link.source, link.target) as string
+  const label = graph.getEdgeAttribute(edge, 'label')
+  if (label?.includes(warning)) return
+  graph.mergeEdgeAttributes(edge, {
+    warning: true,
+    color: WARNING_EDGE_COLOR,
+    size: 2.5,
+    label: label ? `${warning} · ${label}` : warning,
+  })
+}
+
 /** 수정된 문서를 참조하는 문서는 내용을 다시 확인해야 하므로 선을 빨갛게 하고 경고를 앞에 둡니다. */
 function markModifiedReferences(
   graph: Graph<NodeAttributes, EdgeAttributes>,
@@ -250,16 +271,7 @@ function markModifiedReferences(
   for (const { id, title } of modified) {
     for (const link of links) {
       if (link.target !== id || (link.type ?? 'REFERENCES') !== 'REFERENCES') continue
-      if (!graph.hasEdge(link.source, link.target)) continue
-      const edge = graph.edge(link.source, link.target) as string
-      const warning = `경고! 내용 확인 필요 · ${title} 수정됨`
-      const label = graph.getEdgeAttribute(edge, 'label')
-      graph.mergeEdgeAttributes(edge, {
-        warning: true,
-        color: WARNING_EDGE_COLOR,
-        size: 2.5,
-        label: label ? `${warning} · ${label}` : warning,
-      })
+      markWarning(graph, link, `경고! 내용 확인 필요 · ${title} 수정됨`)
     }
   }
 }
@@ -361,6 +373,9 @@ export function buildDocumentGraph({
   separateEvidenceNodes(graph, evidence, pinned)
 
   markModifiedReferences(graph, links, modifiedDocuments)
+  for (const link of links) {
+    if (link.securityRisk) markWarning(graph, link, SECURITY_RISK_WARNING)
+  }
 
   let hasReferences = false
   let hasConflicts = false
@@ -371,9 +386,7 @@ export function buildDocumentGraph({
     else hasReferences = true
   })
 
-  const hasWarnings =
-    modifiedDocuments.length > 0 &&
-    graph.someEdge((_edge, attributes) => attributes.warning === true)
+  const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
 
   return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings }
 }

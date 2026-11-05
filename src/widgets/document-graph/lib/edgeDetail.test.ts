@@ -88,6 +88,25 @@ describe('describeEdge', () => {
     expect(items.map((item) => item.kind)).toEqual(['CONFLICT'])
   })
 
+  it('보안 위험은 표시하고 CONTENT_CHECK는 조건 수정 전까지 표시하지 않는다', () => {
+    const items = describeEdge({
+      source: 'a',
+      target: 'b',
+      titleOf,
+      edges: [
+        edge({ warnings: [{ type: 'SECURITY_RISK' }] }),
+        edge({
+          source: 'b',
+          target: 'a',
+          warnings: [{ type: 'CONTENT_CHECK', modifiedDocumentId: 'a' }],
+        }),
+      ],
+    })
+    expect(items[0]).toEqual({ kind: 'SECURITY', fromTitle: '문서 a', toTitle: '문서 b' })
+    expect(items.filter((item) => item.kind === 'MODIFIED')).toEqual([])
+    expect(items.filter((item) => item.kind === 'SECURITY')).toHaveLength(1)
+  })
+
   it('주제를 보여 준다', () => {
     const items = describeEdge({
       source: 'a',

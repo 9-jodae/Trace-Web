@@ -275,6 +275,20 @@ describe('간선 종류와 글자', () => {
     expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'type')).toBe('CONFLICTS')
   })
 
+  it('보안 위험 참조는 빨간 경고로 표시하고 범례에 알린다', () => {
+    const { graph, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조', securityRisk: true },
+        { source: 'b', target: 'a', type: 'REFERENCES', label: '참조', securityRisk: true },
+      ],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.warning).toBe(true)
+    expect(attributes.label).toBe('경고! 보안 위험 · 열람 등급 불일치 · 참조')
+    expect(hasWarnings).toBe(true)
+  })
+
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
     const links = [
       topic('a', 'b', '연차'),

@@ -98,6 +98,18 @@ describe('buildDocumentGraph', () => {
     expect(hasReferences).toBe(false)
   })
 
+  it('서로 참조하는 문서의 글자는 한 번만 쓰고 공통 주제를 참조 앞에 붙인다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
+        { source: 'b', target: 'a', type: 'REFERENCES', label: '참조' },
+        { source: 'a', target: 'b', type: 'TOPIC', label: '보안' },
+      ],
+    })
+    expect(graph.getEdgeAttribute(graph.edge('a', 'b'), 'label')).toBe('보안 참조')
+  })
+
   it('실제로 그려진 엣지 기준으로 참조·충돌 여부를 돌려준다', () => {
     const onlyReferences = buildDocumentGraph({
       documents: [doc('a', 'REPORT'), doc('b', 'ETC')],

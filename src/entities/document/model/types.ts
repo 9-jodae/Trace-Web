@@ -1,6 +1,6 @@
 import type { Clearance, Position } from '@/entities/user/@x/document'
 
-// docs199-Server의 DocumentRecord(GET /api/documents)와 맞춥니다.
+// Trace-Server의 DocumentRecord(GET /api/documents)와 맞춥니다.
 
 export type SourceKind = 'LOCAL' | 'OBSIDIAN' | 'NOTION'
 

@@ -47,7 +47,7 @@ describe('인증 흐름', () => {
 
   it('토큰이 없으면 로그인 화면으로 보낸다', async () => {
     const router = renderAt('/')
-    expect(await screen.findByRole('heading', { name: 'docs199 로그인' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '사내 문서 근거 검색' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
   })
 
@@ -59,7 +59,7 @@ describe('인증 흐름', () => {
     )
     const router = renderAt('/login')
 
-    await userEvent.type(screen.getByLabelText('이메일'), me.email)
+    await userEvent.type(screen.getByLabelText('아이디'), me.email)
     await userEvent.type(screen.getByLabelText('비밀번호'), 'pw')
     await userEvent.click(screen.getByRole('button', { name: '로그인' }))
 
@@ -73,12 +73,12 @@ describe('인증 흐름', () => {
     restore = mockServer(() => fail(401, 'UNAUTHENTICATED'))
     renderAt('/login')
 
-    await userEvent.type(screen.getByLabelText('이메일'), me.email)
+    await userEvent.type(screen.getByLabelText('아이디'), me.email)
     await userEvent.type(screen.getByLabelText('비밀번호'), 'wrong')
     await userEvent.click(screen.getByRole('button', { name: '로그인' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '이메일 또는 비밀번호가 올바르지 않습니다.',
+      '아이디 또는 비밀번호가 올바르지 않아요',
     )
   })
 
@@ -87,7 +87,7 @@ describe('인증 흐름', () => {
     restore = mockServer(() => fail(401, 'UNAUTHENTICATED'))
     const router = renderAt('/')
 
-    expect(await screen.findByRole('heading', { name: 'docs199 로그인' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '사내 문서 근거 검색' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(useTokenStore.getState().accessToken).toBeNull()
   })

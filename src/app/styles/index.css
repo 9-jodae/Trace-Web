@@ -1,6 +1,41 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/*
+ * Pretendard를 --font-sans로 지정만 해두고 실제로 불러오는 곳이 없어서, 브라우저가 전부
+ * 시스템 기본 글꼴로 대체하고 있었습니다. 화면에서 실제로 쓰는 굵기(400·500·600, `font-normal`
+ * `font-medium` `font-semibold`)만 불러옵니다 — 패키지가 기본 제공하는 9굵기 전체 CSS를 그대로
+ * 불러오면 쓰지도 않는 굵기(thin~black)까지 포함돼 CSS 번들이 커집니다(575KB까지 커졌었음).
+ * local()로 시스템에 이미 설치된 Pretendard가 있으면 그걸 먼저 씁니다.
+ */
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local('Pretendard Regular'),
+    url('../../../node_modules/pretendard/dist/web/static/woff2-subset/Pretendard-Regular.subset.woff2')
+      format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 500;
+  font-display: swap;
+  src:
+    local('Pretendard Medium'),
+    url('../../../node_modules/pretendard/dist/web/static/woff2-subset/Pretendard-Medium.subset.woff2')
+      format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 600;
+  font-display: swap;
+  src:
+    local('Pretendard SemiBold'),
+    url('../../../node_modules/pretendard/dist/web/static/woff2-subset/Pretendard-SemiBold.subset.woff2')
+      format('woff2');
+}
+
 @theme {
   --font-sans: 'Pretendard', ui-sans-serif, system-ui, sans-serif;
 

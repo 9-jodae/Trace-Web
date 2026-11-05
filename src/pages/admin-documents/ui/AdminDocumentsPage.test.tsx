@@ -129,6 +129,20 @@ describe('AdminDocumentsPage', () => {
     expect(await screen.findByText('소스를 먼저 추가하세요')).toBeInTheDocument()
   })
 
+  it('소스를 고르기 전에는 업로드를 막고, 고르면 업로드 모달을 연다', async () => {
+    serve()
+    renderAt('/admin/documents')
+    await screen.findByRole('link', { name: '출장비' })
+
+    const upload = screen.getByRole('button', { name: '업로드' })
+    expect(upload).toBeDisabled()
+    expect(upload).toHaveAttribute('title', '업로드할 소스를 먼저 선택하세요')
+
+    await userEvent.selectOptions(screen.getByLabelText('소스'), 's1')
+    await userEvent.click(screen.getByRole('button', { name: '업로드' }))
+    expect(screen.getByRole('dialog', { name: '업로드 · 사내 위키' })).toBeInTheDocument()
+  })
+
   it('403이면 관리 권한이 없다고 알린다', async () => {
     serve({ documents: () => fail(403, 'FORBIDDEN') })
     renderAt('/admin/documents')

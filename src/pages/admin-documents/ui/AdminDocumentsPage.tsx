@@ -1,7 +1,11 @@
+import { Plus, Upload } from 'lucide-react'
+import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { CreateSourceModal } from '@/features/create-source'
+import { UploadDocumentsModal } from '@/features/upload-documents'
 import { adminErrorMessage } from '@/entities/document'
 import { sourceKindLabel, useSources } from '@/entities/source'
-import { buttonSecondary } from '@/shared/ui'
+import { buttonPrimary, buttonSecondary } from '@/shared/ui'
 import { AdminDocumentTable, type AdminListQuery } from '@/widgets/admin-document-table'
 import { Sidebar } from '@/widgets/sidebar'
 import { parseListQuery, toListSearch } from '../lib/listQuery'
@@ -15,6 +19,8 @@ export function AdminDocumentsPage() {
   const notice = (location.state as { notice?: string } | null)?.notice
 
   const sources = useSources()
+  const [modal, setModal] = useState<'source' | 'upload' | null>(null)
+  const selectedSource = sources.data?.find((source) => source.id === query.sourceId)
 
   const updateQuery = (patch: Partial<AdminListQuery>) => {
     setSearchParams(toListSearch({ ...query, ...patch }))
@@ -42,6 +48,20 @@ export function AdminDocumentsPage() {
               ))}
             </select>
           </label>
+          <button type="button" onClick={() => setModal('source')} className={buttonSecondary}>
+            <Plus className="size-4" aria-hidden />
+            소스 추가
+          </button>
+          <button
+            type="button"
+            disabled={!selectedSource}
+            title={selectedSource ? undefined : '업로드할 소스를 먼저 선택하세요'}
+            onClick={() => setModal('upload')}
+            className={buttonPrimary}
+          >
+            <Upload className="size-4" aria-hidden />
+            업로드
+          </button>
         </header>
 
         {notice && (
@@ -74,6 +94,10 @@ export function AdminDocumentsPage() {
         ) : sources.data?.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-sm text-ink-dim">
             <p>소스를 먼저 추가하세요</p>
+            <button type="button" onClick={() => setModal('source')} className={buttonPrimary}>
+              <Plus className="size-4" aria-hidden />
+              소스 추가
+            </button>
           </div>
         ) : (
           <AdminDocumentTable
@@ -83,6 +107,19 @@ export function AdminDocumentsPage() {
           />
         )}
       </main>
+
+      {modal === 'source' && (
+        <CreateSourceModal
+          onClose={() => setModal(null)}
+          onCreated={(source) => {
+            setModal(null)
+            updateQuery({ sourceId: source.id, page: 0 })
+          }}
+        />
+      )}
+      {modal === 'upload' && selectedSource && (
+        <UploadDocumentsModal source={selectedSource} onClose={() => setModal(null)} />
+      )}
     </div>
   )
 }

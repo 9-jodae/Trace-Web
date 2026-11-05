@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { AnswerEvidence, AnswerKeyword, AnswerSource } from '@/entities/answer'
+import type {
+  AnswerEditProposal,
+  AnswerEvidence,
+  AnswerKeyword,
+  AnswerSource,
+} from '@/entities/answer'
+
+/** 충돌을 다루는 답변의 표현. 글자로 판단하므로 가끔 틀릴 수 있습니다. */
+const CONFLICT_ANSWER = /(충돌|모순|일치하지 않|서로 다|값이 다|수치가 다|수정안|수정을 제안)/
 
 /** createdAt은 말풍선 옆 시각 표시용 ISO 문자열입니다. 없으면 시각을 그리지 않습니다. */
 export type ChatMessage =
@@ -14,6 +22,7 @@ export type ChatMessage =
       /** 과거 대화를 다시 열 때 문서 삭제·개정·권한 변경으로 불러오지 못한 근거 수. 있을 때만 둡니다. */
       missingSourceCount?: number
       keywords?: AnswerKeyword[]
+      editProposals?: AnswerEditProposal[]
     }
   | { id: string; kind: 'error'; text: string; createdAt?: string }
 
@@ -24,6 +33,8 @@ interface ChatState {
   messages: ChatMessage[]
   /** 가장 최근 답변의 근거 문서 ID. 그래프에서 강조합니다. */
   evidenceDocumentIds: string[]
+  /** 가장 최근 답변이 문서 충돌이나 수정을 다루는지. 그래프가 충돌 쌍만 강조할지 정합니다. */
+  answerAboutConflict: boolean
   /** 채팅 헤더의 "관계 그래프" 토글. 꺼두면 근거 강조를 그래프에 반영하지 않습니다. */
   graphHighlightEnabled: boolean
   sequence: number
@@ -40,6 +51,7 @@ interface ChatState {
     sources: AnswerSource[],
     evidence: AnswerEvidence[],
     keywords?: AnswerKeyword[],
+    editProposals?: AnswerEditProposal[],
   ) => void
   addError: (text: string) => void
   startNewConversation: () => void
@@ -57,6 +69,7 @@ const initialState = {
   conversationId: null,
   messages: [] as ChatMessage[],
   evidenceDocumentIds: [] as string[],
+  answerAboutConflict: false,
   graphHighlightEnabled: true,
   sequence: 0,
   contextId: 0,
@@ -76,11 +89,15 @@ export const useChatStore = create<ChatState>()((set) => ({
       ],
     })),
 
-  addAnswer: (conversationId, text, sources, evidence, keywords = []) =>
+  addAnswer: (conversationId, text, sources, evidence, keywords = [], editProposals = []) =>
     set((state) => ({
       conversationId,
       sequence: state.sequence + 1,
-      evidenceDocumentIds: [...new Set(sources.map((source) => source.documentId))],
+      answerAboutConflict: editProposals.length > 0 || CONFLICT_ANSWER.test(text),
+      // 답변이 실제로 인용한 문서만 강조합니다. 검색에 걸렸을 뿐인 문서까지 키우면 관련 없어 보입니다.
+      evidenceDocumentIds: [
+        ...new Set((evidence.length > 0 ? evidence : sources).map((item) => item.documentId)),
+      ],
       messages: [
         ...state.messages,
         {
@@ -90,6 +107,7 @@ export const useChatStore = create<ChatState>()((set) => ({
           sources,
           evidence,
           keywords,
+          editProposals,
           createdAt: now(),
         },
       ],
@@ -127,6 +145,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         contextId: nextContextId(),
         messages,
         evidenceDocumentIds,
+        answerAboutConflict: lastAnswer?.kind === 'answer' && CONFLICT_ANSWER.test(lastAnswer.text),
         sequence: state.sequence + messages.length,
       }
     }),

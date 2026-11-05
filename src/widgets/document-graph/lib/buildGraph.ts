@@ -14,31 +14,58 @@ export interface DocumentLink {
   target: string
   type?: LinkType
   label?: string
+  /** 참조하는 문서의 보안 등급이 더 낮은 선 */
+  securityRisk?: boolean
 }
+
+/**
+ * 근거 포커스 단계. 근거가 있으면 근거 노드와 그 노드에 직접(1-hop) 연결된 노드만 또렷하게 두고,
+ * 나머지는 흐리게 가라앉힙니다. 근거가 없으면(또는 강조를 끄면) 모두 'none'입니다.
+ */
+export type FocusLevel = 'evidence' | 'neighbor' | 'dimmed' | 'none'
 
 export interface NodeAttributes {
   x: number
   y: number
   size: number
   color: string
+  /** 흐려지기 전 원래 유형 색. 흐린 노드에 마우스를 올렸을 때 잠깐 되살리는 데 씁니다. */
+  baseColor: string
   label: string
   highlighted: boolean
+  focus: FocusLevel
   documentType: string | null
   extension: string
   authoredAt: string | null
 }
 
+export interface ModifiedDocument {
+  id: string
+  title: string
+}
+
 export interface EdgeAttributes {
+  /** 참조하는 문서가 수정돼 다시 확인해야 하는 선 */
+  warning?: boolean
   type: LinkType
   size: number
   color: string
   label?: string
+  /**
+   * 'evidence'는 근거끼리, 'neighbor'는 근거와 직접 연결 노드 사이 선입니다. 근거에 닿지 않는
+   * 선(직접 연결 노드끼리 포함)은 'dimmed'입니다.
+   */
+  focus: FocusLevel
 }
 
 /** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색(파란 톤에 맞춤). */
 export const DIMMED_COLOR = '#1e293b'
 
+/** 근거에 닿지 않는 선의 색. 거의 보이지 않을 만큼만 남겨 구조의 윤곽만 드러냅니다. */
+export const DIMMED_EDGE_COLOR = 'rgba(148,163,184,0.07)'
+
 const NODE_SIZE = 6
+const NEIGHBOR_NODE_SIZE = 8
 const EVIDENCE_NODE_SIZE = 11
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 
@@ -233,6 +260,50 @@ export function conflictWarning(item?: string) {
   return item ? `경고! 내용 충돌 · ${item}` : '경고! 내용 충돌'
 }
 
+/** 근거끼리 잇는 선은 한 단계 더 굵게 그려, 답변이 어떤 문서 쌍을 엮었는지 먼저 보이게 합니다. */
+const EVIDENCE_EDGE_EXTRA_SIZE = 1
+
+export function isResolvedPair(pairs: [string, string][], first: string, second: string) {
+  return pairs.some(([a, b]) => (a === first && b === second) || (a === second && b === first))
+}
+
+const WARNING_EDGE_COLOR = 'rgba(248,113,113,0.95)'
+
+export const SECURITY_RISK_WARNING = '경고! 보안 위험 · 열람 등급 불일치'
+
+function markWarning(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  link: DocumentLink,
+  warning: string,
+) {
+  if (!graph.hasEdge(link.source, link.target)) return
+  const edge = graph.edge(link.source, link.target) as string
+  const label = graph.getEdgeAttribute(edge, 'label')
+  if (label?.includes(warning)) return
+  graph.mergeEdgeAttributes(edge, {
+    warning: true,
+    color: WARNING_EDGE_COLOR,
+    size: 2.5,
+    label: label ? `${warning} · ${label}` : warning,
+    // 근거 포커스로 가라앉은 선이어도 경고는 색과 글자를 보여 줍니다.
+    ...(graph.getEdgeAttribute(edge, 'focus') === 'dimmed' ? { focus: 'neighbor' as const } : {}),
+  })
+}
+
+/** 수정된 문서를 참조하는 문서는 내용을 다시 확인해야 하므로 선을 빨갛게 하고 경고를 앞에 둡니다. */
+function markModifiedReferences(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  links: DocumentLink[],
+  modified: ModifiedDocument[],
+) {
+  for (const { id, title } of modified) {
+    for (const link of links) {
+      if (link.target !== id || (link.type ?? 'REFERENCES') !== 'REFERENCES') continue
+      markWarning(graph, link, `경고! 내용 확인 필요 · ${title} 수정됨`)
+    }
+  }
+}
+
 /** 한 문서 쌍의 관계 글자를 합칩니다. 경고를 맨 앞에 둡니다. 주제와 참조가 함께 있으면 "보안 참조"처럼 읽히게 붙입니다. */
 function edgeLabel(parts: Map<LinkType, string>) {
   const topic = parts.get('TOPIC')
@@ -242,7 +313,8 @@ function edgeLabel(parts: Map<LinkType, string>) {
 }
 
 /**
- * 문서 그래프를 만듭니다. 근거 문서가 있으면 크게 강조하고 나머지는 흐리게 표시합니다.
+ * 문서 그래프를 만듭니다. 근거 문서가 있으면 근거와 직접 연결된 노드·선만 또렷하게 두고
+ * 나머지는 흐리게 표시합니다(applyEvidenceFocus).
  * 서버가 권한 범위의 문서만 주므로, 권한 없는 문서는 노드로 나타나지 않습니다.
  * `documents`는 호출하는 쪽에서 필터(features/filter-documents)를 적용해 넘깁니다.
  */
@@ -251,6 +323,8 @@ export function buildDocumentGraph({
   links = [],
   evidenceDocumentIds = [],
   positionOverrides,
+  modifiedDocuments = [],
+  resolvedPairs = [],
 }: {
   documents: Document[]
   links?: DocumentLink[]
@@ -261,6 +335,9 @@ export function buildDocumentGraph({
    * 여기 없는 문서는 해바라기 배치로 매번 새로 계산한 위치를 받습니다.
    */
   positionOverrides?: Map<string, { x: number; y: number }>
+  modifiedDocuments?: ModifiedDocument[]
+  /** 수정 제안으로 해소한 문서 쌍. 이 쌍의 충돌만 그리지 않습니다. */
+  resolvedPairs?: [string, string][]
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -272,6 +349,7 @@ export function buildDocumentGraph({
   const graph = new Graph<NodeAttributes, EdgeAttributes>({ type: 'undirected', multi: false })
   for (const document of visible) {
     const isEvidence = evidence.has(document.id)
+    const baseColor = colorOf.get(document.documentType) ?? documentTypeColor(document.documentType)
     const position = positionOverrides?.get(document.id) ??
       positions.get(document.id) ?? { x: 0, y: 0 }
     graph.addNode(document.id, {
@@ -282,10 +360,10 @@ export function buildDocumentGraph({
       authoredAt: document.authoredAt,
       size: isEvidence ? EVIDENCE_NODE_SIZE : NODE_SIZE,
       highlighted: isEvidence,
-      color:
-        focusing && !isEvidence
-          ? DIMMED_COLOR
-          : (colorOf.get(document.documentType) ?? documentTypeColor(document.documentType)),
+      // 직접 연결 여부는 선을 다 넣은 뒤 applyEvidenceFocus가 정합니다.
+      focus: isEvidence ? 'evidence' : 'none',
+      color: baseColor,
+      baseColor,
     })
   }
   // 사용자가 끌어서 옮긴 노드는 아래 두 보정에서 제외합니다 — positionOverrides의 약속("옮긴
@@ -294,6 +372,9 @@ export function buildDocumentGraph({
   const labelParts = new Map<string, Map<LinkType, string>>()
   for (const link of links) {
     if (link.source === link.target) continue
+    if (link.type === 'CONFLICTS' && isResolvedPair(resolvedPairs, link.source, link.target)) {
+      continue
+    }
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
     const type = link.type ?? 'REFERENCES'
     if (graph.hasEdge(link.source, link.target)) {
@@ -312,14 +393,21 @@ export function buildDocumentGraph({
     const edgeKey = graph.addEdge(link.source, link.target, {
       ...edgeStyle(type),
       label: link.label,
+      focus: 'none',
     })
     if (link.label) labelParts.set(edgeKey, new Map([[type, link.label]]))
   }
 
   // 교차 보정을 먼저 하고, 근거 노드 분리를 마지막에 해야 근거 노드끼리의 간격이 교차 보정으로
   // 다시 깨지지 않습니다(근거 강조가 더 중요한 규칙이라 마지막에 적용).
+  const focus = focusing ? applyEvidenceFocus(graph, evidence) : { evidence: 0, neighbors: 0 }
   avoidEdgeNodeCrossings(graph, pinned)
   separateEvidenceNodes(graph, evidence, pinned)
+
+  markModifiedReferences(graph, links, modifiedDocuments)
+  for (const link of links) {
+    if (link.securityRisk) markWarning(graph, link, SECURITY_RISK_WARNING)
+  }
 
   let hasReferences = false
   let hasConflicts = false
@@ -330,5 +418,53 @@ export function buildDocumentGraph({
     else hasReferences = true
   })
 
-  return { graph, legend, hasReferences, hasConflicts, hasTopics }
+  const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
+
+  return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings, focus }
+}
+
+/**
+ * 근거 포커스를 적용합니다. 근거 노드와 직접 연결된 노드는 원래 색을 유지하고(직접 연결은 조금
+ * 키움), 나머지 노드는 DIMMED_COLOR로 바꿉니다. 선은 근거에 닿는 것만 원래 색·라벨을 두고, 나머지는
+ * DIMMED_EDGE_COLOR로 가라앉힙니다. 직접 연결 노드끼리의 선도 근거에 닿지 않으므로 흐리게 둡니다.
+ */
+export function applyEvidenceFocus(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  evidence: Set<string>,
+) {
+  const neighbors = new Set<string>()
+  for (const id of evidence) {
+    if (!graph.hasNode(id)) continue
+    graph.forEachNeighbor(id, (neighbor) => {
+      if (!evidence.has(neighbor)) neighbors.add(neighbor)
+    })
+  }
+
+  let evidenceCount = 0
+  graph.forEachNode((id) => {
+    if (evidence.has(id)) {
+      evidenceCount += 1
+      graph.mergeNodeAttributes(id, { focus: 'evidence' })
+    } else if (neighbors.has(id)) {
+      graph.mergeNodeAttributes(id, { focus: 'neighbor', size: NEIGHBOR_NODE_SIZE })
+    } else {
+      graph.mergeNodeAttributes(id, { focus: 'dimmed', color: DIMMED_COLOR })
+    }
+  })
+
+  graph.forEachEdge((edge, attributes, source, target) => {
+    const touches = Number(evidence.has(source)) + Number(evidence.has(target))
+    if (touches === 2) {
+      graph.mergeEdgeAttributes(edge, {
+        focus: 'evidence',
+        size: attributes.size + EVIDENCE_EDGE_EXTRA_SIZE,
+      })
+    } else if (touches === 1) {
+      graph.mergeEdgeAttributes(edge, { focus: 'neighbor' })
+    } else {
+      graph.mergeEdgeAttributes(edge, { focus: 'dimmed', color: DIMMED_EDGE_COLOR, size: 1 })
+    }
+  })
+
+  return { evidence: evidenceCount, neighbors: neighbors.size }
 }

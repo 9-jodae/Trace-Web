@@ -4,11 +4,10 @@ Codex reads `AGENTS.md` as repository instructions. Read `docs/ai/README.md` for
 
 Official Codex documentation supports repository skills under `.agents/skills/` and project settings in `.codex/config.toml` for trusted projects. This repository uses thin Codex skills in `.agents/skills/` and needs no project settings. The shared procedures live in `docs/ai/`.
 
-| Claude skill      | Codex skill       | Manual Codex prompt  | Shared workflow                        |
-| ----------------- | ----------------- | -------------------- | -------------------------------------- |
-| `add-feature`     | `add-feature`     | `add-feature.md`     | `docs/ai/workflows/add-feature.md`     |
-| `verify`          | `verify`          | `verify-changes.md`  | `docs/ai/workflows/verify.md`          |
-| `commit-and-pr`   | `commit-and-pr`   | `commit-and-pr.md`   | `docs/ai/workflows/commit-and-pr.md`   |
-| `review-response` | `review-response` | `review-response.md` | `docs/ai/workflows/review-response.md` |
+| Claude skill    | Codex skill     | Manual Codex prompt | Shared workflow                      |
+| --------------- | --------------- | ------------------- | ------------------------------------ |
+| `add-feature`   | `add-feature`   | `add-feature.md`    | `docs/ai/workflows/add-feature.md`   |
+| `verify`        | `verify`        | `verify-changes.md` | `docs/ai/workflows/verify.md`        |
+| `commit-and-pr` | `commit-and-pr` | `commit-and-pr.md`  | `docs/ai/workflows/commit-and-pr.md` |
 
 References: [AGENTS.md guidance](https://developers.openai.com/codex/guides/agents-md), [skills](https://developers.openai.com/codex/skills), [project configuration](https://developers.openai.com/codex/config-basic).

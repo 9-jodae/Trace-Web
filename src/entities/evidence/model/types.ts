@@ -18,6 +18,9 @@ export interface EvidenceChunk {
   previousChunk: string | null
   /** 뒤 청크 텍스트. 문서 끝이면 null */
   nextChunk: string | null
-  /** 15분 presigned URL. 원문 표시는 문서 다운로드 URL을 쓰므로 화면·로그에 노출하지 않습니다. */
+  /**
+   * 이 근거 버전의 원문 다운로드 경로(`/api/documents/{id}/versions/{versionId}/download`).
+   * 인증 헤더가 필요해 브라우저로 직접 열 수 없고, 원문 표시는 문서 다운로드 API로 따로 받으므로 쓰지 않습니다.
+   */
   downloadUrl: string
 }

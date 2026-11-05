@@ -1,8 +1,9 @@
 import type { InternalAxiosRequestConfig } from 'axios'
 import { afterEach, describe, expect, it } from 'vitest'
-import { mockServer, ok } from '@/shared/testing'
+import { file as fileReply, mockServer, ok } from '@/shared/testing'
 import {
   adminDeleteDocument,
+  adminDownloadDocument,
   adminReviseDocument,
   adminUpdateAccess,
   adminUploadDocuments,
@@ -93,6 +94,20 @@ describe('관리자 문서 API', () => {
     expect(calls[0]?.timeout).toBe(300_000)
     expect(calls[1]?.timeout).toBe(300_000)
     expect((calls[1]?.data as FormData).get('authoredAt')).toBe('2026-11-02')
+  })
+
+  it('원문은 관리자 다운로드 경로에서 Blob으로 받는다', async () => {
+    const calls: InternalAxiosRequestConfig[] = []
+    restore = mockServer((config) => {
+      calls.push(config)
+      return fileReply('관리자 원문')
+    })
+
+    const blob = await adminDownloadDocument('d/1')
+
+    expect(await blob.text()).toBe('관리자 원문')
+    expect(calls[0]?.url).toBe('/api/admin/documents/d%2F1/download')
+    expect(calls[0]?.responseType).toBe('blob')
   })
 })
 

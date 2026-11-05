@@ -3,29 +3,25 @@ import { useEffect } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-const MARKDOWN_STALE_TIME = 10 * 60 * 1000
-
-async function fetchMarkdownText(url: string): Promise<string> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error('MARKDOWN_FETCH_ERROR')
-  return response.text()
-}
-
+/**
+ * 미리 받은 Markdown 파일을 글자로 풀어 보여줍니다. 같은 문서·버전의 파일은 내용이 같으므로
+ * 문서 ID와 버전으로 캐시합니다.
+ */
 export function MarkdownContent({
   documentId,
-  url,
-  attempt,
+  version,
+  file,
   onError,
 }: {
   documentId: string
-  url: string
-  attempt: number
+  version: number
+  file: Blob
   onError: () => void
 }) {
   const { data, isPending, error } = useQuery({
-    queryKey: ['document', 'markdown', documentId, url, attempt] as const,
-    queryFn: () => fetchMarkdownText(url),
-    staleTime: MARKDOWN_STALE_TIME,
+    queryKey: ['document', 'markdown', documentId, version] as const,
+    queryFn: () => file.text(),
+    staleTime: Infinity,
     retry: false,
   })
 

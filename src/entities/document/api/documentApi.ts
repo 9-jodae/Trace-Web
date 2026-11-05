@@ -1,27 +1,21 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { request, type PageResponse } from '@/shared/api'
-import type {
-  Document,
-  DocumentDetail,
-  DocumentListParams,
-  DownloadUrl,
-  IngestionJob,
-} from '../model/types'
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
+import { request, requestBlob, type PageResponse } from '@/shared/api'
+import type { Document, DocumentDetail, DocumentListParams, IngestionJob } from '../model/types'
 
 /** 서버가 허용하는 목록 크기의 최댓값 */
 const MAX_PAGE_SIZE = 100
 
-/** presigned URL(15분 유효)이 만료되기 전에 새로 받기 위한 신선도 유지 시간(10분) */
-const DOWNLOAD_URL_STALE_TIME = 10 * 60 * 1000
-
 /** 처리 중 문서의 상태를 다시 확인하는 주기(5초) */
 const STATUS_POLL_INTERVAL = 5_000
+
+/** 원문 파일(최대 20MB) 다운로드의 시간 한도(2분). 기본 30초로는 느린 연결에서 끊길 수 있습니다. */
+export const FILE_DOWNLOAD_TIMEOUT_MS = 120_000
 
 export const documentKeys = {
   all: ['document'] as const,
   everyAccessible: ['document', 'list', 'all'] as const,
   detail: (id: string) => ['document', 'detail', id] as const,
-  downloadUrl: (id: string) => ['document', 'downloadUrl', id] as const,
+  file: (id: string, version: number) => ['document', 'file', id, version] as const,
   status: (id: string) => ['document', 'status', id] as const,
 }
 
@@ -52,11 +46,27 @@ export function getDocument(id: string) {
   })
 }
 
-/** 원문 파일의 15분 유효 presigned URL을 발급받습니다. */
-export function getDownloadUrl(id: string) {
-  return request<DownloadUrl>({
+/**
+ * 원문 파일(현재 버전)을 받습니다. 서버가 로그인과 열람 권한을 확인한 뒤 파일을 그대로 보내므로
+ * 인증 헤더가 붙는 http 클라이언트로 받아야 합니다. 브라우저가 이 주소를 직접 열면 401입니다.
+ */
+export function downloadDocument(id: string) {
+  return requestBlob({
     method: 'GET',
-    url: `/api/documents/${encodeURIComponent(id)}/download-url`,
+    url: `/api/documents/${encodeURIComponent(id)}/download`,
+    timeout: FILE_DOWNLOAD_TIMEOUT_MS,
+  })
+}
+
+/**
+ * 원문 파일 조회. 버전 번호를 키에 넣어 개정되면 새로 받고, 같은 버전은 내용이 바뀌지 않으므로
+ * 다시 받지 않습니다(창 포커스마다 큰 파일을 다시 받지 않도록).
+ */
+export function documentFileQuery(id: string, version: number) {
+  return queryOptions({
+    queryKey: documentKeys.file(id, version),
+    queryFn: () => downloadDocument(id),
+    staleTime: Infinity,
   })
 }
 
@@ -75,14 +85,8 @@ export function useDocument(id: string) {
   })
 }
 
-export function useDownloadUrl(id: string, enabled = true) {
-  return useQuery({
-    queryKey: documentKeys.downloadUrl(id),
-    queryFn: () => getDownloadUrl(id),
-    enabled,
-    staleTime: DOWNLOAD_URL_STALE_TIME,
-    refetchOnWindowFocus: true,
-  })
+export function useDocumentFile(id: string, version: number, enabled: boolean) {
+  return useQuery({ ...documentFileQuery(id, version), enabled })
 }
 
 export function useDocumentStatus(id: string, enabled: boolean) {

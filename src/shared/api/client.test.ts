@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ApiRequestError, request, unwrap } from './client'
+import { ApiRequestError, request, requestBlob, unwrap } from './client'
 import { toErrorMessage } from './errorMessage'
 import { toFieldErrors } from './fieldErrors'
 import { TOKEN_STORAGE_KEY, useTokenStore } from './token'
@@ -63,6 +63,81 @@ describe('request', () => {
     await expect(request({ url: '/api/x', adapter: timeout })).rejects.toMatchObject({
       code: 'TIMEOUT',
     })
+  })
+})
+
+describe('requestBlob', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    useTokenStore.setState({ accessToken: 'token' })
+  })
+
+  function blobFailure(status: number, data: unknown) {
+    return async (config: InternalAxiosRequestConfig) => {
+      throw new AxiosError('failed', String(status), config, null, {
+        status,
+        statusText: '',
+        headers: new AxiosHeaders(),
+        config,
+        data,
+      })
+    }
+  }
+
+  it('인증 헤더를 붙여 Blob으로 받는다', async () => {
+    let seen: InternalAxiosRequestConfig | undefined
+    const adapter = async (config: InternalAxiosRequestConfig) => {
+      seen = config
+      return {
+        status: 200,
+        statusText: '',
+        headers: new AxiosHeaders(),
+        config,
+        data: new Blob(['원문'], { type: 'text/markdown' }),
+      }
+    }
+
+    const blob = await requestBlob({ url: '/api/documents/d1/download', adapter })
+
+    expect(await blob.text()).toBe('원문')
+    expect(seen?.responseType).toBe('blob')
+    expect(seen?.headers.Authorization).toBe('Bearer token')
+  })
+
+  it('Blob으로 온 오류 본문을 응답 봉투로 읽어 서버 오류 코드를 쓴다', async () => {
+    const body = new Blob([
+      JSON.stringify({ success: false, data: null, error: { code: 'NOT_FOUND', message: '없음' } }),
+    ])
+
+    await expect(
+      requestBlob({ url: '/api/documents/x/download', adapter: blobFailure(404, body) }),
+    ).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' })
+    expect(useTokenStore.getState().accessToken).toBe('token')
+  })
+
+  it('401이면 토큰을 지운다', async () => {
+    const body = new Blob([
+      JSON.stringify({
+        success: false,
+        data: null,
+        error: { code: 'UNAUTHENTICATED', message: '인증 필요' },
+      }),
+    ])
+
+    await expect(
+      requestBlob({ url: '/api/documents/x/download', adapter: blobFailure(401, body) }),
+    ).rejects.toMatchObject({ status: 401, code: 'UNAUTHENTICATED' })
+    expect(useTokenStore.getState().accessToken).toBeNull()
+  })
+
+  it('JSON이 아닌 오류 본문은 상태 코드만 남긴다', async () => {
+    const error = await requestBlob({
+      url: '/api/documents/x/download',
+      adapter: blobFailure(502, new Blob(['<html>Bad Gateway</html>'])),
+    }).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiRequestError)
+    expect(error).toMatchObject({ status: 502, code: 'NETWORK_ERROR' })
   })
 })
 

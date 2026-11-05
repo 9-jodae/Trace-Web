@@ -1,18 +1,17 @@
 import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query'
-import { request, type PageResponse } from '@/shared/api'
+import { request, requestBlob, type PageResponse } from '@/shared/api'
 import { UPLOAD_TIMEOUT_MS } from '@/shared/config'
 import type {
   AdminDocumentListParams,
   Document,
   DocumentDetail,
-  DownloadUrl,
   ReviseInput,
   UpdateAccessInput,
   UploadFile,
   UploadOptions,
   UploadResult,
 } from '../model/types'
-import { documentKeys } from './documentApi'
+import { documentKeys, FILE_DOWNLOAD_TIMEOUT_MS } from './documentApi'
 
 /** 처리 대기·진행 중인 문서 상세를 다시 불러오는 주기(5초) */
 const ADMIN_DETAIL_POLL_INTERVAL = 5_000
@@ -34,9 +33,13 @@ export function adminGetDocument(id: string) {
   return request<DocumentDetail>({ method: 'GET', url: adminUrl(id) })
 }
 
-/** 원문 파일의 15분 유효 presigned URL. 화면에 표시하거나 로그로 남기지 않습니다. */
-export function adminDownloadUrl(id: string) {
-  return request<DownloadUrl>({ method: 'GET', url: `${adminUrl(id)}/download-url` })
+/** 원문 파일(현재 버전). 인증 헤더가 필요해 브라우저가 주소를 직접 열지 않고 http 클라이언트로 받습니다. */
+export function adminDownloadDocument(id: string) {
+  return requestBlob({
+    method: 'GET',
+    url: `${adminUrl(id)}/download`,
+    timeout: FILE_DOWNLOAD_TIMEOUT_MS,
+  })
 }
 
 /** multipart 업로드 본문. files와 paths는 같은 순서로 반복합니다. */

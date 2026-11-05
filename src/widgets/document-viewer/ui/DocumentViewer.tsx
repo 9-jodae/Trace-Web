@@ -1,15 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { lazy, Suspense, useCallback, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { useTabStore } from '@/features/document-tabs'
 import {
-  documentKeys,
-  getDownloadUrl,
+  documentFileName,
+  documentFileQuery,
   useDocument,
+  useDocumentFile,
   useDocumentStatus,
-  useDownloadUrl,
   type ProcessingStatus,
 } from '@/entities/document'
 import { ApiRequestError, toErrorMessage } from '@/shared/api'
+import { saveBlob } from '@/shared/lib'
 import { EvidencePanel } from './EvidencePanel'
 import { MarkdownContent } from './MarkdownContent'
 
@@ -39,7 +40,8 @@ function StatusBadge({ status }: { status: ProcessingStatus | null }) {
 
 /**
  * 문서 탭에서 문서 메타데이터와 원문(PDF·Markdown)을 보여줍니다.
- * presigned URL은 화면 텍스트나 콘솔에 노출하지 않으며 만료 시 재발급받아 다시 시도합니다.
+ * 원문 파일은 서버가 인증 헤더를 요구하므로 http 클라이언트로 받은 파일을 그대로 그리고,
+ * 다운로드도 받은 파일을 저장합니다. 브라우저가 다운로드 주소를 직접 열지 않습니다.
  */
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const queryClient = useQueryClient()
@@ -58,64 +60,42 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const ext = data ? normalizeExtension(data.document.extension) : ''
   const isPreviewable = ext === 'pdf' || ext === 'md'
 
+  const version = data?.document.currentVersion ?? 0
   const {
-    data: downloadData,
-    isPending: isDownloadPending,
-    error: downloadError,
-  } = useDownloadUrl(documentId, Boolean(data) && isPreviewable)
+    data: file,
+    error: fileError,
+    isFetching: isFileFetching,
+    dataUpdatedAt: fileUpdatedAt,
+    refetch: refetchFile,
+  } = useDocumentFile(documentId, version, Boolean(data) && isPreviewable)
 
-  const [attempt, setAttempt] = useState(0)
-  const [isRetrying, setIsRetrying] = useState(false)
   const [contentError, setContentError] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [downloadActionError, setDownloadActionError] = useState<string | null>(null)
-  const retryingRef = useRef(false)
 
-  const handleContentError = useCallback(async () => {
-    if (attempt === 0 && !retryingRef.current) {
-      retryingRef.current = true
-      setIsRetrying(true)
-      try {
-        await queryClient.invalidateQueries({
-          queryKey: documentKeys.downloadUrl(documentId),
-        })
-        setAttempt(1)
-      } catch {
-        setContentError(true)
-      } finally {
-        setIsRetrying(false)
-        retryingRef.current = false
-      }
-      return
-    }
-    setContentError(true)
-  }, [attempt, documentId, queryClient])
+  const handleContentError = useCallback(() => setContentError(true), [])
 
-  const handleManualRetryContent = useCallback(async () => {
+  const handleRetryContent = useCallback(() => {
     setContentError(false)
-    setIsRetrying(true)
-    try {
-      await queryClient.invalidateQueries({
-        queryKey: documentKeys.downloadUrl(documentId),
-      })
-      setAttempt(0)
-    } finally {
-      setIsRetrying(false)
-    }
-  }, [documentId, queryClient])
+    void refetchFile()
+  }, [refetchFile])
 
+  // 미리보기로 이미 받은 파일이 있으면 그대로 저장하고, 없으면(미리보기 미지원 형식) 이때 받습니다.
   const handleDownload = useCallback(async () => {
+    if (!data) return
     setDownloadActionError(null)
+    setDownloading(true)
     try {
-      const fresh = await queryClient.fetchQuery({
-        queryKey: documentKeys.downloadUrl(documentId),
-        queryFn: () => getDownloadUrl(documentId),
-        staleTime: 0,
-      })
-      window.open(fresh.url, '_blank', 'noopener,noreferrer')
+      const blob = await queryClient.fetchQuery(
+        documentFileQuery(documentId, data.document.currentVersion),
+      )
+      saveBlob(blob, documentFileName(data.document))
     } catch (err) {
       setDownloadActionError(toErrorMessage(err))
+    } finally {
+      setDownloading(false)
     }
-  }, [documentId, queryClient])
+  }, [data, documentId, queryClient])
 
   const document = data?.document
   const isNotFound =
@@ -138,8 +118,9 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             </div>
             <button
               type="button"
+              disabled={downloading}
               onClick={() => void handleDownload()}
-              className="shrink-0 rounded-md border border-border-dark-strong bg-surface-raised px-3 py-1 text-xs font-medium text-ink-dim hover:text-ink"
+              className="shrink-0 rounded-md border border-border-dark-strong bg-surface-raised px-3 py-1 text-xs font-medium text-ink-dim hover:text-ink disabled:opacity-50"
             >
               다운로드
             </button>
@@ -205,16 +186,16 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           <CenteredMessage>
             <p>미리보기를 지원하지 않는 형식입니다</p>
           </CenteredMessage>
-        ) : isDownloadPending || isRetrying ? (
+        ) : !file && isFileFetching ? (
           <CenteredMessage>원문을 불러오는 중…</CenteredMessage>
-        ) : downloadError || contentError || !downloadData ? (
+        ) : fileError || contentError || !file ? (
           <CenteredMessage>
             <p role="alert">
-              {downloadError ? toErrorMessage(downloadError) : '원문을 불러오지 못했습니다.'}
+              {fileError ? toErrorMessage(fileError) : '원문을 불러오지 못했습니다.'}
             </p>
             <button
               type="button"
-              onClick={() => void handleManualRetryContent()}
+              onClick={handleRetryContent}
               className="rounded-md border border-border-dark-strong px-3 py-1 text-ink-dim hover:text-ink"
             >
               다시 시도
@@ -223,17 +204,17 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         ) : ext === 'pdf' ? (
           <Suspense fallback={<CenteredMessage>PDF를 불러오는 중…</CenteredMessage>}>
             <PdfContent
-              key={`${documentId}-${attempt}`}
-              url={downloadData.url}
-              onError={() => void handleContentError()}
+              key={`${documentId}-${fileUpdatedAt}`}
+              file={file}
+              onError={handleContentError}
             />
           </Suspense>
         ) : (
           <MarkdownContent
             documentId={documentId}
-            url={downloadData.url}
-            attempt={attempt}
-            onError={() => void handleContentError()}
+            version={version}
+            file={file}
+            onError={handleContentError}
           />
         )}
       </div>

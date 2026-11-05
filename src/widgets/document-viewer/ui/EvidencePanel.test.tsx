@@ -7,7 +7,7 @@ import { GRAPH_TAB_ID, resetTabStore, TabBar, useTabStore } from '@/features/doc
 import type { AnswerSource } from '@/entities/answer'
 import type { DocumentDetail } from '@/entities/document'
 import type { EvidenceChunk } from '@/entities/evidence'
-import { fail, mockServer, ok } from '@/shared/testing'
+import { fail, file, mockServer, ok } from '@/shared/testing'
 import { DocumentViewer } from './DocumentViewer'
 
 const sampleDetail: DocumentDetail = {
@@ -55,7 +55,7 @@ const makeEvidence = (overrides: Partial<EvidenceChunk> = {}): EvidenceChunk => 
   page: 3,
   previousChunk: '제14조 (연차 휴가의 사용)',
   nextChunk: '이월된 연차는 상반기 안에 먼저 사용한다.',
-  downloadUrl: 'https://storage.local/evidence-secret-presigned-url',
+  downloadUrl: '/api/documents/d1/versions/v2/download',
   ...overrides,
 })
 
@@ -109,15 +109,14 @@ function renderHarness() {
   )
 }
 
+const ORIGINAL_TEXT = '# 취업규칙 원문\n\n사내 규정 본문입니다.'
+
 let restore: () => void = () => {}
 
 describe('인용 클릭부터 근거 표시까지 흐름', () => {
   beforeEach(() => {
     resetTabStore()
     resetChatStore()
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response('# 취업규칙 원문\n\n사내 규정 본문입니다.', { status: 200 }),
-    )
   })
 
   afterEach(() => {
@@ -148,9 +147,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     restore = mockServer((config) => {
       if (config.url === '/api/documents/d1') return ok(sampleDetail)
-      if (config.url === '/api/documents/d1/download-url') {
-        return ok({ url: 'https://storage.local/doc-presigned-url' })
-      }
+      if (config.url === '/api/documents/d1/download') return file(ORIGINAL_TEXT)
       if (config.url === '/api/evidence/c1') return ok(makeEvidence())
       if (config.url === '/api/evidence/c2') {
         return ok(
@@ -187,7 +184,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     // 원문 영역도 아래에 함께 표시되며 EvidenceChunk.downloadUrl은 노출되지 않습니다.
     expect(await screen.findByText('사내 규정 본문입니다.')).toBeInTheDocument()
-    expect(container.textContent).not.toContain('evidence-secret-presigned-url')
+    expect(container.textContent).not.toContain('/api/documents/d1/versions/v2/download')
 
     // 같은 문서의 다른 인용(2번 취업규칙)을 누르면 새 탭 없이 근거만 바뀌고, null 위치는 전체 강조됩니다.
     await userEvent.click(screen.getByRole('button', { name: /^2\s*취업규칙$/ }))
@@ -212,9 +209,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     restore = mockServer((config) => {
       if (config.url === '/api/documents/d1') return ok(sampleDetail)
-      if (config.url === '/api/documents/d1/download-url') {
-        return ok({ url: 'https://storage.local/doc-presigned-url' })
-      }
+      if (config.url === '/api/documents/d1/download') return file(ORIGINAL_TEXT)
       if (config.url === '/api/evidence/c1') return ok(makeEvidence())
       return fail(404, 'NOT_FOUND')
     })
@@ -243,9 +238,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     restore = mockServer((config) => {
       if (config.url === '/api/documents/d1') return ok(sampleDetail)
-      if (config.url === '/api/documents/d1/download-url') {
-        return ok({ url: 'https://storage.local/doc-presigned-url' })
-      }
+      if (config.url === '/api/documents/d1/download') return file(ORIGINAL_TEXT)
       if (config.url === '/api/evidence/outdated-chunk') return fail(404, 'NOT_FOUND')
       return fail(404, 'NOT_FOUND')
     })
@@ -269,9 +262,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
     let evidenceCalls = 0
     restore = mockServer((config) => {
       if (config.url === '/api/documents/d1') return ok(sampleDetail)
-      if (config.url === '/api/documents/d1/download-url') {
-        return ok({ url: 'https://storage.local/doc-presigned-url' })
-      }
+      if (config.url === '/api/documents/d1/download') return file(ORIGINAL_TEXT)
       if (config.url === '/api/evidence/c1') {
         evidenceCalls += 1
         return evidenceCalls === 1 ? fail(500, 'INTERNAL_ERROR') : ok(makeEvidence())

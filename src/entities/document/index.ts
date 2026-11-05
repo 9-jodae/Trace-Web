@@ -1,19 +1,20 @@
 export {
+  documentFileQuery,
   documentKeys,
+  downloadDocument,
   fetchAllDocuments,
   getDocument,
   getDocumentStatus,
-  getDownloadUrl,
   listDocuments,
   useAllDocuments,
   useDocument,
+  useDocumentFile,
   useDocumentStatus,
-  useDownloadUrl,
 } from './api/documentApi'
 export {
   adminDeleteDocument,
   adminDocumentKeys,
-  adminDownloadUrl,
+  adminDownloadDocument,
   adminGetDocument,
   adminListDocuments,
   adminReviseDocument,
@@ -31,7 +32,6 @@ export type {
   DocumentDetail,
   DocumentListParams,
   DocumentVersion,
-  DownloadUrl,
   IngestionJob,
   ProcessingStatus,
   ReviseInput,
@@ -57,6 +57,7 @@ export {
   positionLabel,
 } from './model/accessDisplay'
 export { adminErrorMessage, isNotFoundError } from './lib/adminErrorMessage'
+export { documentFileName } from './lib/fileName'
 export {
   PROCESSING_STATUS_LABEL,
   PROCESSING_STATUS_OPTIONS,

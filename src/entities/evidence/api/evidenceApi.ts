@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { request } from '@/shared/api'
 import type { EvidenceChunk } from '../model/types'
 
-/** downloadUrl 만료(15분) 전인 10분 동안 근거 조회 결과를 캐시합니다. */
+/** 근거 조회 결과를 10분 동안 캐시합니다. */
 const EVIDENCE_STALE_TIME_MS = 10 * 60 * 1000
 
 export const evidenceKeys = {

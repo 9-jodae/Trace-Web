@@ -84,13 +84,19 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   const handleContentError = useCallback(() => setFailedFileAt(fileUpdatedAt), [fileUpdatedAt])
 
-  // 원문은 비동기로 그려지므로 그릴 때마다 값을 올려 근거를 다시 찾습니다.
+  // 원문은 비동기로 그려지므로 그릴 때마다 값을 올려 근거를 다시 찾습니다. 다 그렸는지는 파일마다 따로
+  // 기억해야, 파일을 다시 받았을 때 이전 파일 값으로 "찾지 못함"이 먼저 뜨지 않습니다.
   const contentRef = useRef<HTMLDivElement>(null)
-  const [render, setRender] = useState({ version: 0, complete: false })
+  const [rendered, setRendered] = useState({ fileAt: 0, version: 0, complete: false })
   const handleRendered = useCallback(
-    (complete: boolean) => setRender((prev) => ({ version: prev.version + 1, complete })),
-    [],
+    (complete: boolean) =>
+      setRendered((prev) => ({ fileAt: fileUpdatedAt, version: prev.version + 1, complete })),
+    [fileUpdatedAt],
   )
+  const render = {
+    version: rendered.version,
+    complete: rendered.fileAt === fileUpdatedAt && rendered.complete,
+  }
 
   const evidenceQuery = useEvidence(focusChunkId)
   const evidence = evidenceQuery.data

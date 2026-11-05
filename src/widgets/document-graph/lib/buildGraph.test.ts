@@ -6,6 +6,7 @@ import {
   conflictWarning,
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
+  computeHoverRadialPositions,
   DIMMED_COLOR,
   DIMMED_EDGE_COLOR,
   separateEvidenceNodes,
@@ -438,5 +439,35 @@ describe('separateEvidenceNodes', () => {
     separateEvidenceNodes(graph, new Set(['a', 'b']), new Set(['a', 'b']))
     expect(graph.getNodeAttributes('a')).toMatchObject({ x: 0, y: 0 })
     expect(graph.getNodeAttributes('b')).toMatchObject({ x: 0, y: 0 })
+  })
+})
+
+describe('computeHoverRadialPositions', () => {
+  it('호버한 노드의 이웃을 둘레에 고르게 펼친다', () => {
+    const graph = makeGraph(
+      node('center', 0, 0),
+      node('n1', 500, 0),
+      node('n2', -500, 0),
+      node('n3', 0, 500),
+    )
+    graph.addEdge('center', 'n1')
+    graph.addEdge('center', 'n2')
+    graph.addEdge('center', 'n3')
+    const positions = computeHoverRadialPositions(graph, 'center')
+    expect(positions.size).toBe(3)
+    for (const id of ['n1', 'n2', 'n3']) {
+      const pos = positions.get(id)!
+      expect(Math.hypot(pos.x, pos.y)).toBeCloseTo(45, 5)
+    }
+  })
+
+  it('이웃이 없는 노드는 빈 맵을 돌려준다', () => {
+    const graph = makeGraph(node('a', 0, 0))
+    expect(computeHoverRadialPositions(graph, 'a').size).toBe(0)
+  })
+
+  it('그래프에 없는 노드를 호버하면 빈 맵을 돌려준다', () => {
+    const graph = makeGraph(node('a', 0, 0))
+    expect(computeHoverRadialPositions(graph, 'missing').size).toBe(0)
   })
 })

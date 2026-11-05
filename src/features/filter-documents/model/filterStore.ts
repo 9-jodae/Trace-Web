@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { SourceKind } from '@/entities/document'
 
 export interface DocumentFilterState {
   /** 서버 enum 값(HANDOVER 등) 또는 분류 전 문서를 뜻하는 'UNCLASSIFIED'. */
@@ -9,6 +10,11 @@ export interface DocumentFilterState {
   ownerDepartmentIds: string[]
   /** 작성자 이름 부분 검색. 서버에 작성자 필터 파라미터가 없어 클라이언트에서만 적용합니다. */
   authorQuery: string
+  /**
+   * 질문 검색 필터(`filters.sourceKinds`)에만 씁니다. 문서 목록에는 sourceId만 있고 종류가 없어
+   * 그래프 표시 필터링에는 쓸 수 없습니다.
+   */
+  sourceKinds: SourceKind[]
 }
 
 interface FilterStore {
@@ -16,6 +22,7 @@ interface FilterStore {
   toggleDocumentType: (value: string) => void
   toggleExtension: (value: string) => void
   toggleOwnerDepartmentId: (value: string) => void
+  toggleSourceKind: (value: SourceKind) => void
   setAuthoredFrom: (value: string | null) => void
   setAuthoredTo: (value: string | null) => void
   setAuthorQuery: (value: string) => void
@@ -29,6 +36,7 @@ const initialFilter: DocumentFilterState = {
   authoredTo: null,
   ownerDepartmentIds: [],
   authorQuery: '',
+  sourceKinds: [],
 }
 
 function toggle<T>(list: T[], value: T): T[] {
@@ -52,6 +60,10 @@ export const useDocumentFilterStore = create<FilterStore>()((set) => ({
         ...state.filter,
         ownerDepartmentIds: toggle(state.filter.ownerDepartmentIds, value),
       },
+    })),
+  toggleSourceKind: (value) =>
+    set((state) => ({
+      filter: { ...state.filter, sourceKinds: toggle(state.filter.sourceKinds, value) },
     })),
   setAuthoredFrom: (value) =>
     set((state) => ({ filter: { ...state.filter, authoredFrom: value } })),

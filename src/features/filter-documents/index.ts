@@ -1,4 +1,7 @@
 export { availableExtensions, filterDocuments, matchesFilter } from './lib/applyFilter'
+export { toQuestionFilters } from './lib/toQuestionFilters'
 export { useDocumentFilterStore } from './model/filterStore'
 export type { DocumentFilterState } from './model/filterStore'
 export { FilterBar } from './ui/FilterBar'
+export { FilterPanel } from './ui/FilterPanel'
+export { SourceKindDropdown } from './ui/SourceKindDropdown'

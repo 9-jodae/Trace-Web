@@ -15,6 +15,18 @@ export interface AnswerSource {
 }
 
 /**
+ * 질문 검색 필터(docs199-Server #48). 같은 필드의 배열 값은 OR, 서로 다른 필드는 AND입니다.
+ * 빈 배열은 서버가 400으로 거부하므로 보내지 않습니다. AI 서버가 실제로 적용하는지는 아직 미확정입니다.
+ */
+export interface AskQuestionFilters {
+  extensions?: string[]
+  documentTypes?: string[]
+  sourceKinds?: string[]
+  authoredFrom?: string
+  authoredTo?: string
+}
+
+/**
  * route, contextProbability, failedSources, fallbackReason의 값과 의미는 서버·AI 계약에
  * 아직 정해지지 않아 화면에서 해석하지 않습니다(docs/architecture.md 결정 필요 참고).
  */

@@ -78,8 +78,8 @@ function withAlpha(color: string, alpha: number): string {
 }
 
 /**
- * 근거가 없을 때(포커스 'none') 호버하지 않아도 항상 보여 줄 선. 충돌·경고는 사용자가 찾아다니지
- * 않아도 바로 보여야 하므로 호버 강조로 흐리지 않습니다.
+ * 호버하지 않아도 항상 보여 줄 선. 충돌·경고는 사용자가 찾아다니지 않아도 바로 보여야 하므로
+ * 호버 강조로 흐리지 않습니다.
  */
 function alwaysVisible(attributes: EdgeAttributes) {
   return attributes.warning === true || attributes.type === 'CONFLICTS'
@@ -108,24 +108,10 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
         backdropShadowBlur: 10,
         backdropPadding: 5,
       },
-      // 근거 포커스(buildGraph의 applyEvidenceFocus): 근거는 라벨을 항상 보여 화면에 남는 글자를
-      // 근거 주변으로 좁힙니다. 직접 연결 노드는 수가 많으면(한 근거에 여러 개) 라벨이 서로 겹쳐
-      // 뭉개지므로 'auto'로 둬서 sigma의 밀도 조절(labelRenderedSizeThreshold)이 겹치는 라벨을
-      // 알아서 줄이게 합니다. 흐린 노드는 라벨을 숨깁니다.
+      // 근거 노드는 라벨을 항상 보여서 어떤 문서가 인용됐는지 바로 알 수 있게 합니다.
       {
-        whenData: { focus: 'evidence' },
+        when: (attributes: { highlighted?: boolean }) => attributes.highlighted === true,
         then: { labelVisibility: 'visible', labelColor: '#ffffff' },
-      },
-      {
-        whenData: { focus: 'neighbor' },
-        then: { labelVisibility: 'auto', labelColor: '#cbd5e1' },
-      },
-      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
-      // 흐린 노드에 마우스를 올리면 원래 유형 색을 반쯤 되살려 어떤 문서인지 가늠하게 합니다.
-      {
-        when: (attributes: { focus?: string }, state: { isHovered: boolean }) =>
-          attributes.focus === 'dimmed' && state.isHovered,
-        then: { color: { attribute: 'baseColor' }, opacity: 0.6 },
       },
     ],
     // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
@@ -148,16 +134,6 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
       {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
-      },
-      // 근거에 닿지 않는 선은 관계 글자를 숨깁니다(색·굵기는 buildGraph가 이미 흐리게 정함).
-      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
-      // 직접 연결 노드가 여러 개면 그 선들의 관계 글자(참조·같은 주제)까지 다 보여서 근거 노드
-      // 라벨과 겹쳐 뭉개집니다. 경고·충돌 선은 사용자가 찾아다니지 않아도 바로 보여야 하므로
-      // 예외로 둡니다(클릭하면 상세 패널에서도 볼 수 있습니다).
-      {
-        when: (attributes: { focus?: string; warning?: boolean; type?: string }) =>
-          attributes.focus === 'neighbor' && !attributes.warning && attributes.type !== 'CONFLICTS',
-        then: { labelVisibility: 'hidden' },
       },
     ],
   },
@@ -208,10 +184,8 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
     }
     return base
   },
-  // 근거가 없을 때(포커스 'none')는 호버한 노드에 붙은 간선만 원래 색으로 보여 주고 나머지는
-  // 흐려서 엉켜 보이는 걸 줄입니다(충돌·경고 선은 항상 보임). 근거가 있으면 근거 포커스
-  // (buildGraph의 applyEvidenceFocus)가 이미 선을 나눠 두었으므로 여기서는 손대지 않습니다.
-  // 등장 애니메이션 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
+  // 호버한 노드에 붙은 간선만 원래 색으로 보여 주고 나머지는 흐려서 엉켜 보이는 걸 줄입니다
+  // (충돌·경고 선은 항상 보임). 등장 애니메이션 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
   edgeReducer: (
     edge: string,
     data: EdgeDisplayData,
@@ -221,7 +195,7 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
     graph: Graph<NodeAttributes, EdgeAttributes>,
   ) => {
     let base = data
-    if (attributes.focus === 'none' && !alwaysVisible(attributes)) {
+    if (!alwaysVisible(attributes)) {
       const [source, target] = graph.extremities(edge)
       const isHovered =
         hoveredNodeId !== null && (source === hoveredNodeId || target === hoveredNodeId)

@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { clsx } from 'clsx'
 import { Minus, Plus, X } from 'lucide-react'
 import type { Sigma } from 'sigma'
 import { useChatStore } from '@/features/ask-question'
@@ -12,7 +11,6 @@ import { describeEdge, focusConflictDocuments, type EdgeDetailItem } from '../li
 import {
   buildDocumentGraph,
   conflictWarning,
-  DIMMED_COLOR,
   type DocumentLink,
   type TypeLegendItem,
 } from '../lib/buildGraph'
@@ -36,7 +34,6 @@ export function DocumentGraph() {
   const evidenceDocumentIds = useChatStore((state) => state.evidenceDocumentIds)
   const answerAboutConflict = useChatStore((state) => state.answerAboutConflict)
   const graphHighlightEnabled = useChatStore((state) => state.graphHighlightEnabled)
-  const toggleGraphHighlight = useChatStore((state) => state.toggleGraphHighlight)
   const openDocument = useTabStore((state) => state.openDocument)
   const { filter } = useDocumentFilterStore()
   const localEdits = useLocalEditStore((state) => state.edits)
@@ -196,8 +193,6 @@ export function DocumentGraph() {
     [built, openDocument],
   )
 
-  const focusing = (built?.focus.evidence ?? 0) > 0
-
   if (isPending) return <Message>문서 그래프를 불러오는 중…</Message>
   if (error) {
     return (
@@ -241,10 +236,8 @@ export function DocumentGraph() {
             <div
               className="size-full"
               style={{
-                // 근거 포커스 중에는 흰 림을 빼야 흐린 노드가 테두리 때문에 다시 도드라지지 않습니다.
-                filter: focusing
-                  ? 'drop-shadow(0 0 3px rgba(96,165,250,0.35))'
-                  : 'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4)) drop-shadow(1px 2px 2px rgba(0,0,0,0.5))',
+                filter:
+                  'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4)) drop-shadow(1px 2px 2px rgba(0,0,0,0.5))',
               }}
             >
               <Suspense fallback={<Message>그래프를 준비하는 중…</Message>}>
@@ -267,14 +260,6 @@ export function DocumentGraph() {
               hasTopics={built.hasTopics}
             />
             <ZoomControls sigma={sigma} />
-            {evidenceDocumentIds.length > 0 && (
-              <FocusBar
-                enabled={graphHighlightEnabled}
-                onToggle={toggleGraphHighlight}
-                evidenceCount={built.focus.evidence}
-                neighborCount={built.focus.neighbors}
-              />
-            )}
             {rings.map((ring) => (
               <NodeRing key={ring.documentId} x={ring.x} y={ring.y} radius={ring.radius} />
             ))}
@@ -425,74 +410,6 @@ function HoverTooltip({
         {documentTypeLabel(attrs.documentType)} · .{attrs.extension}
         {attrs.authoredAt ? ` · ${attrs.authoredAt}` : ''}
       </p>
-    </div>
-  )
-}
-
-/**
- * 근거 포커스 켜기/끄기와 단계 범례. 채팅 패널의 "관계 그래프" 토글과 같은 상태를 씁니다.
- * 답변에 근거가 있을 때만 보입니다(근거가 없으면 강조할 대상이 없음).
- */
-function FocusBar({
-  enabled,
-  onToggle,
-  evidenceCount,
-  neighborCount,
-}: {
-  enabled: boolean
-  onToggle: () => void
-  evidenceCount: number
-  neighborCount: number
-}) {
-  return (
-    <div className="absolute bottom-4 left-4 flex max-w-[calc(100%-6rem)] flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[10px] border border-blue-400/20 bg-surface-raised/90 px-3 py-2 text-xs text-ink-dim shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-sm">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={onToggle}
-        className="flex items-center gap-2 font-medium text-ink"
-      >
-        <span
-          className={clsx(
-            'relative h-3.5 w-[26px] shrink-0 rounded-full transition-colors',
-            enabled ? 'bg-ink' : 'bg-white/15',
-          )}
-        >
-          <span
-            className={clsx(
-              'absolute top-0.5 left-0 size-2.5 rounded-full bg-[#111110] transition-transform',
-              enabled ? 'translate-x-[14px]' : 'translate-x-0.5',
-            )}
-          />
-        </span>
-        근거 포커스
-      </button>
-      <span aria-hidden className="h-3 w-px bg-white/15" />
-      {enabled ? (
-        <>
-          <span>
-            근거 {evidenceCount} · 직접 연결 {neighborCount}
-          </span>
-          <span aria-hidden className="h-3 w-px bg-white/15" />
-          <ul aria-label="근거 포커스 범례" className="flex items-center gap-3">
-            <li className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full border-[1.5px] border-white bg-sky-200" />
-              근거
-            </li>
-            <li className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full bg-blue-400" />
-              직접 연결
-            </li>
-            <li className="flex items-center gap-1.5 text-ink-muted">
-              <span className="size-2 rounded-full" style={{ backgroundColor: DIMMED_COLOR }} />그
-              외
-            </li>
-          </ul>
-        </>
-      ) : (
-        <span>전체 보기 중</span>
-      )}
     </div>
   )
 }

@@ -37,7 +37,10 @@ export function FilterBar() {
           <ExtensionField />
         </FilterDropdown>
 
-        <FilterDropdown label="작성 기간" active={Boolean(filter.authoredFrom || filter.authoredTo)}>
+        <FilterDropdown
+          label="작성 기간"
+          active={Boolean(filter.authoredFrom || filter.authoredTo)}
+        >
           <PeriodField />
         </FilterDropdown>
 

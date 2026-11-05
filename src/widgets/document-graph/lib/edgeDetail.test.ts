@@ -1,0 +1,85 @@
+import { describe, expect, it } from 'vitest'
+import type { GraphEdge } from '@/entities/graph'
+import { describeEdge } from './edgeDetail'
+
+const edge = (values: Partial<GraphEdge>): GraphEdge => ({
+  id: 'e',
+  source: 'a',
+  target: 'b',
+  type: 'REFERENCES',
+  label: '참조',
+  detail: null,
+  ...values,
+})
+
+const titleOf = (id: string) => `문서 ${id}`
+
+describe('describeEdge', () => {
+  it('충돌은 문서별 값을 보여 주고 맨 앞에 둔다', () => {
+    const items = describeEdge({
+      source: 'b',
+      target: 'a',
+      titleOf,
+      edges: [
+        edge({}),
+        edge({
+          type: 'CONFLICTS',
+          detail: { item: '이월 일수', thisValue: '5일', otherValue: '7일' },
+        }),
+        edge({ source: 'a', target: 'c', type: 'CONFLICTS' }),
+      ],
+    })
+    expect(items[0]).toEqual({
+      kind: 'CONFLICT',
+      item: '이월 일수',
+      values: [
+        { title: '문서 a', value: '5일' },
+        { title: '문서 b', value: '7일' },
+      ],
+    })
+    expect(items).toHaveLength(2)
+  })
+
+  it('참조받는 문서가 수정되면 어느 문서를 확인할지 알려 준다', () => {
+    const items = describeEdge({
+      source: 'a',
+      target: 'b',
+      titleOf,
+      edges: [edge({})],
+      modifiedDocuments: [{ id: 'b', title: '문서 b' }],
+    })
+    expect(items[0]).toEqual({
+      kind: 'MODIFIED',
+      modifiedTitle: '문서 b',
+      referrerTitle: '문서 a',
+    })
+  })
+
+  it('참조하는 쪽이 수정된 경우와 해소한 충돌은 경고하지 않는다', () => {
+    const items = describeEdge({
+      source: 'a',
+      target: 'b',
+      titleOf,
+      edges: [
+        edge({}),
+        edge({
+          type: 'CONFLICTS',
+          detail: { item: '이월', thisValue: '5일', otherValue: '7일' },
+        }),
+      ],
+      modifiedDocuments: [{ id: 'a', title: '문서 a' }],
+      resolvedDocumentIds: ['b'],
+    })
+    expect(items.map((item) => item.kind)).toEqual(['REFERENCE'])
+  })
+
+  it('주제를 보여 준다', () => {
+    const items = describeEdge({
+      source: 'a',
+      target: 'b',
+      titleOf,
+      edges: [edge({ type: 'TOPIC', label: '보안', detail: { topics: ['보안', '인사'] } })],
+    })
+    expect(items).toEqual([{ kind: 'TOPIC', topics: ['보안', '인사'] }])
+  })
+})

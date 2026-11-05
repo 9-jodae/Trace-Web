@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, X } from 'lucide-react'
 import type { Sigma } from 'sigma'
 import { useChatStore } from '@/features/ask-question'
 import { useTabStore } from '@/features/document-tabs'
@@ -7,6 +7,7 @@ import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/f
 import { useAllDocuments, documentTypeLabel, useLocalEditStore } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
+import { describeEdge, type EdgeDetailItem } from '../lib/edgeDetail'
 import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
 import type { NodeHover } from './SigmaCanvas'
 
@@ -81,6 +82,26 @@ export function DocumentGraph() {
   }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments, resolvedDocumentIds])
 
   const [sigma, setSigma] = useState<Sigma | null>(null)
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
+  const edgeDetail = useMemo(() => {
+    if (!built || !selectedEdge || !built.graph.hasEdge(selectedEdge)) return null
+    const [source, target] = built.graph.extremities(selectedEdge) as [string, string]
+    const titleOf = (id: string) =>
+      built.graph.hasNode(id) ? built.graph.getNodeAttribute(id, 'label') : id
+    return {
+      source,
+      target,
+      title: `${titleOf(source)} ↔ ${titleOf(target)}`,
+      items: describeEdge({
+        source,
+        target,
+        edges: graphData?.edges ?? [],
+        titleOf,
+        modifiedDocuments,
+        resolvedDocumentIds,
+      }),
+    }
+  }, [built, selectedEdge, graphData, modifiedDocuments, resolvedDocumentIds])
 
   // 드래그가 끝나면 sigma 그래프에 반영된 최종 좌표를 기억합니다.
   useEffect(() => {
@@ -197,6 +218,7 @@ export function DocumentGraph() {
                 <SigmaCanvas
                   graph={built.graph}
                   onNodeClick={onNodeClick}
+                  onEdgeClick={setSelectedEdge}
                   onNodeHover={setHover}
                   onReady={onReady}
                 />
@@ -218,6 +240,13 @@ export function DocumentGraph() {
             {badges.map((badge) => (
               <EvidenceBadge key={badge.documentId} order={badge.order} x={badge.x} y={badge.y} />
             ))}
+            {edgeDetail && (
+              <EdgeDetailPanel
+                title={edgeDetail.title}
+                items={edgeDetail.items}
+                onClose={() => setSelectedEdge(null)}
+              />
+            )}
             {hover && built.graph.hasNode(hover.nodeId) && (
               <HoverTooltip hover={hover} graph={built.graph} />
             )}
@@ -226,6 +255,74 @@ export function DocumentGraph() {
       </div>
     </div>
   )
+}
+
+/** 선을 눌렀을 때 두 문서 사이의 관계와 문제를 보여 줍니다. */
+function EdgeDetailPanel({
+  title,
+  items,
+  onClose,
+}: {
+  title: string
+  items: EdgeDetailItem[]
+  onClose: () => void
+}) {
+  return (
+    <section
+      aria-label="관계 내용"
+      className="absolute right-3 bottom-3 z-10 flex max-h-[60%] w-80 flex-col gap-2 overflow-y-auto rounded-xl border border-blue-400/20 bg-surface-raised p-3 text-sm text-ink"
+    >
+      <header className="flex items-start justify-between gap-2">
+        <h3 className="font-semibold">{title}</h3>
+        <button type="button" aria-label="닫기" onClick={onClose} className="text-ink-muted">
+          <X className="size-4" aria-hidden />
+        </button>
+      </header>
+      {items.map((item, index) => (
+        <EdgeDetailRow key={`${item.kind}-${index}`} item={item} />
+      ))}
+    </section>
+  )
+}
+
+function EdgeDetailRow({ item }: { item: EdgeDetailItem }) {
+  switch (item.kind) {
+    case 'CONFLICT':
+      return (
+        <div className="rounded-md bg-red-400/10 p-2">
+          <p className="font-semibold text-red-300">경고! 내용 충돌 · {item.item}</p>
+          <ul className="mt-1 text-ink-dim">
+            {item.values.map(({ title, value }) => (
+              <li key={title}>
+                {title}: <strong className="text-ink">{value}</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-ink-muted">어느 값이 맞는지 담당자 확인이 필요합니다.</p>
+        </div>
+      )
+    case 'MODIFIED':
+      return (
+        <div className="rounded-md bg-red-400/10 p-2">
+          <p className="font-semibold text-red-300">경고! 내용 확인 필요</p>
+          <p className="mt-1 text-ink-dim">
+            {item.modifiedTitle}이(가) 수정됐습니다. 이 문서를 참조하는 {item.referrerTitle}의
+            내용을 다시 확인해 주세요.
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            수정 여부만 본 경고이며 실제 내용을 비교한 결과는 아닙니다.
+          </p>
+        </div>
+      )
+    case 'TOPIC':
+      return <p className="text-ink-dim">같은 주제: {item.topics.join(', ')}</p>
+    case 'REFERENCE':
+      return (
+        <p className="text-ink-dim">
+          {item.fromTitle}이(가) {item.toTitle}을(를) 참조합니다.
+        </p>
+      )
+  }
 }
 
 /** 근거 노드를 감싸는 링 글로우. 노드 자체는 평범한 원이라 이 링으로 "타겟" 느낌을 더합니다. */

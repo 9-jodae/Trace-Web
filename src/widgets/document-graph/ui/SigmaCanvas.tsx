@@ -53,6 +53,8 @@ const SIGMA_OPTIONS = {
     // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
     enableNodeDrag: true,
     renderEdgeLabels: true,
+    // 선을 눌러 관계 내용을 봅니다.
+    enableEdgeEvents: true,
   },
 }
 
@@ -60,11 +62,13 @@ const SIGMA_OPTIONS = {
 export default function SigmaCanvas({
   graph,
   onNodeClick,
+  onEdgeClick,
   onNodeHover,
   onReady,
 }: {
   graph: Graph<NodeAttributes>
   onNodeClick: (documentId: string) => void
+  onEdgeClick?: (edge: string | null) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
 }) {
@@ -77,7 +81,12 @@ export default function SigmaCanvas({
       options={SIGMA_OPTIONS as never}
     >
       <GraphLoader graph={graph} />
-      <GraphEvents onNodeClick={onNodeClick} onNodeHover={onNodeHover} onReady={onReady} />
+      <GraphEvents
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onNodeHover={onNodeHover}
+        onReady={onReady}
+      />
     </SigmaContainer>
   )
 }
@@ -92,10 +101,12 @@ function GraphLoader({ graph }: { graph: Graph<NodeAttributes> }) {
 
 function GraphEvents({
   onNodeClick,
+  onEdgeClick,
   onNodeHover,
   onReady,
 }: {
   onNodeClick: (documentId: string) => void
+  onEdgeClick?: (edge: string | null) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
 }) {
@@ -109,6 +120,10 @@ function GraphEvents({
   useEffect(() => {
     registerEvents({
       clickNode: ({ node }) => onNodeClick(node),
+      clickEdge: ({ edge }) => onEdgeClick?.(edge),
+      clickStage: () => onEdgeClick?.(null),
+      enterEdge: () => sigma.getContainer().style.setProperty('cursor', 'pointer'),
+      leaveEdge: () => sigma.getContainer().style.removeProperty('cursor'),
       enterNode: ({ node, event }) => {
         // 'grab'으로 눌러서 끌 수 있다는 걸 알려줍니다.
         sigma.getContainer().style.setProperty('cursor', 'grab')
@@ -128,6 +143,6 @@ function GraphEvents({
         sigma.getContainer().style.setProperty('cursor', 'grab')
       },
     })
-  }, [registerEvents, sigma, onNodeClick, onNodeHover])
+  }, [registerEvents, sigma, onNodeClick, onEdgeClick, onNodeHover])
   return null
 }

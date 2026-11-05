@@ -327,3 +327,34 @@ export function buildDocumentGraph({
 
   return { graph, legend, hasReferences, hasConflicts, hasTopics }
 }
+
+/** 근거 문서(hop 0)에서 몇 단계(hop) 떨어져 있는지. 이 거리까지만 "가지 뻗기" 애니메이션으로 보여줍니다. */
+export const MAX_BRANCH_HOP = 2
+
+/**
+ * 근거 문서들(`roots`, hop 0)에서 연결선을 따라 최대 `maxHop` 단계까지 너비 우선으로 퍼뜨려,
+ * 문서마다 근거로부터 몇 단계 떨어져 있는지 구합니다. 여러 근거에서 동시에 퍼뜨리므로(다중 시작점
+ * BFS), 어느 근거를 통해서든 더 가까운 쪽의 hop이 남습니다. 그래프에 없는 근거 id는 무시합니다.
+ */
+export function computeHopMap(
+  graph: Graph<NodeAttributes>,
+  roots: string[],
+  maxHop: number = MAX_BRANCH_HOP,
+): Map<string, number> {
+  const hops = new Map<string, number>()
+  let frontier = roots.filter((id) => graph.hasNode(id))
+  for (const id of frontier) hops.set(id, 0)
+
+  for (let hop = 1; hop <= maxHop && frontier.length > 0; hop++) {
+    const next: string[] = []
+    for (const nodeId of frontier) {
+      graph.forEachNeighbor(nodeId, (neighbor) => {
+        if (hops.has(neighbor)) return
+        hops.set(neighbor, hop)
+        next.push(neighbor)
+      })
+    }
+    frontier = next
+  }
+  return hops
+}

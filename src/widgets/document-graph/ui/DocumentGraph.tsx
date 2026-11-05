@@ -8,13 +8,16 @@ import { useAllDocuments, documentTypeLabel } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
 import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
-import type { NodeHover } from './SigmaCanvas'
+import type { EdgeReveal, NodeHover } from './SigmaCanvas'
 
 const SigmaCanvas = lazy(() => import('./SigmaCanvas'))
 
 function supportsWebGL() {
   return typeof window !== 'undefined' && 'WebGL2RenderingContext' in window
 }
+
+/** "선이 그어지는" 오버레이 하나가 다 그려지는 데 걸리는 시간. */
+const GROWING_EDGE_DURATION_MS = 500
 
 /**
  * 볼 수 있는 모든 문서를 한꺼번에 노드로 표시하고 유형별로 색을 나눕니다.
@@ -92,6 +95,18 @@ export function DocumentGraph() {
 
   const onReady = useCallback((instance: Sigma) => setSigma(instance), [])
 
+  // 가지 뻗기 애니메이션으로 간선이 막 나타날 때 잠깐(GROWING_EDGE_DURATION_MS) "선이 그어지는"
+  // 효과를 보여줍니다. sigma가 그 간선을 실제로 밝게 그리기 시작하는 시점과 거의 같이 끝나도록
+  // SigmaCanvas의 가지 등장 애니메이션(hopPopProgress)과 비슷한 길이로 둡니다.
+  const [growingEdges, setGrowingEdges] = useState<(EdgeReveal & { key: string })[]>([])
+  const onEdgeReveal = useCallback((edge: EdgeReveal) => {
+    const key = `${edge.id}-${Date.now()}`
+    setGrowingEdges((prev) => [...prev, { ...edge, key }])
+    setTimeout(() => {
+      setGrowingEdges((prev) => prev.filter((e) => e.key !== key))
+    }, GROWING_EDGE_DURATION_MS)
+  }, [])
+
   // 근거 노드 배지·링 글로우는 카메라(줌·팬)가 바뀔 때마다 화면 좌표를 다시 계산해야 제자리에 붙어 있습니다.
   useEffect(() => {
     if (!sigma || effectiveEvidenceIds.length === 0) {
@@ -167,24 +182,34 @@ export function DocumentGraph() {
               패널은 이 바깥에 둬서 또렷하게 유지합니다.
               drop-shadow는 캔버스의 투명 배경 위에서 각 원의 알파 윤곽을 따라가므로,
               블러를 아주 작게 주면 원마다 테두리처럼 보이는 효과를 낼 수 있습니다.
-              - 1px 밝은 림(테두리 강조) + 4px 블루 글로우(은은한 색 강조), 두 겹을 쌓았습니다.
+              - 1px 밝은 림(테두리 강조) + 4px 블루 글로우(은은한 색 강조) + 아래로 치우친 어두운
+              그림자(왼쪽 위에서 빛이 오는 것처럼 보이게 해 입체감을 더함), 세 겹을 쌓았습니다.
             */}
             <div
               className="size-full"
               style={{
                 filter:
-                  'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4))',
+                  'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4)) drop-shadow(1px 2px 2px rgba(0,0,0,0.5))',
               }}
             >
               <Suspense fallback={<Message>그래프를 준비하는 중…</Message>}>
                 <SigmaCanvas
                   graph={built.graph}
+                  evidenceDocumentIds={effectiveEvidenceIds}
                   onNodeClick={onNodeClick}
                   onNodeHover={setHover}
+                  onEdgeReveal={onEdgeReveal}
                   onReady={onReady}
                 />
               </Suspense>
             </div>
+            {sigma && growingEdges.length > 0 && (
+              <svg className="pointer-events-none absolute inset-0 size-full">
+                {growingEdges.map((edge) => (
+                  <GrowingEdgeLine key={edge.key} sigma={sigma} edge={edge} />
+                ))}
+              </svg>
+            )}
             {/* 범례는 서버가 보낸 전체 링크가 아니라 실제로 그려진 엣지 기준입니다(같은 문서
                 쌍에 참조·충돌이 둘 다 있으면 충돌 선만 그려지므로, 범례도 그에 맞춰야 합니다). */}
             <Legend
@@ -207,6 +232,46 @@ export function DocumentGraph() {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * 가지 뻗기 애니메이션으로 간선이 나타날 때, source에서 target 쪽으로 끝점이 점점 자라나는
+ * "선이 그어지는" 효과를 보여줍니다. 매 프레임 다시 그려서 카메라를 움직여도 따라옵니다.
+ * GROWING_EDGE_DURATION_MS가 지나면 DocumentGraph가 이 컴포넌트를 치우고, 그 자리는
+ * sigma가 그리는 실제 간선이 이어받습니다.
+ */
+function GrowingEdgeLine({ sigma, edge }: { sigma: Sigma; edge: EdgeReveal }) {
+  const [progress, setProgress] = useState(0)
+  const frameRef = useRef(0)
+
+  useEffect(() => {
+    const start = performance.now()
+    const tick = (now: number) => {
+      const next = Math.min(1, (now - start) / GROWING_EDGE_DURATION_MS)
+      setProgress(next)
+      if (next < 1) frameRef.current = requestAnimationFrame(tick)
+    }
+    frameRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [])
+
+  const sourceDisplay = sigma.getNodeDisplayData(edge.source)
+  const targetDisplay = sigma.getNodeDisplayData(edge.target)
+  if (!sourceDisplay || !targetDisplay) return null
+  const from = sigma.framedGraphToViewport(sourceDisplay)
+  const to = sigma.framedGraphToViewport(targetDisplay)
+
+  return (
+    <line
+      x1={from.x}
+      y1={from.y}
+      x2={from.x + (to.x - from.x) * progress}
+      y2={from.y + (to.y - from.y) * progress}
+      stroke={edge.color}
+      strokeWidth={2.5}
+      strokeLinecap="round"
+    />
   )
 }
 

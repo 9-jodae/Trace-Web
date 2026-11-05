@@ -5,6 +5,7 @@ import { documentTypeColor } from '@/entities/document'
 import {
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
+  computeHopMap,
   DIMMED_COLOR,
   separateEvidenceNodes,
   typeLegend,
@@ -299,5 +300,35 @@ describe('separateEvidenceNodes', () => {
     separateEvidenceNodes(graph, new Set(['a', 'b']), new Set(['a', 'b']))
     expect(graph.getNodeAttributes('a')).toMatchObject({ x: 0, y: 0 })
     expect(graph.getNodeAttributes('b')).toMatchObject({ x: 0, y: 0 })
+  })
+})
+
+describe('computeHopMap', () => {
+  it('근거 노드는 hop 0, 연결선을 따라 한 단계씩 hop이 늘어난다', () => {
+    const graph = makeGraph(node('a', 0, 0), node('b', 1, 0), node('c', 2, 0), node('d', 3, 0))
+    graph.addEdge('a', 'b')
+    graph.addEdge('b', 'c')
+    graph.addEdge('c', 'd')
+    const hops = computeHopMap(graph, ['a'], 2)
+    expect(hops.get('a')).toBe(0)
+    expect(hops.get('b')).toBe(1)
+    expect(hops.get('c')).toBe(2)
+    expect(hops.has('d')).toBe(false)
+  })
+
+  it('근거가 여러 개면 더 가까운 쪽의 hop이 남는다', () => {
+    const graph = makeGraph(node('a', 0, 0), node('b', 1, 0), node('c', 2, 0))
+    graph.addEdge('a', 'b')
+    graph.addEdge('b', 'c')
+    const hops = computeHopMap(graph, ['a', 'c'], 2)
+    expect(hops.get('a')).toBe(0)
+    expect(hops.get('c')).toBe(0)
+    expect(hops.get('b')).toBe(1)
+  })
+
+  it('그래프에 없는 근거 id는 무시한다', () => {
+    const graph = makeGraph(node('a', 0, 0))
+    const hops = computeHopMap(graph, ['missing'], 2)
+    expect(hops.size).toBe(0)
   })
 })

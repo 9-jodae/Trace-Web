@@ -2,6 +2,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { useChatStore } from '@/features/ask-question'
 import { ChatPanel } from '@/widgets/chat-panel'
 import { DocumentGraph } from '@/widgets/document-graph'
+import { DocumentViewer } from '@/widgets/document-viewer'
 import { EditorArea } from '@/widgets/editor-area'
 import { HomeComposer } from '@/widgets/home-composer'
 import { Sidebar } from '@/widgets/sidebar'
@@ -19,7 +20,10 @@ export function WorkspacePage() {
       {hasConversation ? (
         <Group orientation="horizontal" className="min-h-0 flex-1">
           <Panel defaultSize="63" minSize="30">
-            <EditorArea graph={<DocumentGraph />} />
+            <EditorArea
+              graph={<DocumentGraph />}
+              renderDocument={(id) => <DocumentViewer key={id} documentId={id} />}
+            />
           </Panel>
           <Separator className="w-px bg-border-dark hover:bg-white/20" />
           <Panel defaultSize="37" minSize="24">

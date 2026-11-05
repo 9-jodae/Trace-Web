@@ -41,3 +41,34 @@ export interface DocumentListParams {
   page?: number
   size?: number
 }
+
+export interface DocumentVersion {
+  id: string
+  number: number
+  fileSize: number
+  contentHash: string
+  uploadedBy: string | null
+  createdAt: string
+}
+
+export interface IngestionJob {
+  id: string
+  versionId: string
+  status: ProcessingStatus
+  errorMessage: string | null
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+// GET /api/documents/{id}
+export interface DocumentDetail {
+  document: Document
+  departmentIds: string[]
+  versions: DocumentVersion[]
+  job: IngestionJob | null
+}
+
+// GET /api/documents/{id}/download-url
+export interface DownloadUrl {
+  url: string
+}

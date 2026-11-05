@@ -1,5 +1,25 @@
-export { documentKeys, fetchAllDocuments, listDocuments, useAllDocuments } from './api/documentApi'
-export type { Document, DocumentListParams, ProcessingStatus, SourceKind } from './model/types'
+export {
+  documentKeys,
+  fetchAllDocuments,
+  getDocument,
+  getDocumentStatus,
+  getDownloadUrl,
+  listDocuments,
+  useAllDocuments,
+  useDocument,
+  useDocumentStatus,
+  useDownloadUrl,
+} from './api/documentApi'
+export type {
+  Document,
+  DocumentDetail,
+  DocumentListParams,
+  DocumentVersion,
+  DownloadUrl,
+  IngestionJob,
+  ProcessingStatus,
+  SourceKind,
+} from './model/types'
 export {
   DOCUMENT_TYPE_COLOR,
   DOCUMENT_TYPE_LABEL,

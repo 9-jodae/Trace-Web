@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { mockServer, ok } from '@/shared/testing'
-import { fetchAllDocuments } from './documentApi'
+import {
+  documentKeys,
+  fetchAllDocuments,
+  getDocument,
+  getDocumentStatus,
+  getDownloadUrl,
+} from './documentApi'
 
 let restore: () => void = () => {}
 
@@ -34,5 +40,33 @@ describe('fetchAllDocuments', () => {
 
     expect(await fetchAllDocuments()).toEqual([])
     expect(calls).toBe(1)
+  })
+})
+
+describe('문서 단건 API', () => {
+  afterEach(() => restore())
+
+  it('문서 ID를 인코딩해 상세·다운로드 URL·상태 엔드포인트를 호출한다', async () => {
+    const urls: string[] = []
+    restore = mockServer((config) => {
+      urls.push(config.url ?? '')
+      if (config.url?.endsWith('/download-url'))
+        return ok({ url: 'https://storage.local/presigned' })
+      if (config.url?.endsWith('/status')) return ok(null)
+      return ok({ document: { id: 'doc/1' }, departmentIds: [], versions: [], job: null })
+    })
+
+    await getDocument('doc/1')
+    await getDownloadUrl('doc/1')
+    await getDocumentStatus('doc/1')
+
+    expect(urls).toEqual([
+      '/api/documents/doc%2F1',
+      '/api/documents/doc%2F1/download-url',
+      '/api/documents/doc%2F1/status',
+    ])
+    expect(documentKeys.detail('d1')).toEqual(['document', 'detail', 'd1'])
+    expect(documentKeys.downloadUrl('d1')).toEqual(['document', 'downloadUrl', 'd1'])
+    expect(documentKeys.status('d1')).toEqual(['document', 'status', 'd1'])
   })
 })

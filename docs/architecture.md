@@ -6,14 +6,14 @@
 
 폴더는 [Feature-Sliced Design](https://feature-sliced.design/kr/)을 따릅니다. 위 레이어는 아래 레이어만 가져올 수 있고, 같은 레이어의 다른 슬라이스는 가져올 수 없습니다.
 
-| 레이어     | 역할                                    | 현재 슬라이스                                                                       |
-| ---------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)                                         |
-| `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`                                                                |
-| `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph`, `sidebar`, `home-composer`           |
-| `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`, `filter-documents`, `conversation-history` |
-| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`, `conversation`, `evidence`              |
-| `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `testing`)                                          |
+| 레이어     | 역할                                    | 현재 슬라이스                                                                                |
+| ---------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)                                                  |
+| `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`                                                                         |
+| `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph`, `document-viewer`, `sidebar`, `home-composer` |
+| `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`, `filter-documents`, `conversation-history`          |
+| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`, `conversation`, `evidence`                       |
+| `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `testing`)                                                   |
 
 ```
 src/
@@ -27,9 +27,10 @@ src/
     login/                  로그인 화면
     workspace/              메인 화면 (그래프·문서 탭 + 채팅)
   widgets/
-    editor-area/            그래프·문서 탭 영역 (그래프는 페이지가 넣어 줌)
+    editor-area/            그래프·문서 탭 영역 (그래프와 문서 뷰어는 페이지가 넣어 줌)
     chat-panel/             채팅 패널 (근거를 누르면 문서 탭 열기)
     document-graph/         Sigma.js 문서 그래프 (lib: 그래프 구성·배치·색)
+    document-viewer/        문서 상세 정보와 PDF·Markdown 원문 뷰어
     sidebar/                왼쪽 네비게이션 (새 질문, 최근 질문, 프로필)
     home-composer/          첫 질문 전 홈 화면 (가운데 입력창 + 추천 질문)
   features/
@@ -40,7 +41,7 @@ src/
     conversation-history/   과거 대화를 메시지 목록으로 재구성해서 열기
   entities/
     user/                   사용자 타입과 GET /api/users/me
-    document/               문서 타입과 GET /api/documents
+    document/               문서 타입과 목록·상세·다운로드·처리 상태 API
     department/             부서 타입과 GET /api/departments
     answer/                 질문 API(POST /api/conversations/messages)와 답변 타입
     conversation/           대화 목록·상세 API (GET /api/conversations[/{id}])
@@ -59,6 +60,7 @@ src/
 - 왼쪽 네비게이션(사이드바)은 항상 보입니다. 대화가 없으면("홈") 가운데 큰 입력창과 추천 질문을 보여주고, 첫 질문을 보내면 그래프·문서 탭 + 채팅 레이아웃("답변")으로 바뀝니다. 둘 다 같은 라우트(`/`)의 `WorkspacePage` 안에서 `messages.length`로 전환하며, 별도 라우트를 두지 않습니다.
 - 왼쪽 탭 영역은 고정된 그래프 탭과, 연 순서대로 쌓이는 문서 탭으로 구성합니다. 같은 문서를 다시 열면 기존 탭으로 이동합니다.
 - 그래프 탭은 볼 수 있는 모든 문서를 노드로 한꺼번에 보여주고 문서 유형별로 색을 나눕니다. 노드를 누르면 문서 탭이 열립니다. 서버가 권한 범위의 문서만 주므로 권한 없는 문서는 나타나지 않습니다.
+- 문서 탭은 문서 정보와 버전·처리 상태를 보여주고, 확장자에 따라 PDF(`react-pdf`)와 Markdown(`react-markdown`) 원문을 표시합니다. 처리 중인 문서는 5초마다 상태를 다시 확인해 완료되면 자동으로 갱신합니다.
 - 오른쪽 채팅 패널에서 질문하면 서버의 질문 API로 보냅니다. 단건 응답이고 최대 70초까지 걸릴 수 있어 대기 문구를 보여줍니다. 첫 질문은 새 대화를 만들고, 이후 질문은 같은 대화에 이어서 보냅니다.
 - 답변의 근거를 누르면 해당 문서 탭이 열리고, 가장 최근 답변의 근거 문서는 그래프에서 강조됩니다. 새 질문을 하면 이전 강조를 지웁니다.
 - 실패한 요청은 서버 오류 코드에 맞는 한국어 문구로 화면에 표시합니다.
@@ -81,7 +83,7 @@ src/
 ### 보류
 
 - **답변 상태 구분**(찾을 수 없음, 검색이 필요 없는 질문): 서버·AI에 해당 응답 값이 정해지면 따릅니다. 지금은 `route`, `fallbackReason` 등을 해석하지 않고 답변 문장과 근거만 보여줍니다.
-- **원문 보기와 근거 하이라이트**: 근거 조회 API의 위치값은 청크 텍스트 안의 위치이고 PDF는 좌표가 없어, 원본 뷰어 위에 하이라이트할 수 있는지가 구현 가능 여부에 달려 있습니다. 문서 탭은 지금 안내 문구만 보여줍니다.
+- **원문 안 근거 하이라이트**: 근거 조회 API의 위치값은 청크 텍스트 안의 위치이고 PDF는 좌표가 없어, 원본 뷰어 위에 하이라이트할 수 있는지가 구현 가능 여부에 달려 있습니다.
 - **답변 문장 단위 인용**: 디자인은 답변 문장 안에 근거 번호를 바로 붙이는데, `AnswerSource`에는 답변 텍스트 안에서의 위치가 없어(청크 안 위치만 있음) 구현할 수 없습니다. 지금처럼 답변 아래에 출처 목록으로만 보여줍니다.
 - **디자인의 8개 문서 유형(규정/매뉴얼/회의록 포함)**: Figma 목업은 서버 enum에 없는 유형까지 가정하고 있습니다. 분류 체계가 서버 enum을 포함해 넓어지기 전까지는 실제 5종만 씁니다.
 - **문서 폐지/이전 버전 표시**: 디자인에 있는 "(폐지)" 마커는 문서 간 관계(버전 승계)를 나타내는 서버 데이터가 없어 구현하지 않았습니다. 엣지 API(#22)와 함께 정해질 것 같습니다.

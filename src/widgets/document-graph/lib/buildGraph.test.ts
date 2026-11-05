@@ -7,6 +7,7 @@ import {
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
   computeHoverRadialPositions,
+  EVIDENCE_EDGE_LABEL,
   DIMMED_COLOR,
   DIMMED_EDGE_COLOR,
   separateEvidenceNodes,
@@ -469,5 +470,31 @@ describe('computeHoverRadialPositions', () => {
   it('그래프에 없는 노드를 호버하면 빈 맵을 돌려준다', () => {
     const graph = makeGraph(node('a', 0, 0))
     expect(computeHoverRadialPositions(graph, 'missing').size).toBe(0)
+  })
+})
+
+describe('답변 근거 잇기', () => {
+  const docs = [doc('a', null), doc('b', null), doc('c', null), doc('d', null)]
+
+  it('질문 전에는 선을 새로 만들지 않는다', () => {
+    const { graph } = buildDocumentGraph({ documents: docs })
+    expect(graph.size).toBe(0)
+  })
+
+  it('근거 문서를 순서대로 잇고 실제 관계가 있으면 그 선을 쓴다', () => {
+    const { graph, hasEvidenceLinks } = buildDocumentGraph({
+      documents: docs,
+      links: [{ source: 'a', target: 'b', type: 'REFERENCES', label: '참조' }],
+      evidenceDocumentIds: ['a', 'b', 'c'],
+    })
+    expect(graph.getEdgeAttribute(graph.edge('a', 'b') as string, 'type')).toBe('REFERENCES')
+    const added = graph.edge('b', 'c') as string
+    expect(graph.getEdgeAttributes(added)).toMatchObject({
+      type: 'EVIDENCE',
+      label: EVIDENCE_EDGE_LABEL,
+      focus: 'evidence',
+    })
+    expect(graph.hasEdge('c', 'd')).toBe(false)
+    expect(hasEvidenceLinks).toBe(true)
   })
 })

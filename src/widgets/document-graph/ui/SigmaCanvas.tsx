@@ -156,6 +156,10 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },
+      {
+        when: (attributes: { type?: string }) => attributes.type === 'EVIDENCE',
+        then: { labelColor: '#bae6fd' },
+      },
       // 근거에 닿지 않는 선은 관계 글자를 숨깁니다(색·굵기는 buildGraph가 이미 흐리게 정함).
       { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
       // 직접 연결 노드가 여러 개면 그 선들의 관계 글자(참조·같은 주제)까지 다 보여서 근거 노드

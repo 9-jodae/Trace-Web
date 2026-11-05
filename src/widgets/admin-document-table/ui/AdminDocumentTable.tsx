@@ -11,6 +11,7 @@ import {
   PROCESSING_STATUS_LABEL,
   PROCESSING_STATUS_OPTIONS,
   useAdminDocuments,
+  useAdminDocumentSearch,
   type Document,
 } from '@/entities/document'
 import { buttonSecondary } from '@/shared/ui'
@@ -37,17 +38,31 @@ export function AdminDocumentTable({
   /** 상세로 이동할 때 넘길 라우터 state(뒤로 가기 시 필터 유지용) */
   detailLinkState?: unknown
 }) {
-  const { data, isPending, isFetching, error, refetch } = useAdminDocuments({
+  const filters = {
     sourceId: query.sourceId ?? undefined,
     status: query.status ?? undefined,
     documentType: query.documentType ?? undefined,
-    page: query.page,
-    size: ADMIN_PAGE_SIZE,
-  })
+  }
+  const keyword = query.search.trim().toLowerCase()
+  const listed = useAdminDocuments({ ...filters, page: query.page, size: ADMIN_PAGE_SIZE })
+  const searched = useAdminDocumentSearch(filters, keyword !== '')
+  // 검색어가 있으면 같은 필터의 전체 목록에서 제목·경로로 거르고 화면에서 페이지를 나눕니다
+  const data = keyword ? searchPage(searched.data, keyword, query.page) : listed.data
+  const { isPending, isFetching, error, refetch } = keyword ? searched : listed
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 text-xs text-ink-muted">
+          검색
+          <input
+            type="search"
+            value={query.search}
+            onChange={(event) => onQueryChange({ search: event.target.value, page: 0 })}
+            placeholder="제목·경로"
+            className={`${selectClass} w-56 placeholder:text-ink-muted`}
+          />
+        </label>
         <label className="flex items-center gap-2 text-xs text-ink-muted">
           처리 상태
           <select
@@ -200,4 +215,17 @@ function DocumentRow({ document, linkState }: { document: Document; linkState?: 
       </td>
     </tr>
   )
+}
+
+function searchPage(documents: Document[] | undefined, keyword: string, page: number) {
+  if (!documents) return undefined
+  const items = documents.filter(
+    (document) =>
+      document.title.toLowerCase().includes(keyword) ||
+      document.relativePath.toLowerCase().includes(keyword),
+  )
+  return {
+    items: items.slice(page * ADMIN_PAGE_SIZE, (page + 1) * ADMIN_PAGE_SIZE),
+    totalPages: Math.ceil(items.length / ADMIN_PAGE_SIZE),
+  }
 }

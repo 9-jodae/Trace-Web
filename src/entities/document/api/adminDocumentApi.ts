@@ -98,6 +98,31 @@ export function adminDeleteDocument(id: string) {
   return request<{ deleted: boolean }>({ method: 'DELETE', url: adminUrl(id) })
 }
 
+/** 검색용으로 같은 필터의 관리자 목록을 모든 페이지까지 받습니다. 서버 목록 API에는 제목 검색이 없습니다. */
+async function adminListAllDocuments(params: AdminDocumentListParams) {
+  const size = 100
+  const first = await adminListDocuments({ ...params, page: 0, size })
+  if (first.totalPages <= 1) return first.items
+  const rest = await Promise.all(
+    Array.from({ length: first.totalPages - 1 }, (_, index) =>
+      adminListDocuments({ ...params, page: index + 1, size }),
+    ),
+  )
+  return [first, ...rest].flatMap((result) => result.items)
+}
+
+/** 제목·경로 검색. 검색어가 있을 때만 전체 페이지를 받고, 거르기는 화면에서 합니다. */
+export function useAdminDocumentSearch(
+  params: Omit<AdminDocumentListParams, 'page' | 'size'>,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...adminDocumentKeys.list(params), 'all'] as const,
+    queryFn: () => adminListAllDocuments(params),
+    enabled,
+  })
+}
+
 export function useAdminDocuments(params: AdminDocumentListParams) {
   return useQuery({
     queryKey: adminDocumentKeys.list(params),

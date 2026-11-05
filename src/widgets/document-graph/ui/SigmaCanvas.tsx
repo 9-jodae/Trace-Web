@@ -24,7 +24,7 @@ const SIGMA_OPTIONS = {
       labelVisibility: 'auto',
       backdropVisibility: 'hidden',
     },
-    // 충돌과 주제에 붙은 글자만 선 위에 보여 줍니다.
+    // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
     edges: [
       DEFAULT_STYLES.edges,
       {
@@ -36,6 +36,10 @@ const SIGMA_OPTIONS = {
       {
         when: (attributes: { type?: string }) => attributes.type === 'CONFLICTS',
         then: { labelColor: '#fb923c' },
+      },
+      {
+        when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
+        then: { labelColor: '#93c5fd' },
       },
     ],
   },

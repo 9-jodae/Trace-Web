@@ -5,7 +5,7 @@ import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 /**
  * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
  * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=주황, TOPIC=청록).
- * label은 선 위에 표시할 글자로, 충돌과 주제에만 넘깁니다.
+ * label은 선 위에 표시할 글자입니다.
  */
 type LinkType = 'REFERENCES' | 'CONFLICTS' | 'TOPIC'
 
@@ -107,20 +107,28 @@ export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
 }
 
 /** REFERENCES 엣지 색(파랑, 노드 톤에 맞춤). */
-const REFERENCE_EDGE_COLOR = 'rgba(96,165,250,0.25)'
+const REFERENCE_EDGE_COLOR = 'rgba(147,197,253,0.95)'
 /** CONFLICTS 엣지 색(주황, 문서끼리 값이 다르다는 경고 느낌). */
 const CONFLICT_EDGE_COLOR = 'rgba(251,146,60,0.55)'
 /** TOPIC 엣지 색(청록, 같은 주제로 묶인 문서). */
 const TOPIC_EDGE_COLOR = 'rgba(45, 212, 191, 0.75)'
 
 const EDGE_STYLE: Record<LinkType, { rank: number; size: number; color: string }> = {
-  REFERENCES: { rank: 0, size: 1, color: REFERENCE_EDGE_COLOR },
-  TOPIC: { rank: 1, size: 1.2, color: TOPIC_EDGE_COLOR },
-  CONFLICTS: { rank: 2, size: 1.5, color: CONFLICT_EDGE_COLOR },
+  REFERENCES: { rank: 0, size: 2, color: REFERENCE_EDGE_COLOR },
+  TOPIC: { rank: 1, size: 2.2, color: TOPIC_EDGE_COLOR },
+  CONFLICTS: { rank: 2, size: 2.5, color: CONFLICT_EDGE_COLOR },
 }
 
 function edgeStyle(type: LinkType) {
   return { type, size: EDGE_STYLE[type].size, color: EDGE_STYLE[type].color }
+}
+
+/** 한 문서 쌍의 관계 글자를 합칩니다. 주제와 참조가 함께 있으면 "보안 참조"처럼 읽히게 붙입니다. */
+function edgeLabel(parts: Map<LinkType, string>) {
+  const topic = parts.get('TOPIC')
+  const reference = parts.get('REFERENCES')
+  const relation = topic && reference ? `${topic} ${reference}` : (topic ?? reference)
+  return [relation, parts.get('CONFLICTS')].filter(Boolean).join(' · ') || undefined
 }
 
 /**
@@ -170,6 +178,7 @@ export function buildDocumentGraph({
           : (colorOf.get(document.documentType) ?? documentTypeColor(document.documentType)),
     })
   }
+  const labelParts = new Map<string, Map<LinkType, string>>()
   for (const link of links) {
     if (link.source === link.target) continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
@@ -177,14 +186,21 @@ export function buildDocumentGraph({
     if (graph.hasEdge(link.source, link.target)) {
       // 그래프는 문서 쌍마다 선 하나만 그립니다. 서버의 엣지 순서와 무관하게 충돌, 주제, 참조
       // 순으로 선의 종류를 정하고, 글자는 합쳐서 모두 보여 줍니다.
-      const edgeKey = graph.edge(link.source, link.target)
+      const edgeKey = graph.edge(link.source, link.target) as string
+      const parts = labelParts.get(edgeKey) ?? new Map<LinkType, string>()
+      if (link.label) parts.set(type, link.label)
+      labelParts.set(edgeKey, parts)
+      const label = edgeLabel(parts)
       const current = graph.getEdgeAttributes(edgeKey)
-      const label = [current.label, link.label].filter(Boolean).join(' · ') || undefined
       const stronger = EDGE_STYLE[type].rank > EDGE_STYLE[current.type].rank
       graph.mergeEdgeAttributes(edgeKey, stronger ? { ...edgeStyle(type), label } : { label })
       continue
     }
-    graph.addEdge(link.source, link.target, { ...edgeStyle(type), label: link.label })
+    const edgeKey = graph.addEdge(link.source, link.target, {
+      ...edgeStyle(type),
+      label: link.label,
+    })
+    if (link.label) labelParts.set(edgeKey, new Map([[type, link.label]]))
   }
 
   let hasReferences = false

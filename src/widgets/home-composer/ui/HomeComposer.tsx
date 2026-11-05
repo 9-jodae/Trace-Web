@@ -10,12 +10,6 @@ import {
 } from '@/features/filter-documents'
 import background from './assets/background.svg'
 
-const SUGGESTIONS = [
-  '해외 출장 숙박비 한도는?',
-  '법인카드 정산 순서',
-  '9월 경영지원 회의 결정 사항',
-]
-
 /** 첫 질문을 하기 전의 홈 화면. 질문을 보내면 그래프+채팅 화면("02")으로 바뀝니다. */
 export function HomeComposer() {
   const [question, setQuestion] = useState('')
@@ -79,20 +73,6 @@ export function HomeComposer() {
             <ArrowUp className="size-[18px]" aria-hidden />
           </button>
         </div>
-      </div>
-
-      <div className="relative flex w-[1040px] justify-center gap-2">
-        {SUGGESTIONS.map((suggestion) => (
-          <button
-            key={suggestion}
-            type="button"
-            disabled={isPending}
-            onClick={() => submit(suggestion)}
-            className="flex h-11 items-center rounded-[22px] border border-border-dark-strong bg-panel px-[18px] text-sm text-ink-dim hover:text-ink disabled:opacity-40"
-          >
-            {suggestion}
-          </button>
-        ))}
       </div>
     </div>
   )

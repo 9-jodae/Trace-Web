@@ -57,7 +57,7 @@ describe('HomeComposer', () => {
   })
   afterEach(() => restore())
 
-  it('추천 질문을 누르면 그 질문을 그대로 보낸다', async () => {
+  it('질문을 입력하고 보내면 그대로 전송한다', async () => {
     let body: unknown
     restore = mockServer((config) => {
       if (config.url === '/api/documents') return page([doc('d1', 'REPORT')])
@@ -67,7 +67,8 @@ describe('HomeComposer', () => {
     })
     renderHome()
 
-    await userEvent.click(await screen.findByRole('button', { name: '법인카드 정산 순서' }))
+    await userEvent.type(screen.getByLabelText('질문'), '법인카드 정산 순서')
+    await userEvent.click(screen.getByRole('button', { name: '질문 보내기' }))
 
     await waitFor(() => expect(useChatStore.getState().conversationId).toBe('c1'))
     expect(body).toEqual({ message: '법인카드 정산 순서' })

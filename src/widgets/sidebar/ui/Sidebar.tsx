@@ -1,13 +1,17 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, MessageCircle, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { LogoutButton } from '@/features/auth'
 import { useChatStore, useIsAsking } from '@/features/ask-question'
+import { RecentConversations, useOpenConversation } from '@/features/conversation-history'
 import { GRAPH_TAB_ID, useTabStore } from '@/features/document-tabs'
+import { conversationKeys } from '@/entities/conversation'
 import { useMe } from '@/entities/user'
 import logo from './assets/logo.svg'
 
 /**
  * 왼쪽 네비게이션. "문서 관리"는 관리자 기능이 아직 기획되지 않아 비활성 상태로만 둡니다.
- * "최근 질문"은 대화 기록 화면이 결정되기 전까지 이번 세션에서 주고받은 질문만 보여줍니다.
+ * "최근 질문"은 서버에 저장된 내 대화를 최근순으로 보여주고, 고르면 그 대화를 다시 불러옵니다.
  */
 export function Sidebar() {
   const { data: me } = useMe()
@@ -37,9 +41,9 @@ export function Sidebar() {
         </button>
       </nav>
 
-      <RecentQuestions />
-
-      <div className="flex-1" />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <RecentQuestions />
+      </div>
 
       <div className="flex items-center gap-2.5 px-1 py-2">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#2a2826] text-sm font-semibold text-ink">
@@ -76,25 +80,43 @@ function NewQuestionButton() {
 }
 
 function RecentQuestions() {
-  // 셀렉터는 스토어의 실제 배열을 그대로 반환해야 합니다(매번 새 배열을 만들면 무한 렌더링을 일으킵니다).
-  const messages = useChatStore((state) => state.messages)
-  const questions = messages.filter((message) => message.kind === 'question')
-  if (questions.length === 0) return null
+  const queryClient = useQueryClient()
+  const asking = useIsAsking()
+  const conversationId = useChatStore((state) => state.conversationId)
+  const answerCount = useChatStore(
+    (state) => state.messages.filter((message) => message.kind === 'answer').length,
+  )
+  const { open, isLoading } = useOpenConversation()
+  const [openError, setOpenError] = useState(false)
+
+  // 새 대화가 만들어지거나 답변이 추가되면 대화 제목·순서가 바뀌므로 목록을 다시 받아옵니다.
+  useEffect(() => {
+    if (conversationId === null) return
+    void queryClient.invalidateQueries({ queryKey: conversationKeys.all })
+  }, [conversationId, answerCount, queryClient])
+
+  const select = async (id: string) => {
+    setOpenError(false)
+    try {
+      const messages = await open(id)
+      useChatStore.getState().loadConversation(id, messages)
+    } catch {
+      setOpenError(true)
+    }
+  }
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <p className="px-3 pb-1.5 text-xs font-medium text-ink-muted">최근 질문</p>
-      {questions
-        .slice()
-        .reverse()
-        .map((question) => (
-          <p
-            key={question.id}
-            className="truncate rounded-lg bg-white/[0.06] px-3 py-2.5 text-[13px] text-white"
-          >
-            {question.text}
-          </p>
-        ))}
-    </div>
+    <>
+      <RecentConversations
+        activeConversationId={conversationId}
+        disabled={asking || isLoading}
+        onSelect={(id) => void select(id)}
+      />
+      {openError && (
+        <p role="alert" className="px-3 pt-1 text-xs text-red-300">
+          대화를 불러오지 못했습니다.
+        </p>
+      )}
+    </>
   )
 }

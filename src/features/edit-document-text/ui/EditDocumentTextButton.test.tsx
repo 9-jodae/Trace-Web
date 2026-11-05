@@ -47,9 +47,16 @@ describe('EditDocumentTextButton', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_EDIT_PROPOSAL_SAVE', 'true')
     useLocalEditStore.setState({ edits: {} })
     api.adminDownloadDocument.mockResolvedValue({ text: async () => '이월은 5일이다.' })
     api.adminReviseDocument.mockResolvedValue({ outcome: 'CREATED' })
+  })
+
+  it('프로덕션에서는 설정을 켜기 전까지 열 수 없다', () => {
+    vi.stubEnv('VITE_EDIT_PROPOSAL_SAVE', 'false')
+    renderButton()
+    expect(screen.getByRole('button', { name: '내용 편집' })).toBeDisabled()
   })
 
   it('PDF는 서버 지원 전까지 열 수 없다', () => {
@@ -108,6 +115,7 @@ describe('EditDocumentTextButton', () => {
 
   it('개발 서버에서는 서버에 저장하지 않고 메모리에만 두며 다시 열면 그 내용이 보인다', async () => {
     vi.stubEnv('DEV', true)
+    vi.stubEnv('VITE_EDIT_PROPOSAL_SAVE', 'false')
     renderButton()
     const editor = await openEditor()
     expect(screen.getByText(/새로고침하면 원래대로/)).toBeInTheDocument()

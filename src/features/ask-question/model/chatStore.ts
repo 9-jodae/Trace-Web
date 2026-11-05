@@ -6,10 +6,10 @@ import type {
   AnswerSource,
 } from '@/entities/answer'
 
-/** createdAt은 말풍선 옆 시각 표시용 ISO 문자열입니다. 없으면 시각을 그리지 않습니다. */
 /** 충돌을 다루는 답변의 표현. 글자로 판단하므로 가끔 틀릴 수 있습니다. */
 const CONFLICT_ANSWER = /(충돌|모순|일치하지 않|서로 다|값이 다|수치가 다|수정안|수정을 제안)/
 
+/** createdAt은 말풍선 옆 시각 표시용 ISO 문자열입니다. 없으면 시각을 그리지 않습니다. */
 export type ChatMessage =
   | { id: string; kind: 'question'; text: string; createdAt?: string }
   | {

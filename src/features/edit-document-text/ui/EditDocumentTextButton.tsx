@@ -8,6 +8,7 @@ import {
   documentFileName,
   invalidateAfterDocumentChange,
   isLocalEditMode,
+  isServerEditEnabled,
   useLocalEditStore,
   type DocumentDetail,
 } from '@/entities/document'
@@ -19,14 +20,22 @@ import { isTextEditable } from '../lib/editable'
 /** "내용 편집" 버튼과 모달. 현재 버전 원문을 고쳐 저장하면 같은 형식의 새 버전을 만듭니다. */
 export function EditDocumentTextButton({ detail }: { detail: DocumentDetail }) {
   const [open, setOpen] = useState(false)
-  const editable = isTextEditable(detail.document.extension)
+  // 재적재 연결 전 운영 저장은 문서를 검색에서 빠지게 하므로 설정을 켜기 전에는 열지 않습니다.
+  const canSave = isLocalEditMode() || isServerEditEnabled()
+  const editable = isTextEditable(detail.document.extension) && canSave
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
         disabled={!editable}
-        title={editable ? undefined : '이 형식은 서버 지원 후 수정할 수 있습니다'}
+        title={
+          editable
+            ? undefined
+            : canSave
+              ? '이 형식은 서버 지원 후 수정할 수 있습니다'
+              : '문서 다시 적재 연결 후 수정할 수 있습니다'
+        }
         className={buttonSecondary}
       >
         <PencilLine className="size-4" aria-hidden />

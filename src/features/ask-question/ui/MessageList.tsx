@@ -1,16 +1,20 @@
-import { FileText } from 'lucide-react'
+import { FileText, Quote, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import type { AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
 
 export function MessageList({
   messages,
   pending,
   onOpenSource,
+  onRetryWithoutFilters,
+  onRephrase,
 }: {
   messages: ChatMessage[]
   pending: boolean
   onOpenSource: (source: AnswerSource) => void
+  onRetryWithoutFilters: (questionText: string) => void
+  onRephrase: (questionText: string) => void
 }) {
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -21,33 +25,46 @@ export function MessageList({
 
   if (messages.length === 0 && !pending) {
     return (
-      <p className="flex flex-1 items-center justify-center px-6 text-center text-sm text-slate-400">
+      <p className="flex flex-1 items-center justify-center px-6 text-center text-sm text-ink-muted">
         질문하면 사내 문서에서 근거를 찾아 답변합니다.
       </p>
     )
   }
 
   return (
-    <ol className="flex flex-1 flex-col gap-3 overflow-y-auto p-4" aria-label="대화">
-      {messages.map((message) => (
-        <li key={message.id} className={message.kind === 'question' ? 'self-end' : 'self-start'}>
-          {message.kind === 'question' && (
-            <p className="max-w-80 rounded-lg bg-slate-900 px-3 py-2 text-sm whitespace-pre-wrap text-white">
-              {message.text}
-            </p>
-          )}
-          {message.kind === 'answer' && (
-            <AnswerBubble text={message.text} sources={message.sources} onOpen={onOpenSource} />
-          )}
-          {message.kind === 'error' && (
-            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              {message.text}
-            </p>
-          )}
-        </li>
-      ))}
+    <ol className="flex flex-1 flex-col gap-4 overflow-y-auto p-6" aria-label="대화">
+      {messages.map((message, index) => {
+        // 질문 바로 다음에 그 답변이 오므로, 재시도에 쓸 원래 질문 문장은 바로 앞 메시지입니다.
+        const previous = messages[index - 1]
+        const originalQuestion = previous?.kind === 'question' ? previous.text : ''
+        return (
+          <li key={message.id} className={message.kind === 'question' ? 'self-end' : 'self-start'}>
+            {message.kind === 'question' && (
+              <p className="max-w-80 rounded-2xl bg-[#262523] px-4 py-3 text-[15px] whitespace-pre-wrap text-ink">
+                {message.text}
+              </p>
+            )}
+            {message.kind === 'answer' && (
+              <AnswerBubble
+                text={message.text}
+                sources={message.sources}
+                evidence={message.evidence}
+                onOpen={onOpenSource}
+                originalQuestion={originalQuestion}
+                onRetryWithoutFilters={onRetryWithoutFilters}
+                onRephrase={onRephrase}
+              />
+            )}
+            {message.kind === 'error' && (
+              <p role="alert" className="rounded-lg bg-red-950/40 px-3 py-2 text-sm text-red-300">
+                {message.text}
+              </p>
+            )}
+          </li>
+        )
+      })}
       {pending && (
-        <li className="self-start text-sm text-slate-500" role="status">
+        <li className="self-start text-sm text-ink-muted" role="status">
           답변을 만드는 중입니다. 최대 1분 정도 걸릴 수 있습니다.
         </li>
       )}
@@ -59,33 +76,121 @@ export function MessageList({
 function AnswerBubble({
   text,
   sources,
+  evidence,
   onOpen,
+  originalQuestion,
+  onRetryWithoutFilters,
+  onRephrase,
 }: {
   text: string
   sources: AnswerSource[]
+  evidence: AnswerEvidence[]
   onOpen: (source: AnswerSource) => void
+  originalQuestion: string
+  onRetryWithoutFilters: (questionText: string) => void
+  onRephrase: (questionText: string) => void
 }) {
+  if (sources.length === 0) {
+    return (
+      <NoEvidenceAnswer
+        originalQuestion={originalQuestion}
+        onRetryWithoutFilters={onRetryWithoutFilters}
+        onRephrase={onRephrase}
+      />
+    )
+  }
+
   return (
-    <div className="flex max-w-96 flex-col gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm">
-      <p className="whitespace-pre-wrap">{text}</p>
-      {sources.length > 0 && (
-        <ul aria-label="근거" className="flex flex-wrap gap-1">
-          {sources.map((source, index) => (
-            <li key={source.id}>
+    <div className="flex max-w-96 flex-col gap-3 text-[15px]">
+      <p className="whitespace-pre-wrap text-[#e8e6e1]">{text}</p>
+      {evidence.length > 0 && (
+        <ul aria-label="핵심 인용" className="flex flex-col gap-1.5">
+          {evidence.map((item) => (
+            <li key={item.chunkId}>
               <button
                 type="button"
-                onClick={() => onOpen(source)}
-                className="flex max-w-60 items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs hover:border-slate-500"
+                onClick={() =>
+                  onOpen({
+                    id: item.chunkId,
+                    text: item.quote,
+                    source: item.source,
+                    documentId: item.documentId,
+                    documentTitle: item.source,
+                    versionId: item.versionId,
+                    charStart: item.charStart,
+                    charEnd: item.charEnd,
+                  })
+                }
+                className="flex w-full items-start gap-2 rounded-[10px] border-l-2 border-ink-muted/40 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/5"
               >
-                <FileText className="size-3 shrink-0" aria-hidden />
-                <span className="truncate">
-                  [{index + 1}] {source.documentTitle}
+                <Quote className="mt-0.5 size-3.5 shrink-0 text-ink-muted" aria-hidden />
+                <span className="flex-1 text-sm text-ink-dim italic">
+                  "{item.quote}" <span className="not-italic text-ink-muted">— {item.source}</span>
                 </span>
               </button>
             </li>
           ))}
         </ul>
       )}
+      <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
+        {sources.map((source, index) => (
+          <li key={source.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(source)}
+              className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
+            >
+              <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
+              <FileText className="size-3.5 shrink-0 text-ink-muted" aria-hidden />
+              <span className="flex-1 truncate text-sm text-ink">{source.documentTitle}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** 내가 볼 수 있는 문서 중에 근거가 없을 때. 추측으로 답하지 않고 다음 행동을 제안합니다. */
+function NoEvidenceAnswer({
+  originalQuestion,
+  onRetryWithoutFilters,
+  onRephrase,
+}: {
+  originalQuestion: string
+  onRetryWithoutFilters: (questionText: string) => void
+  onRephrase: (questionText: string) => void
+}) {
+  return (
+    <div className="flex max-w-96 flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4 text-[15px]">
+      <p className="flex items-center gap-1.5 font-semibold text-amber-400">
+        <TriangleAlert className="size-4 shrink-0" aria-hidden />
+        사내 문서에서 확인할 수 없습니다
+      </p>
+      <p className="text-sm text-ink-dim">
+        내가 볼 수 있는 문서 중에서 관련 근거를 찾지 못했습니다. 추측으로 답하지 않습니다.
+      </p>
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs font-medium text-ink-muted">이렇게 해보세요</p>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => onRetryWithoutFilters(originalQuestion)}
+            disabled={!originalQuestion}
+            className="rounded-full border border-border-dark-strong px-3 py-1.5 text-xs text-ink-dim hover:text-ink disabled:opacity-40"
+          >
+            필터 해제하고 다시 찾기
+          </button>
+          <button
+            type="button"
+            onClick={() => onRephrase(originalQuestion)}
+            disabled={!originalQuestion}
+            className="rounded-full border border-border-dark-strong px-3 py-1.5 text-xs text-ink-dim hover:text-ink disabled:opacity-40"
+          >
+            다른 표현으로 질문
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

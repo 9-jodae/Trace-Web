@@ -2,6 +2,18 @@
 
 @theme {
   --font-sans: 'Pretendard', ui-sans-serif, system-ui, sans-serif;
+
+  /* 워크스페이스 화면(그래프 탭)의 다크 테마 토큰. 기획서 디자인(Figma)에서 가져온 값입니다. */
+  --color-canvas: #0f0f0e;
+  --color-panel: #141413;
+  --color-surface: #111110;
+  --color-surface-raised: #1a1918;
+  --color-surface-sunken: #0c0c0b;
+  --color-border-dark: rgba(255, 255, 255, 0.08);
+  --color-border-dark-strong: rgba(255, 255, 255, 0.14);
+  --color-ink: #f2f1ec;
+  --color-ink-dim: #b3aea5;
+  --color-ink-muted: #8c877e;
 }
 
 html,

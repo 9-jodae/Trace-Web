@@ -12,13 +12,20 @@ export interface DocumentTab {
   lastViewed: number
   /** 탭 상단에 표시할 답변 근거 청크 ID. 없으면 근거 영역을 표시하지 않습니다. */
   focusChunkId?: string
+  /** 근거 영역에서 표시할 핵심 문장과 키워드. 없으면 서버가 준 범위를 표시합니다. */
+  focusHighlights?: string[]
 }
 
 interface TabState {
   documentTabs: DocumentTab[]
   activeTabId: string
   sequence: number
-  openDocument: (document: { documentId: string; title: string; chunkId?: string }) => void
+  openDocument: (document: {
+    documentId: string
+    title: string
+    chunkId?: string
+    highlights?: string[]
+  }) => void
   activateTab: (tabId: string) => void
   closeDocument: (documentId: string) => void
   closeEvidence: (documentId: string) => void
@@ -34,7 +41,7 @@ const initialState = {
 export const useTabStore = create<TabState>()((set) => ({
   ...initialState,
 
-  openDocument: ({ documentId, title, chunkId }) =>
+  openDocument: ({ documentId, title, chunkId, highlights }) =>
     set((state) => {
       const sequence = state.sequence + 1
       const existing = state.documentTabs.find((tab) => tab.documentId === documentId)
@@ -43,14 +50,22 @@ export const useTabStore = create<TabState>()((set) => ({
           sequence,
           activeTabId: documentId,
           documentTabs: state.documentTabs.map((tab) =>
-            tab === existing ? { ...tab, lastViewed: sequence, focusChunkId: chunkId } : tab,
+            tab === existing
+              ? { ...tab, lastViewed: sequence, focusChunkId: chunkId, focusHighlights: highlights }
+              : tab,
           ),
         }
       }
 
       let documentTabs = [
         ...state.documentTabs,
-        { documentId, title, lastViewed: sequence, focusChunkId: chunkId },
+        {
+          documentId,
+          title,
+          lastViewed: sequence,
+          focusChunkId: chunkId,
+          focusHighlights: highlights,
+        },
       ]
       if (documentTabs.length > MAX_DOCUMENT_TABS) {
         const oldest = documentTabs.reduce((a, b) => (a.lastViewed <= b.lastViewed ? a : b))
@@ -89,7 +104,9 @@ export const useTabStore = create<TabState>()((set) => ({
       if (!state.documentTabs.some((tab) => tab.documentId === documentId)) return state
       return {
         documentTabs: state.documentTabs.map((tab) =>
-          tab.documentId === documentId ? { ...tab, focusChunkId: undefined } : tab,
+          tab.documentId === documentId
+            ? { ...tab, focusChunkId: undefined, focusHighlights: undefined }
+            : tab,
         ),
       }
     }),

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
+import { NO_EVIDENCE_ANSWER, type AnswerEvidence, type AnswerSource } from '@/entities/answer'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { resetChatStore, useChatStore } from '../model/chatStore'
 import { ChatView } from './ChatView'
@@ -33,9 +33,10 @@ const answer = (
   conversationId: string,
   sources: AnswerSource[],
   evidence: AnswerEvidence[] = [],
+  text = sources.length > 0 ? '최대 5일까지 이월할 수 있습니다.' : NO_EVIDENCE_ANSWER,
 ) => ({
   conversationId,
-  answer: '최대 5일까지 이월할 수 있습니다.',
+  answer: text,
   route: null,
   contextProbability: null,
   sources,
@@ -88,7 +89,7 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await userEvent.click(await screen.findByRole('button', { name: /문서 d1/ }))
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }))
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), [])
   })
 
   it('핵심 인용을 보여주고 누르면 그 문서를 넘긴다', async () => {
@@ -98,7 +99,9 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await userEvent.click(await screen.findByText(/연차는 최대 5일까지 이월할 수 있다/))
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }))
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }), [
+      evidenceItem('e1', 'd1').quote,
+    ])
   })
 
   it('새 질문을 하면 이전 답변의 근거 강조를 지운다', async () => {
@@ -139,9 +142,43 @@ describe('ChatView', () => {
 
     await ask('환율 기준일은?')
 
-    expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
+    expect(await screen.findByText(NO_EVIDENCE_ANSWER)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '필터 해제하고 다시 찾기' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다른 표현으로 질문' })).toBeInTheDocument()
+  })
+
+  it('근거를 누르면 그 청크의 핵심 문장과 키워드를 함께 넘긴다', async () => {
+    restore = mockServer(() =>
+      ok({
+        ...answer('c1', [source('k1', 'd1')], [evidenceItem('k1', 'd1')]),
+        keywords: [
+          { text: '최대 5일', chunkId: 'k1' },
+          { text: '다른 청크', chunkId: 'k2' },
+        ],
+      }),
+    )
+    const onOpenSource = renderChat()
+
+    await ask('연차 이월은?')
+    await userEvent.click(await screen.findByRole('button', { name: /^1\s*문서 d1/ }))
+
+    const quote = evidenceItem('k1', 'd1').quote
+    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1' }), [
+      quote,
+      '최대 5일',
+    ])
+  })
+
+  it('근거가 없어도 거절 문장이 아니면 답변 문장을 그대로 보여준다', async () => {
+    const text = '어떤 기간에 관한 질문인가요? 좀 더 자세히 말씀해 주세요.'
+    restore = mockServer(() => ok(answer('c1', [], [], text)))
+    renderChat()
+
+    await ask('기간이 얼마나 됨?')
+
+    expect(await screen.findByText(text)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다른 표현으로 질문' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: '근거' })).not.toBeInTheDocument()
   })
 
   it('"다른 표현으로 질문"을 누르면 원래 질문을 입력창에 채운다', async () => {
@@ -174,7 +211,7 @@ describe('ChatView', () => {
     await ask('환율 기준일은?')
     await userEvent.click(await screen.findByRole('button', { name: '필터 해제하고 다시 찾기' }))
 
-    await screen.findAllByText('최대 5일까지 이월할 수 있습니다.')
+    await screen.findAllByText(NO_EVIDENCE_ANSWER)
     expect(onClearFilters).toHaveBeenCalledTimes(1)
     expect(urls).toEqual(['/api/conversations/messages', '/api/conversations/c1/messages'])
   })

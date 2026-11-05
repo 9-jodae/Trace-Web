@@ -31,7 +31,13 @@ export function useAskQuestion() {
       const chat = useChatStore.getState()
       if (chat.contextId !== contextId) return
       // evidence는 "임시 계약" 필드라 아직 안 주는 경로(AI_MODE=mock 등)가 있을 수 있어 기본값을 둡니다.
-      chat.addAnswer(answer.conversationId, answer.answer, answer.sources, answer.evidence ?? [])
+      chat.addAnswer(
+        answer.conversationId,
+        answer.answer,
+        answer.sources,
+        answer.evidence ?? [],
+        answer.keywords ?? [],
+      )
     },
     onError: (error, { contextId }) => {
       const chat = useChatStore.getState()

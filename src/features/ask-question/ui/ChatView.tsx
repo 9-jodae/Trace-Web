@@ -15,7 +15,7 @@ export function ChatView({
   filters,
   onClearFilters,
 }: {
-  onOpenSource: (source: AnswerSource) => void
+  onOpenSource: (source: AnswerSource, highlights?: string[]) => void
   filters?: AskQuestionFilters
   onClearFilters?: () => void
 }) {

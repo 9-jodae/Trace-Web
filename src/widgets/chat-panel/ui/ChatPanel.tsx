@@ -67,11 +67,12 @@ export function ChatPanel() {
       {/* 근거를 누르면 해당 문서 탭을 열고 근거 청크를 표시합니다. */}
       <ChatView
         filters={toQuestionFilters(filter)}
-        onOpenSource={(source) =>
+        onOpenSource={(source, highlights) =>
           openDocument({
             documentId: source.documentId,
             title: source.documentTitle,
             chunkId: source.id,
+            highlights,
           })
         }
         onClearFilters={() => useDocumentFilterStore.getState().reset()}

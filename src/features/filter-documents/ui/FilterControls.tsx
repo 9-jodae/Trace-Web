@@ -1,14 +1,17 @@
+import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
 import {
   createContext,
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { placeDropdown, type DropdownPlacement } from '../lib/dropdownPlacement'
 
 const FilterDropdownGroupContext = createContext<{
   openId: string | null
@@ -76,15 +79,37 @@ function GroupedFilterDropdown({
   const group = useContext(FilterDropdownGroupContext)
   const id = useId()
   const isOpen = group?.openId === id
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [placement, setPlacement] = useState<DropdownPlacement | null>(null)
+
+  // 열 때 버튼 위아래 남은 공간을 재서, 노트북처럼 세로가 짧은 화면에서도 패널이 화면 밖으로
+  // 잘리지 않는 쪽으로 펼치고 그 높이를 넘으면 패널 안에서 스크롤합니다(lib/dropdownPlacement).
+  useLayoutEffect(() => {
+    const button = buttonRef.current
+    const panel = panelRef.current
+    if (!isOpen || !button || !panel) {
+      setPlacement(null)
+      return
+    }
+    setPlacement(
+      placeDropdown({
+        anchor: button.getBoundingClientRect(),
+        contentHeight: panel.scrollHeight,
+        viewportHeight: window.innerHeight,
+      }),
+    )
+  }, [isOpen])
 
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         aria-expanded={isOpen}
         aria-controls={isOpen ? id : undefined}
         onClick={() => group?.setOpenId(isOpen ? null : id)}
-        className={`flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-[13px] ${
+        className={`flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-[13px] whitespace-nowrap ${
           active ? 'bg-white/10 text-ink' : 'text-ink-dim hover:bg-white/5'
         }`}
       >
@@ -93,8 +118,15 @@ function GroupedFilterDropdown({
       </button>
       {isOpen && (
         <div
+          ref={panelRef}
           id={id}
-          className="absolute top-full left-0 z-10 mt-1 flex min-w-48 flex-col gap-1 rounded-xl border border-border-dark-strong bg-surface-raised p-2 shadow-lg"
+          style={placement ? { maxHeight: placement.maxHeight } : undefined}
+          className={clsx(
+            'absolute left-0 z-20 flex min-w-48 flex-col gap-1 overflow-y-auto rounded-xl border border-border-dark-strong bg-surface-raised p-2 shadow-lg',
+            placement?.side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+            // 펼칠 방향을 재기 전 한 프레임 동안 잘못된 위치에 보이지 않게 숨깁니다.
+            !placement && 'invisible',
+          )}
         >
           {children}
         </div>

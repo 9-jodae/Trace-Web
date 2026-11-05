@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type Graph from 'graphology'
 import { Minus, Plus } from 'lucide-react'
 import type { Sigma } from 'sigma'
 import { useChatStore } from '@/features/ask-question'
@@ -8,12 +7,7 @@ import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/f
 import { useAllDocuments, documentTypeLabel } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
-import {
-  buildDocumentGraph,
-  type DocumentLink,
-  type NodeAttributes,
-  type TypeLegendItem,
-} from '../lib/buildGraph'
+import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
 import type { NodeHover } from './SigmaCanvas'
 
 const SigmaCanvas = lazy(() => import('./SigmaCanvas'))
@@ -52,30 +46,41 @@ export function DocumentGraph() {
     [graphData],
   )
 
-  // 이전에 그렸던 그래프의 노드 위치(드래그로 옮긴 것 포함)를 기억해 둡니다. 새 답변·필터
-  // 변경으로 그래프를 다시 만들 때 이 위치를 그대로 넘겨야, 끌어서 옮긴 노드가 원래 계산된
-  // 자리로 돌아가지 않습니다.
-  const previousGraphRef = useRef<Graph<NodeAttributes> | null>(null)
+  // 사용자가 끌어서 옮긴 노드의 위치만 기억해 둡니다. 새 답변·필터 변경으로 그래프를 다시
+  // 만들 때 이 위치를 넘겨, 옮긴 노드가 계산된 자리로 돌아가지 않게 합니다.
+  // 직전 그래프의 모든 노드 위치를 넘기면 안 됩니다: 배치는 목록 순서(index)로만 정해져서,
+  // 필터 해제·업로드로 새로 들어온 문서가 기존 노드가 붙잡고 있는 자리를 그대로 받아 겹칩니다.
+  const draggedPositionsRef = useRef(new Map<string, { x: number; y: number }>())
 
   const built = useMemo(() => {
     if (!filteredDocuments) return null
-    const positionOverrides = new Map<string, { x: number; y: number }>()
-    previousGraphRef.current?.forEachNode((documentId, attributes) => {
-      positionOverrides.set(documentId, { x: attributes.x, y: attributes.y })
-    })
     return buildDocumentGraph({
       documents: filteredDocuments,
       links,
       evidenceDocumentIds: effectiveEvidenceIds,
-      positionOverrides,
+      positionOverrides: draggedPositionsRef.current,
     })
   }, [filteredDocuments, links, effectiveEvidenceIds])
 
-  useEffect(() => {
-    previousGraphRef.current = built?.graph ?? null
-  }, [built])
-
   const [sigma, setSigma] = useState<Sigma | null>(null)
+
+  // 드래그가 끝나면 sigma 그래프에 반영된 최종 좌표를 기억합니다.
+  useEffect(() => {
+    if (!sigma) return
+    const remember = ({ allDraggedNodes }: { allDraggedNodes: string[] }) => {
+      const graph = sigma.getGraph()
+      for (const node of allDraggedNodes) {
+        if (!graph.hasNode(node)) continue
+        const { x, y } = graph.getNodeAttributes(node)
+        draggedPositionsRef.current.set(node, { x, y })
+      }
+    }
+    sigma.on('nodeDragEnd', remember)
+    return () => {
+      sigma.off('nodeDragEnd', remember)
+    }
+  }, [sigma])
+
   const [hover, setHover] = useState<NodeHover | null>(null)
   const [badges, setBadges] = useState<
     { documentId: string; order: number; x: number; y: number }[]

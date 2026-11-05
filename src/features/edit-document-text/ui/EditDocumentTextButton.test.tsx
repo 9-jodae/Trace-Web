@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DocumentDetail } from '@/entities/document'
+import { useLocalEditStore, type DocumentDetail } from '@/entities/document'
 import { EditDocumentTextButton } from './EditDocumentTextButton'
 
 const api = vi.hoisted(() => ({
@@ -46,6 +46,8 @@ async function openEditor() {
 describe('EditDocumentTextButton', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('DEV', false)
+    useLocalEditStore.setState({ edits: {} })
     api.adminDownloadDocument.mockResolvedValue({ text: async () => '이월은 5일이다.' })
     api.adminReviseDocument.mockResolvedValue({ outcome: 'CREATED' })
   })
@@ -102,6 +104,22 @@ describe('EditDocumentTextButton', () => {
     expect(confirm).toHaveBeenCalled()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     confirm.mockRestore()
+  })
+
+  it('개발 서버에서는 서버에 저장하지 않고 메모리에만 두며 다시 열면 그 내용이 보인다', async () => {
+    vi.stubEnv('DEV', true)
+    renderButton()
+    const editor = await openEditor()
+    expect(screen.getByText(/새로고침하면 원래대로/)).toBeInTheDocument()
+    await userEvent.type(editor, ' 수정')
+    await userEvent.click(screen.getByRole('button', { name: '저장' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(api.adminReviseDocument).not.toHaveBeenCalled()
+    expect(useLocalEditStore.getState().edits.d1).toEqual({
+      title: '연차 규정',
+      text: '이월은 5일이다. 수정',
+    })
+    expect(await openEditor()).toHaveValue('이월은 5일이다. 수정')
   })
 
   it('원문을 못 불러오면 오류를 보여 준다', async () => {

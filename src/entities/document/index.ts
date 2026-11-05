@@ -58,6 +58,8 @@ export {
 } from './model/accessDisplay'
 export { adminErrorMessage, isNotFoundError } from './lib/adminErrorMessage'
 export { documentFileName } from './lib/fileName'
+export { isLocalEditMode, useLocalEditStore } from './model/localEdits'
+export type { LocalEdit } from './model/localEdits'
 export {
   PROCESSING_STATUS_LABEL,
   PROCESSING_STATUS_OPTIONS,

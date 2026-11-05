@@ -4,7 +4,7 @@ import type { Sigma } from 'sigma'
 import { useChatStore } from '@/features/ask-question'
 import { useTabStore } from '@/features/document-tabs'
 import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/filter-documents'
-import { useAllDocuments, documentTypeLabel } from '@/entities/document'
+import { useAllDocuments, documentTypeLabel, useLocalEditStore } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
 import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
@@ -29,6 +29,11 @@ export function DocumentGraph() {
   const graphHighlightEnabled = useChatStore((state) => state.graphHighlightEnabled)
   const openDocument = useTabStore((state) => state.openDocument)
   const { filter } = useDocumentFilterStore()
+  const localEdits = useLocalEditStore((state) => state.edits)
+  const modifiedDocuments = useMemo(
+    () => Object.entries(localEdits).map(([id, edit]) => ({ id, title: edit.title })),
+    [localEdits],
+  )
 
   const filteredDocuments = useMemo(
     () => (documents ? filterDocuments(documents, filter) : undefined),
@@ -60,8 +65,9 @@ export function DocumentGraph() {
       links,
       evidenceDocumentIds: effectiveEvidenceIds,
       positionOverrides: draggedPositionsRef.current,
+      modifiedDocuments,
     })
-  }, [filteredDocuments, links, effectiveEvidenceIds])
+  }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments])
 
   const [sigma, setSigma] = useState<Sigma | null>(null)
 
@@ -191,6 +197,7 @@ export function DocumentGraph() {
               items={built.legend}
               hasReferences={built.hasReferences}
               hasConflicts={built.hasConflicts}
+              hasWarnings={built.hasWarnings}
               hasTopics={built.hasTopics}
             />
             <ZoomControls sigma={sigma} />
@@ -287,11 +294,13 @@ function Legend({
   items,
   hasReferences,
   hasConflicts,
+  hasWarnings,
   hasTopics,
 }: {
   items: TypeLegendItem[]
   hasReferences: boolean
   hasConflicts: boolean
+  hasWarnings: boolean
   hasTopics: boolean
 }) {
   return (
@@ -308,13 +317,19 @@ function Legend({
           {item.label} ({item.count})
         </li>
       ))}
-      {(hasReferences || hasConflicts || hasTopics) && (
+      {(hasReferences || hasConflicts || hasTopics || hasWarnings) && (
         <>
           <li aria-hidden className="my-0.5 border-t border-border-dark" />
           {hasReferences && (
             <li className="flex items-center gap-2 text-ink-dim">
               <span className="h-0.5 w-3 rounded-full bg-[rgb(96,165,250)]" />
               참조
+            </li>
+          )}
+          {hasWarnings && (
+            <li className="flex items-center gap-2 text-ink-dim">
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
+              경고: 내용 확인 필요
             </li>
           )}
           {hasConflicts && (

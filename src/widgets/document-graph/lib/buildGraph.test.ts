@@ -226,6 +226,25 @@ describe('간선 종류와 글자', () => {
     expect(hasReferences).toBe(false)
   })
 
+  it('수정된 문서를 참조하는 선만 빨갛게 경고한다', () => {
+    const links = [
+      { source: 'a', target: 'b', type: 'REFERENCES' as const, label: '참조' },
+      { source: 'b', target: 'c', type: 'REFERENCES' as const, label: '참조' },
+      topic('a', 'c', '보안'),
+    ]
+    const { graph, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links,
+      modifiedDocuments: [{ id: 'b', title: '연차 규정' }],
+    })
+    const warned = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(warned.warning).toBe(true)
+    expect(warned.label).toBe('경고! 내용 확인 필요 · 연차 규정 수정됨 · 참조')
+    expect(graph.getEdgeAttribute(graph.edge('b', 'c'), 'warning')).toBeUndefined()
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'warning')).toBeUndefined()
+    expect(hasWarnings).toBe(true)
+  })
+
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
     const links = [
       topic('a', 'b', '연차'),

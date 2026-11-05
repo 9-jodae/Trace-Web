@@ -7,6 +7,8 @@ import {
   adminReviseDocument,
   documentFileName,
   invalidateAfterDocumentChange,
+  isLocalEditMode,
+  useLocalEditStore,
   type DocumentDetail,
 } from '@/entities/document'
 import { graphKeys } from '@/entities/graph'
@@ -37,13 +39,16 @@ export function EditDocumentTextButton({ detail }: { detail: DocumentDetail }) {
 
 function EditModal({ detail, onClose }: { detail: DocumentDetail; onClose: () => void }) {
   const { document } = detail
+  const localEdit = useLocalEditStore((state) => state.edits[document.id])
   const original = useQuery({
     queryKey: ['document-edit', document.id, document.currentVersion],
     queryFn: async () => (await adminDownloadDocument(document.id)).text(),
     // 편집 중 창 포커스로 원문을 다시 받아 입력이 흔들리지 않게 합니다
     staleTime: Infinity,
     gcTime: 0,
+    enabled: !localEdit,
   })
+  if (localEdit) return <EditForm detail={detail} original={localEdit.text} onClose={onClose} />
   if (original.isPending) {
     return (
       <Modal title={`내용 편집 · ${document.title}`} onClose={onClose}>
@@ -76,6 +81,8 @@ function EditForm({
   const { document } = detail
   const [text, setText] = useState(original)
   const [notice, setNotice] = useState<string | null>(null)
+  const saveLocalEdit = useLocalEditStore((state) => state.saveEdit)
+  const localMode = isLocalEditMode()
   const file = new File([text], documentFileName(document), { type: 'text/plain' })
   const dirty = text !== original
   const tooLarge = file.size > MAX_FILE_BYTES
@@ -101,7 +108,13 @@ function EditForm({
   const submit = (event: FormEvent) => {
     event.preventDefault()
     setNotice(null)
-    if (dirty && !tooLarge && !empty) mutation.mutate()
+    if (!dirty || tooLarge || empty) return
+    if (localMode) {
+      saveLocalEdit(document.id, { title: document.title, text })
+      onClose()
+      return
+    }
+    mutation.mutate()
   }
 
   const requestClose = () => {
@@ -139,7 +152,9 @@ function EditForm({
           className="h-[60vh] w-full resize-none rounded-md border border-border-dark-strong bg-surface p-3 font-mono text-sm text-ink outline-none focus:border-blue-400/60"
         />
         <p className="text-xs text-ink-muted">
-          저장하면 v{document.currentVersion + 1} 버전이 만들어집니다. 권한은 그대로 유지됩니다.
+          {localMode
+            ? '로컬 시험 저장입니다. 서버 문서는 바뀌지 않고, 새로고침하면 원래대로 돌아갑니다.'
+            : `저장하면 v${document.currentVersion + 1} 버전이 만들어집니다. 권한은 그대로 유지됩니다.`}
         </p>
         {empty && (
           <p role="alert" className="text-sm text-red-300">

@@ -3,12 +3,14 @@ import { FileText, Quote } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import {
   NO_EVIDENCE_ANSWER,
+  type AnswerEditProposal,
   type AnswerEvidence,
   type AnswerKeyword,
   type AnswerSource,
 } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
+import { EditProposalCard } from './EditProposalCard'
 import { AssistantRow, MessageTime, TypingIndicator, assistantBubble } from './AssistantMessage'
 
 const isAssistantSide = (message: ChatMessage | undefined) =>
@@ -69,6 +71,7 @@ export function MessageList({
                   evidence={message.evidence}
                   missingSourceCount={message.missingSourceCount ?? 0}
                   keywords={message.keywords}
+                  editProposals={message.editProposals}
                   onOpen={onOpenSource}
                   originalQuestion={originalQuestion}
                   onRetryWithoutFilters={onRetryWithoutFilters}
@@ -112,6 +115,7 @@ function AnswerBubble({
   evidence,
   missingSourceCount,
   keywords = [],
+  editProposals = [],
   onOpen,
   originalQuestion,
   onRetryWithoutFilters,
@@ -122,6 +126,7 @@ function AnswerBubble({
   evidence: AnswerEvidence[]
   missingSourceCount: number
   keywords?: AnswerKeyword[]
+  editProposals?: AnswerEditProposal[]
   onOpen: (source: AnswerSource, highlights?: string[]) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
@@ -143,6 +148,16 @@ function AnswerBubble({
         )}
       >
         <AnswerMarkdown text={text} />
+        {editProposals.length > 0 && (
+          <div aria-label="수정 제안" className="flex flex-col gap-2">
+            {editProposals.map((proposal) => (
+              <EditProposalCard
+                key={`${proposal.chunkId}:${proposal.before}`}
+                proposal={proposal}
+              />
+            ))}
+          </div>
+        )}
         {evidence.length > 0 && (
           <ul aria-label="핵심 인용" className="flex flex-col gap-1.5">
             {evidence.map((item) => (

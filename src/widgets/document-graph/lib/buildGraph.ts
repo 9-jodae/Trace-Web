@@ -28,7 +28,14 @@ export interface NodeAttributes {
   authoredAt: string | null
 }
 
+export interface ModifiedDocument {
+  id: string
+  title: string
+}
+
 export interface EdgeAttributes {
+  /** 참조하는 문서가 수정돼 다시 확인해야 하는 선 */
+  warning?: boolean
   type: LinkType
   size: number
   color: string
@@ -228,6 +235,31 @@ function edgeStyle(type: LinkType) {
   return { type, size: EDGE_STYLE[type].size, color: EDGE_STYLE[type].color }
 }
 
+const WARNING_EDGE_COLOR = 'rgba(248,113,113,0.95)'
+
+/** 수정된 문서를 참조하는 문서는 내용을 다시 확인해야 하므로 선을 빨갛게 하고 경고를 앞에 둡니다. */
+function markModifiedReferences(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  links: DocumentLink[],
+  modified: ModifiedDocument[],
+) {
+  for (const { id, title } of modified) {
+    for (const link of links) {
+      if (link.target !== id || (link.type ?? 'REFERENCES') !== 'REFERENCES') continue
+      if (!graph.hasEdge(link.source, link.target)) continue
+      const edge = graph.edge(link.source, link.target) as string
+      const warning = `경고! 내용 확인 필요 · ${title} 수정됨`
+      const label = graph.getEdgeAttribute(edge, 'label')
+      graph.mergeEdgeAttributes(edge, {
+        warning: true,
+        color: WARNING_EDGE_COLOR,
+        size: 2.5,
+        label: label ? `${warning} · ${label}` : warning,
+      })
+    }
+  }
+}
+
 /** 한 문서 쌍의 관계 글자를 합칩니다. 주제와 참조가 함께 있으면 "보안 참조"처럼 읽히게 붙입니다. */
 function edgeLabel(parts: Map<LinkType, string>) {
   const topic = parts.get('TOPIC')
@@ -246,6 +278,7 @@ export function buildDocumentGraph({
   links = [],
   evidenceDocumentIds = [],
   positionOverrides,
+  modifiedDocuments = [],
 }: {
   documents: Document[]
   links?: DocumentLink[]
@@ -256,6 +289,7 @@ export function buildDocumentGraph({
    * 여기 없는 문서는 해바라기 배치로 매번 새로 계산한 위치를 받습니다.
    */
   positionOverrides?: Map<string, { x: number; y: number }>
+  modifiedDocuments?: ModifiedDocument[]
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -316,6 +350,8 @@ export function buildDocumentGraph({
   avoidEdgeNodeCrossings(graph, pinned)
   separateEvidenceNodes(graph, evidence, pinned)
 
+  markModifiedReferences(graph, links, modifiedDocuments)
+
   let hasReferences = false
   let hasConflicts = false
   let hasTopics = false
@@ -325,5 +361,9 @@ export function buildDocumentGraph({
     else hasReferences = true
   })
 
-  return { graph, legend, hasReferences, hasConflicts, hasTopics }
+  const hasWarnings =
+    modifiedDocuments.length > 0 &&
+    graph.someEdge((_edge, attributes) => attributes.warning === true)
+
+  return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings }
 }

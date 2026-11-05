@@ -38,6 +38,10 @@ const SIGMA_OPTIONS = {
         then: { labelColor: '#fb923c' },
       },
       {
+        when: (attributes: { warning?: boolean }) => attributes.warning === true,
+        then: { labelColor: '#fca5a5' },
+      },
+      {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },

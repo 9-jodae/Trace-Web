@@ -32,6 +32,21 @@ export interface AnswerEvidence {
 }
 
 /** 답변의 핵심 키워드(docs199-Server #78). 근거 청크 원문에 그대로 있는 문구입니다. */
+/**
+ * LLM의 문서 수정 제안(docs199-AI-v2 editProposals). Spring 전달 합의 전 임시 형식입니다.
+ * sample은 개발 서버의 샘플 표시입니다.
+ */
+export interface AnswerEditProposal {
+  chunkId: string
+  source: string
+  documentId: string
+  versionId?: string | null
+  before: string
+  after: string
+  reason: string
+  sample?: boolean
+}
+
 export interface AnswerKeyword {
   text: string
   chunkId: string
@@ -62,6 +77,7 @@ export interface Answer {
   evidence: AnswerEvidence[]
   /** Spring이 전달하기 전에는 없을 수 있습니다. */
   keywords?: AnswerKeyword[]
+  editProposals?: AnswerEditProposal[]
   failedSources: string[]
   fallbackReason: string | null
 }

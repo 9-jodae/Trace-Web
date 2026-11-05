@@ -1,5 +1,10 @@
 import { create } from 'zustand'
-import type { AnswerEvidence, AnswerKeyword, AnswerSource } from '@/entities/answer'
+import type {
+  AnswerEditProposal,
+  AnswerEvidence,
+  AnswerKeyword,
+  AnswerSource,
+} from '@/entities/answer'
 
 /** createdAt은 말풍선 옆 시각 표시용 ISO 문자열입니다. 없으면 시각을 그리지 않습니다. */
 export type ChatMessage =
@@ -14,6 +19,7 @@ export type ChatMessage =
       /** 과거 대화를 다시 열 때 문서 삭제·개정·권한 변경으로 불러오지 못한 근거 수. 있을 때만 둡니다. */
       missingSourceCount?: number
       keywords?: AnswerKeyword[]
+      editProposals?: AnswerEditProposal[]
     }
   | { id: string; kind: 'error'; text: string; createdAt?: string }
 
@@ -40,6 +46,7 @@ interface ChatState {
     sources: AnswerSource[],
     evidence: AnswerEvidence[],
     keywords?: AnswerKeyword[],
+    editProposals?: AnswerEditProposal[],
   ) => void
   addError: (text: string) => void
   startNewConversation: () => void
@@ -76,7 +83,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       ],
     })),
 
-  addAnswer: (conversationId, text, sources, evidence, keywords = []) =>
+  addAnswer: (conversationId, text, sources, evidence, keywords = [], editProposals = []) =>
     set((state) => ({
       conversationId,
       sequence: state.sequence + 1,
@@ -90,6 +97,7 @@ export const useChatStore = create<ChatState>()((set) => ({
           sources,
           evidence,
           keywords,
+          editProposals,
           createdAt: now(),
         },
       ],

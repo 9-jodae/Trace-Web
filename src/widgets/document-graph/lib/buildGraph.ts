@@ -3,12 +3,13 @@ import type { Document } from '@/entities/document'
 import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
- * 문서 간 연결선. 서버의 문서 관계 그래프 API(docs199-Server #22)가 아직 없어
- * 임시로 정의한 형태입니다. API가 확정되면 서버 응답에 맞춰 바꿉니다.
+ * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
+ * type은 엣지 색을 구분하는 데만 씁니다(REFERENCES=파랑, CONFLICTS=주황).
  */
 export interface DocumentLink {
   source: string
   target: string
+  type?: 'REFERENCES' | 'CONFLICTS'
 }
 
 export interface NodeAttributes {
@@ -23,8 +24,14 @@ export interface NodeAttributes {
   authoredAt: string | null
 }
 
-/** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색. */
-export const DIMMED_COLOR = '#3a3733'
+export interface EdgeAttributes {
+  type: 'REFERENCES' | 'CONFLICTS'
+  size: number
+  color: string
+}
+
+/** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색(파란 톤에 맞춤). */
+export const DIMMED_COLOR = '#1e293b'
 
 const NODE_SIZE = 6
 const EVIDENCE_NODE_SIZE = 11
@@ -63,30 +70,41 @@ export function typeLegend(documents: Document[]): TypeLegendItem[] {
 }
 
 /**
- * 같은 유형끼리 모이도록 유형마다 원 위에 중심을 두고, 그 주변에 해바라기 모양으로 배치합니다.
- * 연결선이 생기면 힘 기반 배치로 바꿀 수 있습니다.
+ * 유형별로 따로 뭉치지 않도록, 유형 그룹을 한 명씩 돌아가며 뽑아 하나의 해바라기 나선에 섞어 배치합니다.
+ * 유형 구분은 색으로만 하고, 위치는 화면 전체에 고르게 섞여 보이게 합니다.
+ * 연결선(GET /api/graph)이 생긴 뒤에도 힘 기반 배치 대신 이 배치를 씁니다(docs/architecture.md).
  */
 export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
   const positions = new Map<string, { x: number; y: number }>()
-  const groupRadius = legend.length > 1 ? 30 * Math.sqrt(legend.length) : 0
-
-  legend.forEach((item, groupIndex) => {
-    const angle = (2 * Math.PI * groupIndex) / legend.length
-    const cx = groupRadius * Math.cos(angle)
-    const cy = groupRadius * Math.sin(angle)
+  const groups = legend.map((item) =>
     documents
       .filter((document) => document.documentType === item.type)
-      .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id))
-      .forEach((document, index) => {
-        const r = 3 * Math.sqrt(index)
-        positions.set(document.id, {
-          x: cx + r * Math.cos(index * GOLDEN_ANGLE),
-          y: cy + r * Math.sin(index * GOLDEN_ANGLE),
-        })
-      })
+      .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id)),
+  )
+  const maxGroupSize = Math.max(0, ...groups.map((group) => group.length))
+  const interleaved: Document[] = []
+  for (let round = 0; round < maxGroupSize; round += 1) {
+    for (const group of groups) {
+      const document = group[round]
+      if (document) interleaved.push(document)
+    }
+  }
+
+  interleaved.forEach((document, index) => {
+    // 노드 지름(최대 11)보다 훨씬 넉넉한 간격으로 벌려야 다닥다닥 붙어 보이지 않습니다.
+    const r = 20 * Math.sqrt(index)
+    positions.set(document.id, {
+      x: r * Math.cos(index * GOLDEN_ANGLE),
+      y: r * Math.sin(index * GOLDEN_ANGLE),
+    })
   })
   return positions
 }
+
+/** REFERENCES 엣지 색(파랑, 노드 톤에 맞춤). */
+const REFERENCE_EDGE_COLOR = 'rgba(96,165,250,0.25)'
+/** CONFLICTS 엣지 색(주황, 문서끼리 값이 다르다는 경고 느낌). */
+const CONFLICT_EDGE_COLOR = 'rgba(251,146,60,0.55)'
 
 /**
  * 문서 그래프를 만듭니다. 근거 문서가 있으면 크게 강조하고 나머지는 흐리게 표시합니다.
@@ -97,10 +115,17 @@ export function buildDocumentGraph({
   documents,
   links = [],
   evidenceDocumentIds = [],
+  positionOverrides,
 }: {
   documents: Document[]
   links?: DocumentLink[]
   evidenceDocumentIds?: string[]
+  /**
+   * 사용자가 끌어서 옮긴 노드의 위치. 여기 있는 문서는 계산된 배치 대신 이 위치를
+   * 그대로 써서, 새 답변·필터 변경으로 그래프를 다시 만들어도 사용자가 옮긴 위치가 유지됩니다.
+   * 여기 없는 문서는 해바라기 배치로 매번 새로 계산한 위치를 받습니다.
+   */
+  positionOverrides?: Map<string, { x: number; y: number }>
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -109,10 +134,11 @@ export function buildDocumentGraph({
   const evidence = new Set(evidenceDocumentIds)
   const focusing = visible.some((document) => evidence.has(document.id))
 
-  const graph = new Graph<NodeAttributes>({ type: 'undirected', multi: false })
+  const graph = new Graph<NodeAttributes, EdgeAttributes>({ type: 'undirected', multi: false })
   for (const document of visible) {
     const isEvidence = evidence.has(document.id)
-    const position = positions.get(document.id) ?? { x: 0, y: 0 }
+    const position = positionOverrides?.get(document.id) ??
+      positions.get(document.id) ?? { x: 0, y: 0 }
     graph.addNode(document.id, {
       ...position,
       label: document.title,
@@ -130,8 +156,33 @@ export function buildDocumentGraph({
   for (const link of links) {
     if (link.source === link.target) continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
-    if (graph.hasEdge(link.source, link.target)) continue
-    graph.addEdge(link.source, link.target, { size: 1, color: 'rgba(255,255,255,0.12)' })
+    const isConflict = link.type === 'CONFLICTS'
+    if (graph.hasEdge(link.source, link.target)) {
+      // 같은 문서 쌍에 참조·충돌이 둘 다 있으면 충돌이 우선합니다(그래프는 쌍마다 선 하나만
+      // 그릴 수 있고, 서버가 엣지를 무작위 순서로 보내므로 도착 순서에 기대면 안 됩니다).
+      if (!isConflict) continue
+      const edgeKey = graph.edge(link.source, link.target)
+      if (graph.getEdgeAttribute(edgeKey, 'type') === 'CONFLICTS') continue
+      graph.mergeEdgeAttributes(edgeKey, {
+        type: 'CONFLICTS',
+        size: 1.5,
+        color: CONFLICT_EDGE_COLOR,
+      })
+      continue
+    }
+    graph.addEdge(link.source, link.target, {
+      type: isConflict ? 'CONFLICTS' : 'REFERENCES',
+      size: isConflict ? 1.5 : 1,
+      color: isConflict ? CONFLICT_EDGE_COLOR : REFERENCE_EDGE_COLOR,
+    })
   }
-  return { graph, legend }
+
+  let hasReferences = false
+  let hasConflicts = false
+  graph.forEachEdge((_edge, attributes) => {
+    if (attributes.type === 'CONFLICTS') hasConflicts = true
+    else hasReferences = true
+  })
+
+  return { graph, legend, hasReferences, hasConflicts }
 }

@@ -12,6 +12,7 @@ import {
   POSITION_OPTIONS,
   type DocumentDetail,
 } from '@/entities/document'
+import { graphKeys } from '@/entities/graph'
 import type { Clearance, Position } from '@/entities/user'
 import { toFieldErrors } from '@/shared/api'
 import { buttonPrimary, buttonSecondary, Card, fieldInput, fieldLabel } from '@/shared/ui'
@@ -56,6 +57,8 @@ function AccessEditor({ detail, onDone }: { detail: DocumentDetail; onDone: () =
       queryClient.setQueryData(adminDocumentKeys.detail(id), updated)
       onDone()
       await invalidateAfterDocumentChange(queryClient)
+      // 권한 범위가 바뀌면 그래프에 보이는 노드·연결선도 바뀔 수 있어 함께 새로 받습니다.
+      await queryClient.invalidateQueries({ queryKey: graphKeys.all })
     },
   })
   const fieldErrors = toFieldErrors(mutation.error)

@@ -7,6 +7,7 @@ import {
   adminErrorMessage,
   invalidateAfterDocumentChange,
 } from '@/entities/document'
+import { graphKeys } from '@/entities/graph'
 import { buttonDanger, buttonSecondary, Modal } from '@/shared/ui'
 
 /** "삭제" 버튼과 확인 모달. 소프트 삭제이며 같은 경로로 다시 올리면 복구됩니다. */
@@ -29,6 +30,8 @@ export function DeleteDocumentButton({
       onDeleted()
       queryClient.removeQueries({ queryKey: adminDocumentKeys.detail(documentId) })
       await invalidateAfterDocumentChange(queryClient)
+      // 지운 문서의 노드·연결선이 그래프에서도 사라지도록 함께 무효화합니다.
+      await queryClient.invalidateQueries({ queryKey: graphKeys.all })
     },
   })
 

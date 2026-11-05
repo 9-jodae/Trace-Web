@@ -11,7 +11,7 @@ export function answerPathSegments(points: { documentId: string; x: number; y: n
 }
 
 /** 선분 하나를 그리는 시간(ms). 다음 선분은 앞 선분이 끝난 뒤 시작합니다. */
-export const ANSWER_SEGMENT_MS = 450
+export const ANSWER_SEGMENT_MS = 250
 
 export function answerPathDuration(segmentCount: number) {
   return segmentCount * ANSWER_SEGMENT_MS + 200

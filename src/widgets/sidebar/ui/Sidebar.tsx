@@ -16,8 +16,7 @@ const ADMIN_PATH = '/admin/documents'
 
 /**
  * 왼쪽 네비게이션. "문서 관리"는 관리자 역할(DOC_ADMIN·SYSTEM_ADMIN)에게만 보여줍니다(화면 편의용,
- * 실제 권한은 서버가 판단). 로고를 누르면 지금 대화를 그대로 둔 채 채팅 화면으로 돌아가고,
- * "New Chat"은 새 대화를 시작합니다.
+ * 실제 권한은 서버가 판단). 로고와 "New Chat"은 대화를 비우고 첫 메인 화면(그래프 탭, 빈 채팅)으로 갑니다.
  * "최근 질문"은 서버에 저장된 내 대화를 최근순으로 보여주고, 고르면 그 대화를 다시 불러옵니다.
  */
 export function Sidebar() {
@@ -26,13 +25,14 @@ export function Sidebar() {
   const navigate = useNavigate()
   const isAdmin = me !== undefined && ADMIN_ROLES.includes(me.role)
   const onAdmin = pathname.startsWith('/admin')
+  const goHome = useGoHome()
 
   return (
     <aside className="flex h-full w-[249px] shrink-0 flex-col gap-6 bg-panel px-4 py-5">
       <button
         type="button"
-        aria-label={`${SERVICE_NAME} 채팅 화면으로`}
-        onClick={() => navigate('/')}
+        aria-label={`${SERVICE_NAME} 메인 화면으로`}
+        onClick={goHome}
         className="flex items-center gap-3 self-start rounded-lg px-1 py-0.5 hover:bg-white/5"
       >
         <img src={serviceLogo} alt="" className="size-9" />
@@ -77,21 +77,32 @@ const navItem = 'flex h-11 items-center gap-2.5 rounded-[10px] px-3 text-sm'
 const navActive = 'bg-white/10 font-medium text-white'
 const navIdle = 'text-ink-dim hover:bg-white/5 hover:text-ink'
 
-function NewQuestionButton() {
+/** 대화를 비우고 그래프 탭과 빈 채팅이 있는 첫 메인 화면으로 갑니다. 답변을 기다리는 중이면 화면만 옮깁니다. */
+function useGoHome() {
   const navigate = useNavigate()
   const asking = useIsAsking()
   const startNewConversation = useChatStore((state) => state.startNewConversation)
   const activateTab = useTabStore((state) => state.activateTab)
+  const closePreview = useTabStore((state) => state.closePreview)
+  return () => {
+    if (!asking) {
+      startNewConversation()
+      activateTab(GRAPH_TAB_ID)
+      closePreview()
+    }
+    navigate('/')
+  }
+}
+
+function NewQuestionButton() {
+  const asking = useIsAsking()
+  const goHome = useGoHome()
 
   return (
     <button
       type="button"
       disabled={asking}
-      onClick={() => {
-        startNewConversation()
-        activateTab(GRAPH_TAB_ID)
-        navigate('/')
-      }}
+      onClick={goHome}
       className="flex h-11 w-full items-center justify-center gap-2 rounded-[22px] bg-ink text-sm font-medium text-[#111110] disabled:opacity-50"
     >
       <Plus className="size-4" aria-hidden />

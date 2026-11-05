@@ -70,6 +70,13 @@ const SIGMA_OPTIONS = {
     // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
     enableNodeDrag: true,
     renderEdgeLabels: true,
+    // 기본값(true)은 그릴 때마다 전체 노드 범위에 화면을 다시 맞춥니다. 노드 하나를 멀리 끌면
+    // 범위가 넓어져 그래프 전체가 갑자기 확 작아졌습니다. 그래프를 새로 불러올 때(새 답변·필터 변경)
+    // 한 번만 맞추고, 끄는 동안에는 배율을 그대로 둡니다.
+    autoRescale: 'once',
+    // 확대·축소 한도. 비율이 작을수록 확대입니다(0.1 = 10배 확대, 3 = 3배 축소).
+    minCameraRatio: 0.1,
+    maxCameraRatio: 3,
   },
 }
 

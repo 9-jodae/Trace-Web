@@ -9,13 +9,13 @@ import { RecentConversations, useOpenConversation } from '@/features/conversatio
 import { GRAPH_TAB_ID, useTabStore } from '@/features/document-tabs'
 import { conversationKeys } from '@/entities/conversation'
 import { useMe, type Role } from '@/entities/user'
-import logo from './assets/logo.svg'
+import { SERVICE_NAME, serviceLogo } from '@/shared/brand'
 
 const ADMIN_ROLES: readonly Role[] = ['DOC_ADMIN', 'SYSTEM_ADMIN']
 const ADMIN_PATH = '/admin/documents'
 
 /**
- * 왼쪽 네비게이션. "문서 관리"는 관리자 역할(DOC_ADMIN·SYSTEM_ADMIN)에게만 켭니다(화면 편의용,
+ * 왼쪽 네비게이션. "문서 관리"는 관리자 역할(DOC_ADMIN·SYSTEM_ADMIN)에게만 보여줍니다(화면 편의용,
  * 실제 권한은 서버가 판단). 현재 경로에 따라 "질문하기"와 "문서 관리" 중 하나를 선택 상태로 둡니다.
  * "최근 질문"은 서버에 저장된 내 대화를 최근순으로 보여주고, 고르면 그 대화를 다시 불러옵니다.
  */
@@ -29,8 +29,8 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-[249px] shrink-0 flex-col gap-6 bg-panel px-4 py-5">
       <div className="flex items-center gap-3 px-1 py-0.5">
-        <img src={logo} alt="" className="size-9" />
-        <p className="text-[17px] font-semibold tracking-tight text-ink">문서119</p>
+        <img src={serviceLogo} alt="" className="size-9" />
+        <p className="text-[17px] font-semibold tracking-tight text-ink">{SERVICE_NAME}</p>
       </div>
 
       <NewQuestionButton />
@@ -45,21 +45,17 @@ export function Sidebar() {
           <MessageCircle className="size-[18px]" aria-hidden />
           질문하기
         </button>
-        <button
-          type="button"
-          disabled={!isAdmin}
-          aria-current={onAdmin ? 'page' : undefined}
-          title={isAdmin ? undefined : '문서 관리자만 사용할 수 있습니다'}
-          onClick={() => navigate(ADMIN_PATH)}
-          className={clsx(
-            navItem,
-            !isAdmin && 'cursor-not-allowed text-ink-muted/60',
-            isAdmin && (onAdmin ? navActive : navIdle),
-          )}
-        >
-          <FolderOpen className="size-[18px]" aria-hidden />
-          문서 관리
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            aria-current={onAdmin ? 'page' : undefined}
+            onClick={() => navigate(ADMIN_PATH)}
+            className={clsx(navItem, onAdmin ? navActive : navIdle)}
+          >
+            <FolderOpen className="size-[18px]" aria-hidden />
+            문서 관리
+          </button>
+        )}
       </nav>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -141,6 +137,12 @@ function RecentQuestions() {
         activeConversationId={conversationId}
         disabled={asking || isLoading}
         onSelect={(id) => void select(id)}
+        onDeleted={(id) => {
+          // 지금 보고 있는 대화를 지웠으면 이어서 질문하지 못하도록 새 대화로 돌립니다.
+          if (useChatStore.getState().conversationId === id) {
+            useChatStore.getState().startNewConversation()
+          }
+        }}
       />
       {openError && (
         <p role="alert" className="px-3 pt-1 text-xs text-red-300">

@@ -1,4 +1,4 @@
-import { useIsMutating, useMutation } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useMutationState } from '@tanstack/react-query'
 import { askQuestion, type AskQuestionFilters } from '@/entities/answer'
 import { toErrorMessage } from '@/shared/api'
 import { useChatStore } from './chatStore'
@@ -58,4 +58,20 @@ export function useAskQuestion() {
 /** 답변을 기다리는 중인지. 대화 패널 밖의 버튼에서도 씁니다. */
 export function useIsAsking() {
   return useIsMutating({ mutationKey: ASK_MUTATION_KEY }) > 0
+}
+
+/**
+ * 지금 보고 있는 대화에서 답변을 기다리는 중이면 그 질문을 보낸 시각(ms)을, 아니면 null을 줍니다.
+ * 기다리는 중에 다른 대화를 열면 늦게 올 답변은 버려지므로, 그 요청은 이 대화의 대기로 치지 않습니다.
+ */
+export function usePendingQuestionSince(): number | null {
+  const contextId = useChatStore((state) => state.contextId)
+  const pending = useMutationState({
+    filters: { mutationKey: ASK_MUTATION_KEY, status: 'pending' },
+    select: (mutation) => ({
+      contextId: (mutation.state.variables as AskVariables | undefined)?.contextId,
+      submittedAt: mutation.state.submittedAt,
+    }),
+  })
+  return pending.find((item) => item.contextId === contextId)?.submittedAt ?? null
 }

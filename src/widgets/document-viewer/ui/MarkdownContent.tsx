@@ -35,7 +35,7 @@ export function MarkdownContent({
 
   if (isPending) {
     return (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-slate-400">
+      <div className="flex h-full items-center justify-center p-6 text-sm text-ink-muted">
         원문을 불러오는 중…
       </div>
     )
@@ -44,7 +44,7 @@ export function MarkdownContent({
   if (error || data === undefined) return null
 
   return (
-    <article className="prose max-w-none p-6 text-sm leading-relaxed text-slate-800">
+    <article className="prose prose-sm prose-invert max-w-none p-6 leading-relaxed">
       <Markdown remarkPlugins={[remarkGfm]}>{data}</Markdown>
     </article>
   )

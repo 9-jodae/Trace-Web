@@ -146,11 +146,11 @@ describe('Sidebar 문서 관리 버튼', () => {
     })
   }
 
-  it('직원 역할이면 문서 관리 버튼을 비활성으로 둔다', async () => {
+  it('직원 역할이면 문서 관리 버튼을 숨긴다', async () => {
     serveAs('EMPLOYEE')
     renderSidebar()
     await screen.findByText('데모')
-    expect(screen.getByRole('button', { name: '문서 관리' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '문서 관리' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '질문하기' })).toHaveAttribute('aria-current', 'page')
   })
 
@@ -158,7 +158,6 @@ describe('Sidebar 문서 관리 버튼', () => {
     serveAs('DOC_ADMIN')
     const router = renderSidebar()
     const admin = await screen.findByRole('button', { name: '문서 관리' })
-    await waitFor(() => expect(admin).toBeEnabled())
 
     await userEvent.click(admin)
 

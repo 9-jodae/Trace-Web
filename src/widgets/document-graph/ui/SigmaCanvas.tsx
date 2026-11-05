@@ -95,6 +95,9 @@ function GraphEvents({
       downNode: () => {
         sigma.getContainer().style.setProperty('cursor', 'grabbing')
       },
+      // 툴팁은 노드에 들어온 순간의 위치에 고정돼 있어, 끌면 노드와 떨어져 허공에 남습니다.
+      // 끌기 시작하면 숨기고, 놓은 뒤 다시 노드에 올리면 새 위치에서 다시 뜹니다.
+      nodeDragStart: () => onNodeHover(null),
       upNode: () => {
         sigma.getContainer().style.setProperty('cursor', 'grab')
       },

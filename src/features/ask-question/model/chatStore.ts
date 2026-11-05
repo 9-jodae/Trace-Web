@@ -21,6 +21,8 @@ interface ChatState {
   addError: (text: string) => void
   startNewConversation: () => void
   toggleGraphHighlight: () => void
+  /** 대화 기록에서 과거 대화를 열 때 씁니다. 지금 대화 내용을 통째로 바꿔치기합니다. */
+  loadConversation: (conversationId: string, messages: ChatMessage[]) => void
 }
 
 const initialState = {
@@ -65,6 +67,21 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   toggleGraphHighlight: () =>
     set((state) => ({ graphHighlightEnabled: !state.graphHighlightEnabled })),
+
+  loadConversation: (conversationId, messages) =>
+    set((state) => {
+      const lastAnswer = [...messages].reverse().find((message) => message.kind === 'answer')
+      const evidenceDocumentIds =
+        lastAnswer?.kind === 'answer'
+          ? [...new Set(lastAnswer.sources.map((source) => source.documentId))]
+          : []
+      return {
+        conversationId,
+        messages,
+        evidenceDocumentIds,
+        sequence: state.sequence + messages.length,
+      }
+    }),
 }))
 
 export function resetChatStore() {

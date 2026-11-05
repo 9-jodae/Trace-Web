@@ -27,7 +27,12 @@ export function buildReconstructedMessages(
 ): ReconstructedMessage[] {
   return detail.messages.map((message) => {
     if (message.role === 'USER') {
-      return { id: message.id, kind: 'question', text: message.content }
+      return {
+        id: message.id,
+        kind: 'question',
+        text: message.content,
+        createdAt: message.createdAt,
+      }
     }
     const sources = message.evidenceChunkIds.flatMap((chunkId) => {
       const chunk = evidenceByChunkId.get(chunkId)
@@ -39,6 +44,7 @@ export function buildReconstructedMessages(
       id: message.id,
       kind: 'answer',
       text: message.content,
+      createdAt: message.createdAt,
       sources,
       evidence: [],
       ...(missingSourceCount > 0 && { missingSourceCount }),

@@ -1,6 +1,6 @@
 import { History } from 'lucide-react'
 import { useState } from 'react'
-import { ChatView, GraphHighlightToggle, useChatStore } from '@/features/ask-question'
+import { ChatView, GraphHighlightToggle, useChatStore, useIsAsking } from '@/features/ask-question'
 import { ConversationHistoryPanel, useOpenConversation } from '@/features/conversation-history'
 import { useTabStore } from '@/features/document-tabs'
 import { toQuestionFilters, useDocumentFilterStore } from '@/features/filter-documents'
@@ -11,13 +11,20 @@ export function ChatPanel() {
   const filter = useDocumentFilterStore((state) => state.filter)
   const [view, setView] = useState<'chat' | 'history'>('chat')
   const { open, isLoading } = useOpenConversation()
+  const asking = useIsAsking()
   const [openError, setOpenError] = useState(false)
 
   if (view === 'history') {
     return (
       <div className="flex h-full flex-col bg-panel">
         <ConversationHistoryPanel
-          selecting={isLoading}
+          selecting={isLoading || asking}
+          onDeleted={(conversationId) => {
+            // 지금 보고 있는 대화를 지웠으면 이어서 질문하지 못하도록 새 대화로 돌립니다.
+            if (useChatStore.getState().conversationId === conversationId) {
+              useChatStore.getState().startNewConversation()
+            }
+          }}
           onBack={() => {
             setOpenError(false)
             setView('chat')

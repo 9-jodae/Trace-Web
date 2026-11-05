@@ -45,6 +45,15 @@ const answer = (
   fallbackReason: null,
 })
 
+function renderChatWithContainer(onOpenSource = vi.fn<(source: AnswerSource) => void>()) {
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <ChatView onOpenSource={onOpenSource} />
+    </QueryClientProvider>,
+  )
+}
+
 function renderChat(onOpenSource = vi.fn<(source: AnswerSource) => void>()) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   render(
@@ -214,5 +223,72 @@ describe('ChatView', () => {
     await screen.findAllByText(NO_EVIDENCE_ANSWER)
     expect(onClearFilters).toHaveBeenCalledTimes(1)
     expect(urls).toEqual(['/api/conversations/messages', '/api/conversations/c1/messages'])
+  })
+
+  it('답변을 기다리는 동안 상대 말풍선에 입력 중 표시와 입력창 위 생성 중 문구를 보여준다', async () => {
+    let respond: (reply: ReturnType<typeof ok>) => void = () => {}
+    restore = mockServer(
+      () =>
+        new Promise((resolve) => {
+          respond = resolve
+        }),
+    )
+    renderChat()
+
+    await ask('연차 이월은?')
+
+    expect(await screen.findByRole('status')).toHaveTextContent('근거를 찾고 답변을 만들고 있어요')
+    expect(screen.getByText('가 답변을 생성 중…', { exact: false })).toBeInTheDocument()
+
+    await act(async () => respond(ok(answer('c1', [source('k1', 'd1')]))))
+
+    expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('가 답변을 생성 중…', { exact: false })).not.toBeInTheDocument()
+  })
+
+  it('답변 말풍선에 상대 이름을, 질문과 답변 옆에 보낸 시각을 보여준다', async () => {
+    restore = mockServer(() => ok(answer('c1', [source('k1', 'd1')])))
+    const { container } = renderChatWithContainer()
+
+    await ask('연차 이월은?')
+    await screen.findByText('최대 5일까지 이월할 수 있습니다.')
+
+    expect(screen.getByText('문서119')).toBeInTheDocument()
+    expect(container.querySelectorAll('time')).toHaveLength(2)
+  })
+
+  it('오류가 연달아 오면 프로필과 이름은 첫 말풍선에만 보여준다', async () => {
+    act(() =>
+      useChatStore.getState().loadConversation('c1', [
+        { id: 'q1', kind: 'question', text: '질문' },
+        { id: 'a1', kind: 'answer', text: '첫 답변', sources: [], evidence: [] },
+        { id: 'e1', kind: 'error', text: '오류가 났습니다' },
+      ]),
+    )
+    renderChat()
+
+    expect(screen.getAllByText('문서119')).toHaveLength(1)
+    // 시각이 없는 옛 메시지에는 시각을 그리지 않습니다.
+    expect(screen.queryByRole('time')).not.toBeInTheDocument()
+  })
+
+  it('답변을 기다리는 중에 다른 대화를 열면 그 대화에는 입력 중 표시를 띄우지 않는다', async () => {
+    restore = mockServer(() => new Promise(() => {}))
+    renderChat()
+
+    await ask('연차 이월은?')
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+
+    act(() =>
+      useChatStore
+        .getState()
+        .loadConversation('c2', [{ id: 'q1', kind: 'question', text: '다른 대화 질문' }]),
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('가 답변을 생성 중…', { exact: false })).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('질문'), '새 질문')
+    expect(screen.getByRole('button', { name: '질문 보내기' })).toBeEnabled()
   })
 })

@@ -9,7 +9,7 @@ import { RecentConversations, useOpenConversation } from '@/features/conversatio
 import { GRAPH_TAB_ID, useTabStore } from '@/features/document-tabs'
 import { conversationKeys } from '@/entities/conversation'
 import { useMe, type Role } from '@/entities/user'
-import logo from './assets/logo.svg'
+import { SERVICE_NAME, serviceLogo } from '@/shared/brand'
 
 const ADMIN_ROLES: readonly Role[] = ['DOC_ADMIN', 'SYSTEM_ADMIN']
 const ADMIN_PATH = '/admin/documents'
@@ -29,8 +29,8 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-[249px] shrink-0 flex-col gap-6 bg-panel px-4 py-5">
       <div className="flex items-center gap-3 px-1 py-0.5">
-        <img src={logo} alt="" className="size-9" />
-        <p className="text-[17px] font-semibold tracking-tight text-ink">문서119</p>
+        <img src={serviceLogo} alt="" className="size-9" />
+        <p className="text-[17px] font-semibold tracking-tight text-ink">{SERVICE_NAME}</p>
       </div>
 
       <NewQuestionButton />
@@ -137,6 +137,12 @@ function RecentQuestions() {
         activeConversationId={conversationId}
         disabled={asking || isLoading}
         onSelect={(id) => void select(id)}
+        onDeleted={(id) => {
+          // 지금 보고 있는 대화를 지웠으면 이어서 질문하지 못하도록 새 대화로 돌립니다.
+          if (useChatStore.getState().conversationId === id) {
+            useChatStore.getState().startNewConversation()
+          }
+        }}
       />
       {openError && (
         <p role="alert" className="px-3 pt-1 text-xs text-red-300">

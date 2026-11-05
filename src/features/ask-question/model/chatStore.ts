@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import type { AnswerEvidence, AnswerKeyword, AnswerSource } from '@/entities/answer'
 
+/** createdAt은 말풍선 옆 시각 표시용 ISO 문자열입니다. 없으면 시각을 그리지 않습니다. */
 export type ChatMessage =
-  | { id: string; kind: 'question'; text: string }
+  | { id: string; kind: 'question'; text: string; createdAt?: string }
   | {
       id: string
       kind: 'answer'
+      createdAt?: string
       text: string
       sources: AnswerSource[]
       evidence: AnswerEvidence[]
@@ -13,7 +15,7 @@ export type ChatMessage =
       missingSourceCount?: number
       keywords?: AnswerKeyword[]
     }
-  | { id: string; kind: 'error'; text: string }
+  | { id: string; kind: 'error'; text: string; createdAt?: string }
 
 interface ChatState {
   /** 서버 대화 ID. 첫 답변을 받으면 정해지고, 이후 질문은 같은 대화에 이어서 보냅니다. */
@@ -49,6 +51,7 @@ interface ChatState {
 // 초기화해도 이전 값으로 돌아가지 않도록 스토어 밖에서 셉니다.
 let lastContextId = 0
 const nextContextId = () => ++lastContextId
+const now = () => new Date().toISOString()
 
 const initialState = {
   conversationId: null,
@@ -67,7 +70,10 @@ export const useChatStore = create<ChatState>()((set) => ({
     set((state) => ({
       sequence: state.sequence + 1,
       evidenceDocumentIds: [],
-      messages: [...state.messages, { id: `m${state.sequence + 1}`, kind: 'question', text }],
+      messages: [
+        ...state.messages,
+        { id: `m${state.sequence + 1}`, kind: 'question', text, createdAt: now() },
+      ],
     })),
 
   addAnswer: (conversationId, text, sources, evidence, keywords = []) =>
@@ -77,14 +83,25 @@ export const useChatStore = create<ChatState>()((set) => ({
       evidenceDocumentIds: [...new Set(sources.map((source) => source.documentId))],
       messages: [
         ...state.messages,
-        { id: `m${state.sequence + 1}`, kind: 'answer', text, sources, evidence, keywords },
+        {
+          id: `m${state.sequence + 1}`,
+          kind: 'answer',
+          text,
+          sources,
+          evidence,
+          keywords,
+          createdAt: now(),
+        },
       ],
     })),
 
   addError: (text) =>
     set((state) => ({
       sequence: state.sequence + 1,
-      messages: [...state.messages, { id: `m${state.sequence + 1}`, kind: 'error', text }],
+      messages: [
+        ...state.messages,
+        { id: `m${state.sequence + 1}`, kind: 'error', text, createdAt: now() },
+      ],
     })),
 
   // 대화 자체를 초기화해도 "관계 그래프" 토글은 화면 설정이라 유지합니다.

@@ -4,9 +4,9 @@ import type Graph from 'graphology'
 import { DEFAULT_STYLES, type Sigma } from 'sigma'
 import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
+import { isEdgeVisible } from '../lib/edgeVisibility'
 import {
   computeHoverRadialPositions,
-  DIMMED_EDGE_COLOR,
   type EdgeAttributes,
   type NodeAttributes,
 } from '../lib/buildGraph'
@@ -30,7 +30,7 @@ let liveGraph: Graph<NodeAttributes> | null = null
 // 다시 그리게 합니다.
 let hoveredNodeId: string | null = null
 
-// 사용자가 누른 노드. 고르면 그 노드의 선을 모두 보이고, 나머지는 대표 선만 흐리게 남깁니다.
+// 사용자가 누른 노드. 고르면 그 노드의 선만 모두 보입니다.
 let selectedNodeId: string | null = null
 
 // 호버한 노드의 바로 이웃을 그 둘레에 임시로 모아 놓은 자리(그래프 좌표). 유형별 배치는 연결
@@ -80,31 +80,16 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${(a ?? 1) * alpha})`
 }
 
-/** 대표 선 중 글자까지 보여 줄 선. 충돌·경고는 찾아다니지 않아도 바로 읽혀야 합니다. */
-function alwaysLabeled(attributes: EdgeAttributes) {
-  return attributes.warning === true || attributes.type === 'CONFLICTS'
-}
-
-/**
- * 선을 얼마나 보여 줄지 정합니다. 노드를 고르면 그 노드의 선만 모두 보이고 다른 대표 선은 흐립니다.
- * 고르지 않았을 때는 문서마다 대표 선 하나만 그리고, 마우스를 올린 노드의 선은 모두 보입니다.
- * 근거 포커스 중에는 buildGraph가 이미 선을 나눠 두었으므로 고른 노드가 없으면 손대지 않습니다.
- */
 function visibleEdge(
   data: EdgeDisplayData,
   attributes: EdgeAttributes,
   source: string,
   target: string,
 ): EdgeDisplayData {
-  const touches = (node: string | null) => node !== null && (source === node || target === node)
-  const hidden = { ...data, visibility: 'hidden' as const, label: null }
-  if (selectedNodeId !== null) {
-    if (touches(selectedNodeId)) return data
-    return attributes.primary ? { ...data, color: DIMMED_EDGE_COLOR, label: null } : hidden
-  }
-  if (attributes.focus !== 'none' || touches(hoveredNodeId)) return data
-  if (!attributes.primary) return hidden
-  return alwaysLabeled(attributes) ? data : { ...data, label: null }
+  const selectedNode = selectedNodeId
+  const hoveredNode = hoveredNodeId
+  if (isEdgeVisible({ attributes, source, target, selectedNode, hoveredNode })) return data
+  return { ...data, visibility: 'hidden', label: null }
 }
 
 // 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.
@@ -130,24 +115,10 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
         backdropShadowBlur: 10,
         backdropPadding: 5,
       },
-      // 근거 포커스(buildGraph의 applyEvidenceFocus): 근거는 라벨을 항상 보여 화면에 남는 글자를
-      // 근거 주변으로 좁힙니다. 직접 연결 노드는 수가 많으면(한 근거에 여러 개) 라벨이 서로 겹쳐
-      // 뭉개지므로 'auto'로 둬서 sigma의 밀도 조절(labelRenderedSizeThreshold)이 겹치는 라벨을
-      // 알아서 줄이게 합니다. 흐린 노드는 라벨을 숨깁니다.
+      // 근거 노드는 라벨을 항상 보여서 어떤 문서가 인용됐는지 바로 알 수 있게 합니다.
       {
-        whenData: { focus: 'evidence' },
+        when: (attributes: { highlighted?: boolean }) => attributes.highlighted === true,
         then: { labelVisibility: 'visible', labelColor: '#ffffff' },
-      },
-      {
-        whenData: { focus: 'neighbor' },
-        then: { labelVisibility: 'auto', labelColor: '#cbd5e1' },
-      },
-      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
-      // 흐린 노드에 마우스를 올리면 원래 유형 색을 반쯤 되살려 어떤 문서인지 가늠하게 합니다.
-      {
-        when: (attributes: { focus?: string }, state: { isHovered: boolean }) =>
-          attributes.focus === 'dimmed' && state.isHovered,
-        then: { color: { attribute: 'baseColor' }, opacity: 0.6 },
       },
     ],
     // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
@@ -171,15 +142,9 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },
-      // 근거에 닿지 않는 선은 관계 글자를 숨깁니다(색·굵기는 buildGraph가 이미 흐리게 정함).
-      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
-      // 직접 연결 노드가 여러 개면 그 선들의 관계 글자(참조·같은 주제)까지 다 보여서 근거 노드
-      // 라벨과 겹쳐 뭉개집니다. 경고·충돌 선은 사용자가 찾아다니지 않아도 바로 보여야 하므로
-      // 예외로 둡니다(클릭하면 상세 패널에서도 볼 수 있습니다).
       {
-        when: (attributes: { focus?: string; warning?: boolean; type?: string }) =>
-          attributes.focus === 'neighbor' && !attributes.warning && attributes.type !== 'CONFLICTS',
-        then: { labelVisibility: 'hidden' },
+        when: (attributes: { type?: string }) => attributes.type === 'EVIDENCE',
+        then: { labelColor: '#bae6fd' },
       },
     ],
   },

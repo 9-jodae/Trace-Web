@@ -108,7 +108,7 @@ export function AdminDocumentTable({
                 <th className="w-[10%] px-4 py-2.5 font-medium">보안 등급</th>
                 <th className="w-[10%] px-4 py-2.5 font-medium">최소 직급</th>
                 <th className="w-[7%] px-4 py-2.5 font-medium">버전</th>
-                <th className="w-[11%] px-4 py-2.5 font-medium">작성일</th>
+                <th className="w-[11%] px-4 py-2.5 font-medium whitespace-nowrap">작성일</th>
               </tr>
             </thead>
             <tbody>
@@ -195,7 +195,9 @@ function DocumentRow({ document, linkState }: { document: Document; linkState?: 
       <td className="px-4 py-2.5 text-ink-dim">{clearanceLabel(document.clearance)}</td>
       <td className="px-4 py-2.5 text-ink-dim">{positionLabel(document.minimumPosition)}</td>
       <td className="px-4 py-2.5 text-ink-dim tabular-nums">v{document.currentVersion}</td>
-      <td className="px-4 py-2.5 text-ink-dim tabular-nums">{document.authoredAt ?? '—'}</td>
+      <td className="px-4 py-2.5 whitespace-nowrap text-ink-dim tabular-nums">
+        {document.authoredAt ?? '—'}
+      </td>
     </tr>
   )
 }

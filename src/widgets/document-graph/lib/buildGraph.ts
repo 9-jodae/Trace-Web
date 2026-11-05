@@ -111,28 +111,44 @@ export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
 const EVIDENCE_GAP = 4
 
 /**
- * 근거로 강조된(그래서 평소보다 큰) 노드끼리만 서로 밀어내 겹침을 풉니다. 근거는 최대 3개뿐이라
- * 비용이 작고, 근거가 아닌 노드의 배치(계산된 값이든 드래그로 옮긴 값이든)는 건드리지 않습니다.
+ * 근거로 강조된(그래서 평소보다 큰) 노드끼리만 서로 밀어내 겹침을 풉니다. 근거 수는 서버 sources
+ * 개수에 달려 있어 코드로 보장되지 않으므로, 패스 수를 노드 수에 맞춰 늘립니다. `pinned`로 넘긴
+ * 노드(사용자가 끌어서 옮긴 노드)는 밀지 않습니다 — 둘 다 고정이면 그 쌍은 그대로 둡니다.
  */
-function separateEvidenceNodes(graph: Graph<NodeAttributes>, evidenceIds: Set<string>) {
+export function separateEvidenceNodes(
+  graph: Graph<NodeAttributes>,
+  evidenceIds: Set<string>,
+  pinned: Set<string>,
+) {
   const ids = [...evidenceIds].filter((id) => graph.hasNode(id))
-  for (let pass = 0; pass < 4; pass += 1) {
+  const passes = Math.max(4, ids.length)
+  for (let pass = 0; pass < passes; pass += 1) {
     let moved = false
     for (let i = 0; i < ids.length; i += 1) {
+      const idA = ids[i] as string
       for (let j = i + 1; j < ids.length; j += 1) {
-        const a = graph.getNodeAttributes(ids[i] as string)
-        const b = graph.getNodeAttributes(ids[j] as string)
+        const idB = ids[j] as string
+        if (pinned.has(idA) && pinned.has(idB)) continue
+        const a = graph.getNodeAttributes(idA)
+        const b = graph.getNodeAttributes(idB)
         const dx = b.x - a.x
         const dy = b.y - a.y
         const distance = Math.hypot(dx, dy)
         const minDistance = (a.size + b.size) / 2 + EVIDENCE_GAP
         if (distance >= minDistance) continue
         moved = true
-        const push = (minDistance - distance) / 2
+        const overlap = minDistance - distance
         // 두 노드가 완전히 같은 자리에 있으면 임의의 방향으로 벌립니다.
         const [ux, uy] = distance > 0 ? [dx / distance, dy / distance] : [1, 0]
-        graph.mergeNodeAttributes(ids[i] as string, { x: a.x - ux * push, y: a.y - uy * push })
-        graph.mergeNodeAttributes(ids[j] as string, { x: b.x + ux * push, y: b.y + uy * push })
+        if (pinned.has(idA)) {
+          graph.mergeNodeAttributes(idB, { x: b.x + ux * overlap, y: b.y + uy * overlap })
+        } else if (pinned.has(idB)) {
+          graph.mergeNodeAttributes(idA, { x: a.x - ux * overlap, y: a.y - uy * overlap })
+        } else {
+          const push = overlap / 2
+          graph.mergeNodeAttributes(idA, { x: a.x - ux * push, y: a.y - uy * push })
+          graph.mergeNodeAttributes(idB, { x: b.x + ux * push, y: b.y + uy * push })
+        }
       }
     }
     if (!moved) break
@@ -145,9 +161,10 @@ const EDGE_NODE_CLEARANCE = 10
 /**
  * 연결선이 양 끝과 관계없는 다른 노드 위를 그대로 지나가 보이지 않도록, 선에 너무 가까운
  * 노드를 옆으로 밀어냅니다. 배치 자체는 유형 기준이라 어떤 노드끼리 연결되는지 모르고 정해지므로,
- * 다 그린 뒤 가볍게 보정하는 패스입니다(교차를 100% 없앤다는 보장은 아닙니다).
+ * 다 그린 뒤 가볍게 보정하는 패스입니다(교차를 100% 없앤다는 보장은 아닙니다). `pinned`로 넘긴
+ * 노드(사용자가 끌어서 옮긴 노드)는 밀지 않습니다.
  */
-function avoidEdgeNodeCrossings(graph: Graph<NodeAttributes>) {
+export function avoidEdgeNodeCrossings(graph: Graph<NodeAttributes>, pinned: Set<string>) {
   const edges = graph.edges().map((edge) => {
     const [source, target] = graph.extremities(edge)
     return { source, target }
@@ -163,12 +180,18 @@ function avoidEdgeNodeCrossings(graph: Graph<NodeAttributes>) {
       const aby = b.y - a.y
       const lengthSq = abx * abx + aby * aby
       if (lengthSq === 0) continue
+      const length = Math.sqrt(lengthSq)
 
       graph.forEachNode((nodeId, node) => {
         if (nodeId === source || nodeId === target) return
+        if (pinned.has(nodeId)) return
         const t = ((node.x - a.x) * abx + (node.y - a.y) * aby) / lengthSq
-        // 선분 양 끝 가까이는 원래 이웃이라 자연스레 가까울 수 있어 건드리지 않습니다.
-        if (t < 0.12 || t > 0.88) return
+        const along = t * length
+        // 선분 양 끝 가까이는 원래 이웃이라 자연스레 가까울 수 있어 건드리지 않습니다. 비율이
+        // 아니라 실제 거리로 재야, 긴 선분에서 끝점 근처 교차를 놓치지 않습니다.
+        const startGuard = a.size / 2 + node.size / 2 + EDGE_NODE_CLEARANCE
+        const endGuard = b.size / 2 + node.size / 2 + EDGE_NODE_CLEARANCE
+        if (along < startGuard || length - along < endGuard) return
         const closestX = a.x + t * abx
         const closestY = a.y + t * aby
         const dx = node.x - closestX
@@ -179,7 +202,6 @@ function avoidEdgeNodeCrossings(graph: Graph<NodeAttributes>) {
         moved = true
         const push = clearance - distance
         // 선과 완전히 겹치면(distance 0) 선의 수직 방향으로 밉니다.
-        const length = Math.sqrt(lengthSq)
         const [nx, ny] =
           distance > 0 ? [dx / distance, dy / distance] : [-aby / length, abx / length]
         graph.mergeNodeAttributes(nodeId, { x: node.x + nx * push, y: node.y + ny * push })
@@ -261,9 +283,9 @@ export function buildDocumentGraph({
           : (colorOf.get(document.documentType) ?? documentTypeColor(document.documentType)),
     })
   }
-  // 근거 노드는 평소보다 훨씬 커져서(6→11), 해바라기 배치나 드래그로 우연히 가까웠던 자리가
-  // 서로 겹쳐 보일 수 있습니다. 근거 노드끼리만 떨어뜨립니다(그 외 노드는 건드리지 않음).
-  separateEvidenceNodes(graph, evidence)
+  // 사용자가 끌어서 옮긴 노드는 아래 두 보정에서 제외합니다 — positionOverrides의 약속("옮긴
+  // 위치가 그대로 유지됩니다")을 지키려면, 자동 보정이 그 자리를 다시 밀면 안 됩니다.
+  const pinned = new Set(positionOverrides?.keys() ?? [])
   const labelParts = new Map<string, Map<LinkType, string>>()
   for (const link of links) {
     if (link.source === link.target) continue
@@ -289,7 +311,10 @@ export function buildDocumentGraph({
     if (link.label) labelParts.set(edgeKey, new Map([[type, link.label]]))
   }
 
-  avoidEdgeNodeCrossings(graph)
+  // 교차 보정을 먼저 하고, 근거 노드 분리를 마지막에 해야 근거 노드끼리의 간격이 교차 보정으로
+  // 다시 깨지지 않습니다(근거 강조가 더 중요한 규칙이라 마지막에 적용).
+  avoidEdgeNodeCrossings(graph, pinned)
+  separateEvidenceNodes(graph, evidence, pinned)
 
   let hasReferences = false
   let hasConflicts = false

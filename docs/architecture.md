@@ -54,7 +54,7 @@ src/
     source/                 소스 타입과 관리자 소스 API(/api/admin/sources)
     department/             부서 타입과 GET /api/departments
     answer/                 질문 API(POST /api/conversations/messages)와 답변 타입
-    conversation/           대화 목록·상세 API (GET /api/conversations[/{id}])
+    conversation/           대화 목록·상세·삭제 API (GET·DELETE /api/conversations[/{id}])
     evidence/               근거 조회 API(GET /api/evidence/{chunkId})와 하이라이트 구절 표시
   shared/
     api/                    HTTP 클라이언트, 응답 봉투, 토큰, 오류 문구, queryClient
@@ -96,6 +96,7 @@ src/
 - **질문 검색 필터 연동**: 서버에 생긴 질문 API `filters`(`docs199-Server` PR #48)를 홈 화면·채팅 질문 전송에 그대로 실어 보냅니다(`features/filter-documents`의 `toQuestionFilters`). `sourceKinds`는 그래프 표시에는 못 쓰지만(문서 목록에 소스 종류가 없음) 질문 검색에는 보낼 수 있어 홈 화면의 "전체 문서함" 버튼에만 둡니다. AI 서버가 실제로 필터를 적용하는지는 서버 문서(`ai-server-contract.md`)에도 아직 미확정이라고 적혀 있습니다.
 - **홈 화면("01 홈")**: 대화가 없을 때 보여주는 화면을 추가했습니다(`widgets/home-composer`). 가운데 입력창 + 추천 질문 3개로 구성되고, 질문을 보내면 "답변" 레이아웃으로 바뀝니다.
 - **대화 기록 화면**: 채팅 패널 헤더의 "대화 기록" 버튼으로 과거 대화 목록(오늘/지난 7일/이전)을 보여주고, 고르면 다시 불러옵니다(`entities/conversation`, `entities/evidence`, `features/conversation-history`). 메시지의 `evidenceChunkIds`는 근거 조회 API(`GET /api/evidence/{chunkId}`)로 하나씩 조회해 문서 제목 등을 채웁니다. 문서 삭제·개정·권한 변경으로 404가 난 근거만 빼고, 저장된 답변은 그대로 보여주며 "근거 N개는 표시할 수 없습니다"라고 알립니다. 연결 끊김·시간 초과·5xx처럼 일시적인 오류가 나면 근거를 빼지 않고 대화 열기를 실패로 알려 다시 시도하게 합니다. 사이드바와 대화 기록 화면에서 대화를 연달아 고르면 마지막에 고른 대화만 반영합니다. 목록 API에 근거 개수가 없어 와이어프레임의 "근거 N" 표시는 뺐습니다. 사이드바의 "최근 질문"도 같은 대화 목록 API로 최근 대화 10개를 보여주고, 누르면 그 대화를 다시 불러옵니다. 새 대화가 생기거나 답변이 추가되면 목록을 다시 받아옵니다. 전체 목록과 검색은 "대화 기록" 화면에서 봅니다.
+- **대화 삭제**: 사이드바 "최근 질문"과 "대화 기록" 화면의 각 대화에 마우스를 올리거나 키보드로 초점을 옮기면 휴지통 버튼이 보이고, 확인 모달에서 "삭제"를 눌러야 `DELETE /api/conversations/{id}`로 지웁니다(`features/conversation-history`의 `DeleteConversationButton`). 서버는 대화와 메시지를 되돌릴 수 없게 지우므로 한 번 더 묻습니다. 지운 대화는 목록에서 바로 빼고 목록을 다시 받아옵니다. 지금 채팅에 열려 있던 대화를 지우면 지워진 대화에 이어서 질문하지 않도록 새 대화로 돌립니다(어느 대화가 열려 있는지는 위젯이 판단). 답변을 기다리는 중이거나 다른 대화를 여는 중에는 삭제 버튼을 막습니다. 서버에 일괄 삭제 API가 없어 "전체 삭제"는 두지 않았습니다.
 
 ### 보류
 

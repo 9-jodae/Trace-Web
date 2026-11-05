@@ -1,4 +1,5 @@
 import { useConversations } from '@/entities/conversation'
+import { DeleteConversationButton } from './DeleteConversationButton'
 
 /** 사이드바에 보여줄 최근 대화 수. 전체 목록은 채팅 패널의 "대화 기록"에서 봅니다. */
 const RECENT_LIMIT = 10
@@ -10,10 +11,13 @@ const RECENT_LIMIT = 10
 export function RecentConversations({
   activeConversationId,
   onSelect,
+  onDeleted,
   disabled,
 }: {
   activeConversationId: string | null
   onSelect: (conversationId: string) => void
+  /** 대화를 지운 뒤 불립니다. 지금 열린 대화였다면 채팅을 비우는 일은 호출한 쪽이 합니다. */
+  onDeleted: (conversationId: string) => void
   disabled: boolean
 }) {
   const { data: conversations = [], error } = useConversations()
@@ -35,20 +39,30 @@ export function RecentConversations({
         {conversations.slice(0, RECENT_LIMIT).map((conversation) => {
           const active = conversation.id === activeConversationId
           return (
-            <li key={conversation.id}>
+            <li
+              key={conversation.id}
+              className={`group flex items-center rounded-lg pr-1 ${
+                active ? 'bg-white/[0.06]' : 'hover:bg-white/5'
+              }`}
+            >
               <button
                 type="button"
                 disabled={disabled}
                 aria-current={active ? 'true' : undefined}
                 onClick={() => onSelect(conversation.id)}
-                className={`w-full truncate rounded-lg px-3 py-2.5 text-left text-[13px] disabled:opacity-50 ${
-                  active
-                    ? 'bg-white/[0.06] text-white'
-                    : 'text-ink-dim hover:bg-white/5 hover:text-ink'
+                className={`min-w-0 flex-1 truncate px-3 py-2.5 text-left text-[13px] disabled:opacity-50 ${
+                  active ? 'text-white' : 'text-ink-dim hover:text-ink'
                 }`}
               >
                 {conversation.title}
               </button>
+              <DeleteConversationButton
+                conversationId={conversation.id}
+                title={conversation.title}
+                disabled={disabled}
+                onDeleted={onDeleted}
+                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              />
             </li>
           )
         })}

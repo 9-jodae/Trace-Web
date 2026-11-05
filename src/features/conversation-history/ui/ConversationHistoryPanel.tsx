@@ -1,6 +1,7 @@
 import { ArrowLeft, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useConversations, type ConversationSummary } from '@/entities/conversation'
+import { DeleteConversationButton } from './DeleteConversationButton'
 
 /** 오늘 기준 자정과 비교한 날짜 차이. 같은 날이면 0. */
 function daysAgo(dateString: string) {
@@ -40,11 +41,14 @@ export function ConversationHistoryPanel({
   onSelect,
   onNewConversation,
   onBack,
+  onDeleted,
   selecting,
 }: {
   onSelect: (conversationId: string) => void
   onNewConversation: () => void
   onBack: () => void
+  /** 대화를 지운 뒤 불립니다. 지금 열린 대화였다면 채팅을 비우는 일은 호출한 쪽이 합니다. */
+  onDeleted: (conversationId: string) => void
   selecting: boolean
 }) {
   const { data: conversations = [], isPending, error } = useConversations()
@@ -98,18 +102,29 @@ export function ConversationHistoryPanel({
                 <div key={label} className="mb-2">
                   <p className="px-2 pt-2 pb-1 text-xs font-medium text-ink-muted">{label}</p>
                   {items.map((conversation) => (
-                    <button
+                    <div
                       key={conversation.id}
-                      type="button"
-                      disabled={selecting}
-                      onClick={() => onSelect(conversation.id)}
-                      className="flex w-full flex-col gap-0.5 rounded-lg px-2 py-2.5 text-left hover:bg-white/5 disabled:opacity-50"
+                      className="group flex items-center gap-1 rounded-lg pr-1 hover:bg-white/5"
                     >
-                      <span className="truncate text-sm text-ink">{conversation.title}</span>
-                      <span className="text-xs text-ink-muted">
-                        {formatTimestamp(conversation.updatedAt, label === '오늘')}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        disabled={selecting}
+                        onClick={() => onSelect(conversation.id)}
+                        className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 py-2.5 text-left disabled:opacity-50"
+                      >
+                        <span className="truncate text-sm text-ink">{conversation.title}</span>
+                        <span className="text-xs text-ink-muted">
+                          {formatTimestamp(conversation.updatedAt, label === '오늘')}
+                        </span>
+                      </button>
+                      <DeleteConversationButton
+                        conversationId={conversation.id}
+                        title={conversation.title}
+                        disabled={selecting}
+                        onDeleted={onDeleted}
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      />
+                    </div>
                   ))}
                 </div>
               ),

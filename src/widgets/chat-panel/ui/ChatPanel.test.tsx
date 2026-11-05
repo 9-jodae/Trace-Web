@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetChatStore, useChatStore } from '@/features/ask-question'
@@ -91,6 +91,33 @@ describe('ChatPanel 대화 기록', () => {
     expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
     expect(useChatStore.getState().conversationId).toBe('c1')
     expect(useChatStore.getState().evidenceDocumentIds).toEqual(['d1'])
+  })
+
+  it('대화 기록에서 지금 열린 대화를 삭제하면 목록에서 빼고 채팅을 비운다', async () => {
+    const deleted: string[] = []
+    restore = mockServer((config) => {
+      if (config.url === '/api/conversations') {
+        return ok(CONVERSATIONS.filter((conversation) => !deleted.includes(conversation.id)))
+      }
+      if (config.method === 'delete' && config.url === '/api/conversations/c1') {
+        deleted.push('c1')
+        return ok({ deleted: true })
+      }
+      return ok(null)
+    })
+    useChatStore
+      .getState()
+      .loadConversation('c1', [{ id: 'q', kind: 'question', text: '연차 이월은?' }])
+    renderPanel()
+
+    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
+    await userEvent.click(await screen.findByRole('button', { name: '‘연차 이월은?’ 대화 삭제' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }))
+
+    expect(await screen.findByText('대화 기록이 없습니다.')).toBeInTheDocument()
+    await waitFor(() => expect(deleted).toEqual(['c1']))
+    expect(useChatStore.getState().conversationId).toBeNull()
+    expect(useChatStore.getState().messages).toEqual([])
   })
 
   it('근거 문서를 더는 볼 수 없으면 저장된 답변과 빠진 근거 수를 보여준다', async () => {

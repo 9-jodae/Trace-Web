@@ -16,13 +16,14 @@ const isAssistantSide = (message: ChatMessage | undefined) =>
 
 export function MessageList({
   messages,
-  pending,
+  pendingSince,
   onOpenSource,
   onRetryWithoutFilters,
   onRephrase,
 }: {
   messages: ChatMessage[]
-  pending: boolean
+  /** 답변을 기다리는 중이면 질문을 보낸 시각(ms), 아니면 null */
+  pendingSince: number | null
   onOpenSource: (source: AnswerSource, highlights?: string[]) => void
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
@@ -32,9 +33,9 @@ export function MessageList({
   // 메시지가 추가될 때만 맨 아래로 스크롤합니다.
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: 'end' })
-  }, [messages.length, pending])
+  }, [messages.length, pendingSince])
 
-  if (messages.length === 0 && !pending) {
+  if (messages.length === 0 && pendingSince === null) {
     return (
       <p className="flex flex-1 items-center justify-center px-6 text-center text-sm text-ink-muted">
         질문하면 사내 문서에서 근거를 찾아 답변합니다.
@@ -93,10 +94,10 @@ export function MessageList({
           </li>
         )
       })}
-      {pending && (
+      {pendingSince !== null && (
         <li>
           <AssistantRow showProfile={!isAssistantSide(messages.at(-1))}>
-            <TypingIndicator />
+            <TypingIndicator startedAt={pendingSince} />
           </AssistantRow>
         </li>
       )}

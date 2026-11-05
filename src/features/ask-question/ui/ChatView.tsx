@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { AnswerSource, AskQuestionFilters } from '@/entities/answer'
 import { useChatStore } from '../model/chatStore'
-import { useAskQuestion, useIsAsking } from '../model/useAskQuestion'
+import { useAskQuestion, usePendingQuestionSince } from '../model/useAskQuestion'
 import { TypingStatusBar } from './AssistantMessage'
 import { MessageList } from './MessageList'
 import { QuestionInput } from './QuestionInput'
@@ -23,8 +23,9 @@ export function ChatView({
   const messages = useChatStore((state) => state.messages)
   const { ask } = useAskQuestion()
   // 홈 화면(HomeComposer)에서 보낸 첫 질문도 기다리는 중으로 보이도록, 이 컴포넌트의 요청만이 아니라
-  // 진행 중인 질문 요청 전체를 봅니다.
-  const isPending = useIsAsking()
+  // 지금 대화에서 진행 중인 질문 요청 전체를 봅니다.
+  const pendingSince = usePendingQuestionSince()
+  const isPending = pendingSince !== null
   const [question, setQuestion] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -32,7 +33,7 @@ export function ChatView({
     <div className="flex min-h-0 flex-1 flex-col">
       <MessageList
         messages={messages}
-        pending={isPending}
+        pendingSince={pendingSince}
         onOpenSource={onOpenSource}
         onRetryWithoutFilters={(text) => {
           onClearFilters?.()

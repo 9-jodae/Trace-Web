@@ -272,4 +272,23 @@ describe('ChatView', () => {
     // 시각이 없는 옛 메시지에는 시각을 그리지 않습니다.
     expect(screen.queryByRole('time')).not.toBeInTheDocument()
   })
+
+  it('답변을 기다리는 중에 다른 대화를 열면 그 대화에는 입력 중 표시를 띄우지 않는다', async () => {
+    restore = mockServer(() => new Promise(() => {}))
+    renderChat()
+
+    await ask('연차 이월은?')
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+
+    act(() =>
+      useChatStore
+        .getState()
+        .loadConversation('c2', [{ id: 'q1', kind: 'question', text: '다른 대화 질문' }]),
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('가 답변을 생성 중…', { exact: false })).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('질문'), '새 질문')
+    expect(screen.getByRole('button', { name: '질문 보내기' })).toBeEnabled()
+  })
 })

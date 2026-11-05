@@ -78,22 +78,22 @@ export function TypingDots({ size = 'md' }: { size?: 'sm' | 'md' }) {
   )
 }
 
-function useElapsedSeconds() {
-  const [seconds, setSeconds] = useState(0)
+/** 질문을 보낸 시각부터 센 경과 초. 패널이 다시 그려져도 처음부터 다시 세지 않습니다. */
+function useElapsedSeconds(startedAt: number) {
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const startedAt = Date.now()
-    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000)
+    const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [])
-  return seconds
+  return Math.max(0, Math.floor((now - startedAt) / 1000))
 }
 
 const formatElapsed = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
 /** 답변을 기다리는 동안 상대 말풍선 자리에 보여줍니다. 경과 시간은 화면 낭독기가 매초 읽지 않게 숨깁니다. */
-export function TypingIndicator() {
-  const elapsed = useElapsedSeconds()
+export function TypingIndicator({ startedAt }: { startedAt: number }) {
+  const elapsed = useElapsedSeconds(startedAt)
   return (
     <div role="status" className="flex flex-col gap-1.5">
       <div

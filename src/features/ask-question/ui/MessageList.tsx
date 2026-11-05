@@ -50,6 +50,7 @@ export function MessageList({
                 text={message.text}
                 sources={message.sources}
                 evidence={message.evidence}
+                missingSourceCount={message.missingSourceCount ?? 0}
                 onOpen={onOpenSource}
                 originalQuestion={originalQuestion}
                 onRetryWithoutFilters={onRetryWithoutFilters}
@@ -78,6 +79,7 @@ function AnswerBubble({
   text,
   sources,
   evidence,
+  missingSourceCount,
   onOpen,
   originalQuestion,
   onRetryWithoutFilters,
@@ -86,13 +88,16 @@ function AnswerBubble({
   text: string
   sources: AnswerSource[]
   evidence: AnswerEvidence[]
+  missingSourceCount: number
   onOpen: (source: AnswerSource) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
-  // answerType이 아직 안 내려오는 동안의 임시 판별입니다. entities/answer/model/answerType.ts 참고.
-  if (isNoEvidenceAnswer(sources, text)) {
+  // answerType이 아직 안 내려오는 동안의 임시 판별입니다(entities/answer/model/answerType.ts 참고).
+  // 과거 대화의 근거를 지금 볼 수 없게 된 경우(문서 삭제·개정·권한 변경)는 거절이 아니므로,
+  // missingSourceCount가 있으면 저장된 답변을 그대로 보여주고 빠진 근거 수만 알립니다.
+  if (isNoEvidenceAnswer(sources, text) && missingSourceCount === 0) {
     return (
       <NoEvidenceAnswer
         originalQuestion={originalQuestion}
@@ -150,6 +155,11 @@ function AnswerBubble({
             </li>
           ))}
         </ul>
+      )}
+      {missingSourceCount > 0 && (
+        <p className="text-xs text-ink-muted">
+          근거 {missingSourceCount}개는 문서가 개정·삭제되었거나 볼 권한이 없어 표시할 수 없습니다
+        </p>
       )}
     </div>
   )

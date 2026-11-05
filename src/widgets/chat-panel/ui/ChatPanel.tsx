@@ -11,23 +11,39 @@ export function ChatPanel() {
   const filter = useDocumentFilterStore((state) => state.filter)
   const [view, setView] = useState<'chat' | 'history'>('chat')
   const { open, isLoading } = useOpenConversation()
+  const [openError, setOpenError] = useState(false)
 
   if (view === 'history') {
     return (
       <div className="flex h-full flex-col bg-panel">
         <ConversationHistoryPanel
           selecting={isLoading}
-          onBack={() => setView('chat')}
+          onBack={() => {
+            setOpenError(false)
+            setView('chat')
+          }}
           onNewConversation={() => {
+            setOpenError(false)
             useChatStore.getState().startNewConversation()
             setView('chat')
           }}
           onSelect={async (conversationId) => {
-            const messages = await open(conversationId)
-            useChatStore.getState().loadConversation(conversationId, messages)
-            setView('chat')
+            setOpenError(false)
+            try {
+              const messages = await open(conversationId)
+              if (!messages) return
+              useChatStore.getState().loadConversation(conversationId, messages)
+              setView('chat')
+            } catch {
+              setOpenError(true)
+            }
           }}
         />
+        {openError && (
+          <p role="alert" className="px-6 pb-4 text-xs text-red-300">
+            대화를 불러오지 못했습니다.
+          </p>
+        )}
       </div>
     )
   }

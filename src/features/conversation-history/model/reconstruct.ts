@@ -34,6 +34,14 @@ export function buildReconstructedMessages(
       return chunk ? [toAnswerSource(chunkId, chunk)] : []
     })
     // 대화 상세 API는 그때 뽑혔던 핵심 인용(evidence)까지는 저장하지 않아 다시 보여줄 수 없습니다.
-    return { id: message.id, kind: 'answer', text: message.content, sources, evidence: [] }
+    const missingSourceCount = message.evidenceChunkIds.length - sources.length
+    return {
+      id: message.id,
+      kind: 'answer',
+      text: message.content,
+      sources,
+      evidence: [],
+      ...(missingSourceCount > 0 && { missingSourceCount }),
+    }
   })
 }

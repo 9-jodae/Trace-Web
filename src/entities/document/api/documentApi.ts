@@ -24,14 +24,19 @@ export function listDocuments(params: DocumentListParams = {}) {
   return request<PageResponse<Document>>({ method: 'GET', url: '/api/documents', params })
 }
 
-/** 볼 수 있는 모든 문서를 페이지를 넘기며 모읍니다(그래프에 모든 노드를 표시하기 위해). */
+/**
+ * 볼 수 있는 모든 문서를 모읍니다(그래프에 모든 노드를 표시하기 위해). 첫 페이지로 전체 페이지 수를
+ * 알게 되면 나머지 페이지는 한꺼번에 요청합니다.
+ */
 export async function fetchAllDocuments(): Promise<Document[]> {
-  const documents: Document[] = []
-  for (let page = 0; ; page++) {
-    const result = await listDocuments({ page, size: MAX_PAGE_SIZE })
-    documents.push(...result.items)
-    if (page + 1 >= result.totalPages || result.items.length === 0) return documents
-  }
+  const first = await listDocuments({ page: 0, size: MAX_PAGE_SIZE })
+  if (first.items.length === 0 || first.totalPages <= 1) return first.items
+  const rest = await Promise.all(
+    Array.from({ length: first.totalPages - 1 }, (_, index) =>
+      listDocuments({ page: index + 1, size: MAX_PAGE_SIZE }),
+    ),
+  )
+  return [first, ...rest].flatMap((result) => result.items)
 }
 
 export function useAllDocuments() {

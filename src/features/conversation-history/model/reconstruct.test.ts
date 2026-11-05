@@ -94,6 +94,21 @@ describe('buildReconstructedMessages', () => {
 
     const messages = buildReconstructedMessages(detail(), evidenceByChunkId)
 
-    expect(messages[1]).toMatchObject({ kind: 'answer', sources: [{ id: 'k1' }] })
+    expect(messages[1]).toMatchObject({
+      kind: 'answer',
+      sources: [{ id: 'k1' }],
+      missingSourceCount: 1,
+    })
+  })
+
+  it('근거를 모두 불러왔으면 빠진 근거 수를 두지 않는다', () => {
+    const evidenceByChunkId = new Map([
+      ['k1', chunk('k1', 'd1')],
+      ['k2', chunk('k2', 'd2')],
+    ])
+
+    const messages = buildReconstructedMessages(detail(), evidenceByChunkId)
+
+    expect(messages[1]).not.toHaveProperty('missingSourceCount')
   })
 })

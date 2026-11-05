@@ -82,12 +82,13 @@ describe('buildDocumentGraph', () => {
     expect(graph.size).toBe(1)
   })
 
-  it('같은 유형의 노드는 다른 유형보다 가깝게 배치한다', () => {
+  it('같은 유형끼리 뭉치지 않도록 유형을 돌아가며 섞어 배치한다', () => {
     const { graph } = buildDocumentGraph({
       documents: [doc('a1', 'A'), doc('a2', 'A'), doc('b1', 'B')],
     })
     const at = (id: string) => graph.getNodeAttributes(id)
     const distance = (p: string, q: string) => Math.hypot(at(p).x - at(q).x, at(p).y - at(q).y)
-    expect(distance('a1', 'a2')).toBeLessThan(distance('a1', 'b1'))
+    // a1(1번째) 다음은 b1(2번째)이 와야 하므로, 다른 유형인 b1이 같은 유형 a2(3번째)보다 a1에 더 가깝다.
+    expect(distance('a1', 'b1')).toBeLessThan(distance('a1', 'a2'))
   })
 })

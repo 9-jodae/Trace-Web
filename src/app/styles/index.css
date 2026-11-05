@@ -23,6 +23,23 @@ body,
   height: 100%;
 }
 
+/* 그래프에서 근거 문서 노드를 감싸는 링 글로우(타겟처럼 깜빡이는 느낌). */
+@keyframes graph-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+.graph-ring-pulse {
+  animation: graph-ring-pulse 2.2s ease-in-out infinite;
+}
+
 /* 문서 뷰어의 Markdown 원문(prose-invert)을 워크스페이스 다크 테마 토큰 색에 맞춥니다. */
 .prose-invert {
   --tw-prose-body: var(--color-ink-dim);

@@ -16,9 +16,17 @@ function renderGraph() {
 const page = (items: unknown[]) =>
   ok({ items, page: 0, size: 100, totalElements: items.length, totalPages: 1 })
 
-/** 문서 목록 요청에는 주어진 응답을, 부서 목록(필터 바) 요청에는 빈 배열을 돌려줍니다. */
+/**
+ * 문서 목록 요청에는 주어진 응답을, 부서 목록(필터 바)과 관계 그래프 요청에는
+ * 빈 응답을 돌려줍니다. 관계 그래프는 실패해도 노드 자체는 그대로 보여야 하므로
+ * (widgets/document-graph/ui/DocumentGraph.tsx 참고) 기본은 빈 그래프로 둡니다.
+ */
 function serveDocuments(reply: () => ReturnType<typeof page> | ReturnType<typeof fail>) {
-  return mockServer((config) => (config.url === '/api/departments' ? ok([]) : reply()))
+  return mockServer((config) => {
+    if (config.url === '/api/departments') return ok([])
+    if (config.url === '/api/graph') return ok({ nodes: [], edges: [] })
+    return reply()
+  })
 }
 
 let restore: () => void = () => {}

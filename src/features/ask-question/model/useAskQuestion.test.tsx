@@ -81,4 +81,46 @@ describe('useAskQuestion', () => {
       expect.objectContaining({ kind: 'error' }),
     )
   })
+
+  // 응답을 기다리는 동안 대화가 바뀌면 늦게 온 답변이 바뀐 화면에 붙으면 안 됩니다.
+  it.each([
+    ['새 대화를 시작하면', () => useChatStore.getState().startNewConversation()],
+    ['로그아웃으로 대화가 초기화되면', () => resetChatStore()],
+    [
+      '다른 대화를 열면',
+      () =>
+        useChatStore
+          .getState()
+          .loadConversation('c9', [{ id: 'h1', kind: 'question', text: '다른 대화의 질문' }]),
+    ],
+  ])('질문한 뒤 %s 늦게 도착한 답변은 버린다', async (_label, changeConversation) => {
+    const server = deferServer()
+    restore = server.restore
+    const { asker, pending } = setup()
+
+    act(() => asker.result.current.ask('연차 이월은?'))
+    await waitFor(() => expect(pending.result.current).toBe(true))
+    act(() => changeConversation())
+    const before = useChatStore.getState()
+    await act(async () => server.respond(answer))
+
+    await waitFor(() => expect(pending.result.current).toBe(false))
+    const after = useChatStore.getState()
+    expect(after.messages).toEqual(before.messages)
+    expect(after.conversationId).toBe(before.conversationId)
+  })
+
+  it('질문한 뒤 대화가 바뀌면 늦게 도착한 오류도 버린다', async () => {
+    const server = deferServer()
+    restore = server.restore
+    const { asker, pending } = setup()
+
+    act(() => asker.result.current.ask('연차 이월은?'))
+    await waitFor(() => expect(pending.result.current).toBe(true))
+    act(() => resetChatStore())
+    await act(async () => server.respond(fail(502, 'AI_UNAVAILABLE')))
+
+    await waitFor(() => expect(pending.result.current).toBe(false))
+    expect(useChatStore.getState().messages).toEqual([])
+  })
 })

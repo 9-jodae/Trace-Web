@@ -286,7 +286,7 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await screen.findByText('최대 5일까지 이월할 수 있습니다.')
 
-    expect(screen.getByText('문서119')).toBeInTheDocument()
+    expect(screen.getByText('Trace')).toBeInTheDocument()
     expect(container.querySelectorAll('time')).toHaveLength(2)
   })
 
@@ -300,7 +300,7 @@ describe('ChatView', () => {
     )
     renderChat()
 
-    expect(screen.getAllByText('문서119')).toHaveLength(1)
+    expect(screen.getAllByText('Trace')).toHaveLength(1)
     // 시각이 없는 옛 메시지에는 시각을 그리지 않습니다.
     expect(screen.queryByRole('time')).not.toBeInTheDocument()
   })

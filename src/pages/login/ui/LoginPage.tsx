@@ -21,7 +21,7 @@ export function LoginPage() {
       <div className="relative flex w-full max-w-[420px] flex-col items-center gap-4 rounded-[22px] border border-white/10 bg-[#161514] px-9 pt-9 pb-8 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-3 px-1 py-0.5">
           <img src={logo} alt="" className="size-9" />
-          <p className="text-[17px] font-semibold tracking-tight text-ink">문서119</p>
+          <p className="text-[17px] font-semibold tracking-tight text-ink">Trace</p>
         </div>
         <h1 className="text-xl font-semibold text-ink">사내 문서 근거 검색</h1>
         <p className="text-sm text-ink-dim">회사 계정으로 로그인하세요</p>

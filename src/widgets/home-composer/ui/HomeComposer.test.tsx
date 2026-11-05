@@ -57,7 +57,7 @@ describe('HomeComposer', () => {
   })
   afterEach(() => restore())
 
-  it('추천 질문을 누르면 그 질문을 그대로 보낸다', async () => {
+  it('질문을 입력하고 보내면 그대로 전송한다', async () => {
     let body: unknown
     restore = mockServer((config) => {
       if (config.url === '/api/documents') return page([doc('d1', 'REPORT')])
@@ -67,7 +67,8 @@ describe('HomeComposer', () => {
     })
     renderHome()
 
-    await userEvent.click(await screen.findByRole('button', { name: '법인카드 정산 순서' }))
+    await userEvent.type(screen.getByLabelText('질문'), '법인카드 정산 순서')
+    await userEvent.click(screen.getByRole('button', { name: '질문 보내기' }))
 
     await waitFor(() => expect(useChatStore.getState().conversationId).toBe('c1'))
     expect(body).toEqual({ message: '법인카드 정산 순서' })
@@ -90,5 +91,26 @@ describe('HomeComposer', () => {
 
     await waitFor(() => expect(useChatStore.getState().conversationId).toBe('c1'))
     expect(body.filters).toEqual({ documentTypes: ['REPORT'] })
+  })
+
+  it('새 질문 화면에서는 관계 그래프 토글을 보여주지 않는다', () => {
+    renderHome()
+    expect(screen.queryByRole('switch', { name: '관계 그래프' })).not.toBeInTheDocument()
+  })
+
+  it('전체 문서함과 필터 드롭다운은 동시에 하나만 열린다', async () => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/documents') return page([doc('d1', 'REPORT')])
+      if (config.url === '/api/departments') return ok([])
+      return answer
+    })
+    renderHome()
+
+    await userEvent.click(screen.getByText('전체 문서함'))
+    expect(screen.getByText('로컬 드라이브')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('필터'))
+    expect(screen.queryByText('로컬 드라이브')).not.toBeInTheDocument()
+    expect(screen.getByText('보고서')).toBeInTheDocument()
   })
 })

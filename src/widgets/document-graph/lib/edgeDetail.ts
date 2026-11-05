@@ -82,23 +82,26 @@ export function describeEdge({
   return items
 }
 
-/** 인용 문서 중 서로 충돌하는 쌍이 있으면 그 문서만 강조합니다. 없으면 인용 문서를 그대로 둡니다. */
+/**
+ * 인용 문서에 풀리지 않은 충돌이 있으면 그 문서와 상대 문서만 강조합니다. 답변이 한쪽만 인용해도
+ * 충돌은 두 문서의 문제이므로 상대도 함께 보여 줍니다. 충돌이 없으면 인용 문서를 그대로 둡니다.
+ */
 export function focusConflictDocuments(
   documentIds: string[],
   edges: GraphEdge[],
   resolvedPairs: [string, string][] = [],
 ): string[] {
   const cited = new Set(documentIds)
-  const conflicting = new Set(
-    edges
-      .filter(
-        (edge) =>
-          edge.type === 'CONFLICTS' &&
-          cited.has(edge.source) &&
-          cited.has(edge.target) &&
-          !isResolvedPair(resolvedPairs, edge.source, edge.target),
-      )
-      .flatMap((edge) => [edge.source, edge.target]),
+  const conflicting = edges.filter(
+    (edge) =>
+      edge.type === 'CONFLICTS' &&
+      (cited.has(edge.source) || cited.has(edge.target)) &&
+      !isResolvedPair(resolvedPairs, edge.source, edge.target),
   )
-  return conflicting.size > 0 ? documentIds.filter((id) => conflicting.has(id)) : documentIds
+  if (conflicting.length === 0) return documentIds
+  const involved = new Set(conflicting.flatMap((edge) => [edge.source, edge.target]))
+  return [
+    ...documentIds.filter((id) => involved.has(id)),
+    ...[...involved].filter((id) => !cited.has(id)),
+  ]
 }

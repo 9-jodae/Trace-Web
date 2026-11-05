@@ -34,7 +34,7 @@ export function useAskQuestion() {
       // 샘플을 못 불러와도 답변은 그대로 보여 줍니다.
       const samples =
         !answer.editProposals && isLocalEditMode() && isSampleEditRequest(message)
-          ? await sampleEditProposals().catch(() => [])
+          ? await sampleEditProposals(answer.sources).catch(() => [])
           : []
       const chat = useChatStore.getState()
       if (chat.contextId !== contextId) return

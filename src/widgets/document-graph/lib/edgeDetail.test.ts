@@ -125,8 +125,13 @@ describe('focusConflictDocuments', () => {
     expect(focusConflictDocuments(['c', 'b', 'a'], [conflict])).toEqual(['b', 'a'])
   })
 
-  it('충돌 쌍이 다 인용되지 않았으면 그대로 둔다', () => {
-    expect(focusConflictDocuments(['a', 'c'], [conflict])).toEqual(['a', 'c'])
+  it('한쪽만 인용해도 상대 문서를 함께 강조하고 인용 순서를 앞에 둔다', () => {
+    expect(focusConflictDocuments(['a', 'c'], [conflict])).toEqual(['a', 'b'])
+    expect(focusConflictDocuments(['b'], [conflict])).toEqual(['b', 'a'])
+  })
+
+  it('충돌이 없거나 해소했으면 인용 문서를 그대로 둔다', () => {
     expect(focusConflictDocuments(['a', 'b'], [edge({})])).toEqual(['a', 'b'])
+    expect(focusConflictDocuments(['a', 'c'], [conflict], [['a', 'b']])).toEqual(['a', 'c'])
   })
 })

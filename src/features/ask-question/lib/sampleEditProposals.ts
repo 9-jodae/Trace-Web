@@ -1,4 +1,4 @@
-import type { AnswerEditProposal } from '@/entities/answer'
+import type { AnswerEditProposal, AnswerSource } from '@/entities/answer'
 import { downloadDocument, fetchAllDocuments } from '@/entities/document'
 
 const EDIT_REQUEST = /(수정|고쳐|맞춰|통일|변경|해결)/
@@ -8,10 +8,11 @@ export function isSampleEditRequest(question: string) {
 }
 
 /**
- * 개발 서버에서 카드 화면을 확인하기 위한 고정 샘플입니다. 이번 검색 결과와 무관하게 볼 수 있는 문서에서
- * 대상을 찾습니다. 서버가 editProposals를 전달하면 지웁니다.
+ * 개발 서버에서 카드 화면을 확인하기 위한 고정 샘플입니다. 실제 AI 제안과 다를 수 있습니다. 서버가 editProposals를 전달하면 지웁니다.
  */
-export async function sampleEditProposals(): Promise<AnswerEditProposal[]> {
+export async function sampleEditProposals(sources: AnswerSource[]): Promise<AnswerEditProposal[]> {
+  // 다른 문서를 묻는 답변에 엉뚱한 샘플이 붙지 않게, 이번 답변의 출처에 대상이 있을 때만 만듭니다.
+  if (!sources.some((source) => source.documentTitle === TARGET_TITLE)) return []
   const documents = await fetchAllDocuments()
   const target = documents.find((document) => document.title === TARGET_TITLE)
   if (!target) return []

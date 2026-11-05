@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AnswerEditProposal } from '@/entities/answer'
+import type { AnswerEditProposal, AnswerSource } from '@/entities/answer'
 import { useLocalEditStore } from '@/entities/document'
 import { isSampleEditRequest, sampleEditProposals } from '../lib/sampleEditProposals'
 import { EditProposalCard } from './EditProposalCard'
@@ -124,16 +124,16 @@ describe('sampleEditProposals', () => {
     expect(isSampleEditRequest('연차 며칠이야?')).toBe(false)
   })
 
-  it('검색 결과와 무관하게 볼 수 있는 대상 문서로 만들고, 없으면 만들지 않는다', async () => {
+  it('답변 출처에 대상 문서가 있을 때만 만든다', async () => {
+    const source = { documentTitle: 'leave-operation' } as AnswerSource
     api.fetchAllDocuments.mockResolvedValue([{ id: 'd9', title: 'leave-operation' }])
     api.downloadDocument.mockResolvedValue({
       text: async () => '머리말\n이월은 최대 7일, 6월 30일까지다.\n끝',
     })
-    const [proposal] = await sampleEditProposals()
+    const [proposal] = await sampleEditProposals([source])
     expect(proposal?.documentId).toBe('d9')
     expect(proposal?.before).toBe('이월은 최대 7일, 6월 30일까지다.')
     expect(proposal?.after).toBe('이월은 최대 5일, 3월 31일까지다.')
-    api.fetchAllDocuments.mockResolvedValue([])
-    expect(await sampleEditProposals()).toEqual([])
+    expect(await sampleEditProposals([{ documentTitle: '다른 문서' } as AnswerSource])).toEqual([])
   })
 })

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -104,14 +104,34 @@ describe('ChatView', () => {
     })
   })
 
-  it('핵심 인용을 보여주고 누르면 그 문서를 넘긴다', async () => {
-    restore = mockServer(() => ok(answer('c1', [source('k1', 'd1')], [evidenceItem('e1', 'd1')])))
+  it('인용을 같은 문서의 근거 카드 안에 보여주고, 카드를 누르면 그 근거를 넘긴다', async () => {
+    restore = mockServer(() =>
+      ok(
+        answer(
+          'c1',
+          [source('k1', 'd1')],
+          [
+            evidenceItem('e1', 'd1'),
+            { ...evidenceItem('e2', 'd2'), quote: '목록에 없는 문서의 인용' },
+          ],
+        ),
+      ),
+    )
     const onOpen = renderChat()
 
     await ask('연차 이월은?')
-    await userEvent.click(await screen.findByText(/연차는 최대 5일까지 이월할 수 있다/))
+    const cards = await screen.findByRole('list', { name: '근거' })
+    const first = within(cards).getByRole('button', { name: /^1\s*문서 d1/ })
+    expect(first).toHaveTextContent(evidenceItem('e1', 'd1').quote)
+    // 근거 목록에 없는 문서의 인용은 따로 카드를 만듭니다.
+    expect(within(cards).getByRole('button', { name: /^2\s*문서 d2/ })).toHaveTextContent(
+      '목록에 없는 문서의 인용',
+    )
+    expect(screen.queryByRole('list', { name: '핵심 인용' })).not.toBeInTheDocument()
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }), {
+    await userEvent.click(within(cards).getByText(/연차는 최대 5일까지 이월할 수 있다/))
+
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), {
       quotes: [evidenceItem('e1', 'd1').quote],
       keywords: [],
     })

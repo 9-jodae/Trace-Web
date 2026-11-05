@@ -1,5 +1,4 @@
 import clsx from 'clsx'
-import { FileText, Quote } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import {
   NO_EVIDENCE_ANSWER,
@@ -8,6 +7,7 @@ import {
   type AnswerSource,
 } from '@/entities/answer'
 import type { EvidencePhrases } from '@/entities/evidence'
+import { buildEvidenceCards } from '../lib/evidenceCards'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
 import { AssistantRow, MessageTime, TypingIndicator, assistantBubble } from './AssistantMessage'
@@ -147,6 +147,8 @@ function AnswerBubble({
     })
   }
 
+  const cards = buildEvidenceCards(sources, evidence)
+
   return (
     <>
       <div
@@ -156,50 +158,34 @@ function AnswerBubble({
         )}
       >
         <AnswerMarkdown text={text} />
-        {evidence.length > 0 && (
-          <ul aria-label="핵심 인용" className="flex flex-col gap-1.5">
-            {evidence.map((item) => (
-              <li key={item.chunkId}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    open({
-                      id: item.chunkId,
-                      text: item.quote,
-                      source: item.source,
-                      documentId: item.documentId,
-                      documentTitle: item.source,
-                      versionId: item.versionId,
-                      charStart: item.charStart,
-                      charEnd: item.charEnd,
-                    })
-                  }
-                  className="flex w-full items-start gap-2 rounded-[10px] border-l-2 border-ink-muted/40 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/5"
-                >
-                  <Quote className="mt-0.5 size-3.5 shrink-0 text-ink-muted" aria-hidden />
-                  <span className="flex-1 text-sm text-ink-dim italic">
-                    "{item.quote}"{' '}
-                    <span className="not-italic text-ink-muted">— {item.source}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {sources.length > 0 && (
-          <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
-            {sources.map((source, index) => (
+        {cards.length > 0 && (
+          <ul aria-label="근거" className="flex flex-col gap-2 border-t border-border-dark pt-3">
+            {cards.map(({ source, section, quotes }, index) => (
               <li key={source.id}>
                 <button
                   type="button"
                   onClick={() => open(source)}
-                  className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
+                  className="flex w-full flex-col gap-2.5 rounded-xl border border-white/[0.04] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/[0.06]"
                 >
-                  <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">
-                    {index + 1}
+                  <span className="flex w-full items-baseline gap-3">
+                    <span className="shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+                      {source.documentTitle}
+                    </span>
+                    {section && (
+                      <span className="max-w-[45%] shrink-0 truncate text-xs text-ink-muted">
+                        {section}
+                      </span>
+                    )}
                   </span>
-                  <FileText className="size-3.5 shrink-0 text-ink-muted" aria-hidden />
-                  <span className="flex-1 truncate text-sm text-ink">{source.documentTitle}</span>
+                  {quotes.map((quote) => (
+                    <span
+                      key={quote}
+                      className="block border-l-2 border-amber-500/70 pl-3 text-sm leading-relaxed text-ink-dim"
+                    >
+                      {quote}
+                    </span>
+                  ))}
                 </button>
               </li>
             ))}

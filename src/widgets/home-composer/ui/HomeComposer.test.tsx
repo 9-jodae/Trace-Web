@@ -91,4 +91,9 @@ describe('HomeComposer', () => {
     await waitFor(() => expect(useChatStore.getState().conversationId).toBe('c1'))
     expect(body.filters).toEqual({ documentTypes: ['REPORT'] })
   })
+
+  it('새 질문 화면에서는 관계 그래프 토글을 보여주지 않는다', () => {
+    renderHome()
+    expect(screen.queryByRole('switch', { name: '관계 그래프' })).not.toBeInTheDocument()
+  })
 })

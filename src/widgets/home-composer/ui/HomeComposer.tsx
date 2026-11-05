@@ -1,6 +1,6 @@
 import { ArrowUp } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
-import { GraphHighlightToggle, useAskQuestion } from '@/features/ask-question'
+import { useAskQuestion } from '@/features/ask-question'
 import {
   FilterPanel,
   SourceKindDropdown,
@@ -66,7 +66,6 @@ export function HomeComposer() {
           <SourceKindDropdown />
           <FilterPanel />
           <div className="h-px flex-1" />
-          <GraphHighlightToggle />
           <button
             type="button"
             aria-label="질문 보내기"

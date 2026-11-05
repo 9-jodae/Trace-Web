@@ -4,9 +4,9 @@ import type Graph from 'graphology'
 import { DEFAULT_STYLES, type Sigma } from 'sigma'
 import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
+import { isEdgeVisible } from '../lib/edgeVisibility'
 import {
   computeHoverRadialPositions,
-  DIMMED_EDGE_COLOR,
   type EdgeAttributes,
   type NodeAttributes,
 } from '../lib/buildGraph'
@@ -30,7 +30,7 @@ let liveGraph: Graph<NodeAttributes> | null = null
 // 다시 그리게 합니다.
 let hoveredNodeId: string | null = null
 
-// 사용자가 누른 노드. 고르면 그 노드의 선을 모두 보이고, 나머지는 대표 선만 흐리게 남깁니다.
+// 사용자가 누른 노드. 고르면 그 노드의 선만 모두 보입니다.
 let selectedNodeId: string | null = null
 
 // 호버한 노드의 바로 이웃을 그 둘레에 임시로 모아 놓은 자리(그래프 좌표). 유형별 배치는 연결
@@ -80,31 +80,16 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${(a ?? 1) * alpha})`
 }
 
-/** 대표 선 중 글자까지 보여 줄 선. 충돌·경고는 찾아다니지 않아도 바로 읽혀야 합니다. */
-function alwaysLabeled(attributes: EdgeAttributes) {
-  return attributes.warning === true || attributes.type === 'CONFLICTS'
-}
-
-/**
- * 선을 얼마나 보여 줄지 정합니다. 노드를 고르면 그 노드의 선만 모두 보이고 다른 대표 선은 흐립니다.
- * 고르지 않았을 때는 문서마다 대표 선 하나만 그리고, 마우스를 올린 노드의 선은 모두 보입니다.
- * 근거 포커스 중에는 buildGraph가 이미 선을 나눠 두었으므로 고른 노드가 없으면 손대지 않습니다.
- */
 function visibleEdge(
   data: EdgeDisplayData,
   attributes: EdgeAttributes,
   source: string,
   target: string,
 ): EdgeDisplayData {
-  const touches = (node: string | null) => node !== null && (source === node || target === node)
-  const hidden = { ...data, visibility: 'hidden' as const, label: null }
-  if (selectedNodeId !== null) {
-    if (touches(selectedNodeId)) return data
-    return attributes.primary ? { ...data, color: DIMMED_EDGE_COLOR, label: null } : hidden
-  }
-  if (attributes.focus !== 'none' || touches(hoveredNodeId)) return data
-  if (!attributes.primary) return hidden
-  return alwaysLabeled(attributes) ? data : { ...data, label: null }
+  const selectedNode = selectedNodeId
+  const hoveredNode = hoveredNodeId
+  if (isEdgeVisible({ attributes, source, target, selectedNode, hoveredNode })) return data
+  return { ...data, visibility: 'hidden', label: null }
 }
 
 // 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.

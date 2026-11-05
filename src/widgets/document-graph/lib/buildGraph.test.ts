@@ -6,6 +6,7 @@ import {
   conflictWarning,
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
+  computeHoverRadialPositions,
   DIMMED_COLOR,
   DIMMED_EDGE_COLOR,
   separateEvidenceNodes,
@@ -438,5 +439,71 @@ describe('separateEvidenceNodes', () => {
     separateEvidenceNodes(graph, new Set(['a', 'b']), new Set(['a', 'b']))
     expect(graph.getNodeAttributes('a')).toMatchObject({ x: 0, y: 0 })
     expect(graph.getNodeAttributes('b')).toMatchObject({ x: 0, y: 0 })
+  })
+})
+
+describe('대표 선', () => {
+  const primaryPairs = (graph: ReturnType<typeof buildDocumentGraph>['graph']) =>
+    graph
+      .filterEdges((_edge, attributes) => attributes.primary === true)
+      .map((edge) => graph.extremities(edge).sort().join('-'))
+      .sort()
+
+  it('문서마다 가장 중요한 선 하나를 고른다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', null), doc('b', null), doc('c', null), doc('d', null)],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES' },
+        { source: 'a', target: 'c', type: 'CONFLICTS', label: conflictWarning('연차') },
+        { source: 'a', target: 'd', type: 'TOPIC', label: '보안' },
+      ],
+    })
+    // a는 충돌, b는 하나뿐인 참조, d는 하나뿐인 주제를 고른다
+    expect(primaryPairs(graph)).toEqual(['a-b', 'a-c', 'a-d'])
+  })
+
+  it('경고가 붙은 선을 충돌보다 앞에 둔다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', null), doc('b', null), doc('c', null), doc('d', null)],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: conflictWarning() },
+        { source: 'a', target: 'c', type: 'REFERENCES', securityRisk: true },
+        { source: 'b', target: 'd', type: 'CONFLICTS', label: conflictWarning() },
+        { source: 'c', target: 'd', type: 'TOPIC', label: '보안' },
+      ],
+    })
+    // a는 충돌보다 보안 경고를 고르고, c와 d는 주제보다 경고·충돌을 고른다
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c') as string, 'primary')).toBe(true)
+    expect(graph.getEdgeAttribute(graph.edge('c', 'd') as string, 'primary')).toBeUndefined()
+  })
+})
+
+describe('computeHoverRadialPositions', () => {
+  it('호버한 노드의 이웃을 둘레에 고르게 펼친다', () => {
+    const graph = makeGraph(
+      node('center', 0, 0),
+      node('n1', 500, 0),
+      node('n2', -500, 0),
+      node('n3', 0, 500),
+    )
+    graph.addEdge('center', 'n1')
+    graph.addEdge('center', 'n2')
+    graph.addEdge('center', 'n3')
+    const positions = computeHoverRadialPositions(graph, 'center')
+    expect(positions.size).toBe(3)
+    for (const id of ['n1', 'n2', 'n3']) {
+      const pos = positions.get(id)!
+      expect(Math.hypot(pos.x, pos.y)).toBeCloseTo(45, 5)
+    }
+  })
+
+  it('이웃이 없는 노드는 빈 맵을 돌려준다', () => {
+    const graph = makeGraph(node('a', 0, 0))
+    expect(computeHoverRadialPositions(graph, 'a').size).toBe(0)
+  })
+
+  it('그래프에 없는 노드를 호버하면 빈 맵을 돌려준다', () => {
+    const graph = makeGraph(node('a', 0, 0))
+    expect(computeHoverRadialPositions(graph, 'missing').size).toBe(0)
   })
 })

@@ -1,4 +1,4 @@
-// docs199-Server의 QuestionResponse(POST /api/conversations/messages)와 맞춥니다.
+// Trace-Server의 QuestionResponse(POST /api/conversations/messages)와 맞춥니다.
 
 /** 답변의 근거 청크. 사용자가 볼 수 없는 문서의 출처는 서버가 미리 제외합니다. */
 export interface AnswerSource {
@@ -15,7 +15,7 @@ export interface AnswerSource {
 }
 
 /**
- * 핵심 인용 근거(docs199-Server PR #62/#67, develop에 병합됨). 최대 3개, 검증 가능한 게 없으면 빈 배열.
+ * 핵심 인용 근거(Trace-Server PR #62/#67, develop에 병합됨). 최대 3개, 검증 가능한 게 없으면 빈 배열.
  * `source`는 이름과 달리 검증된 문서 제목입니다. 필드 이름·구조는 AI·프론트 합의 전 임시 계약입니다.
  */
 export interface AnswerEvidence {
@@ -31,9 +31,9 @@ export interface AnswerEvidence {
   charEnd: number | null
 }
 
-/** 답변의 핵심 키워드(docs199-Server #78). 근거 청크 원문에 그대로 있는 문구입니다. */
+/** 답변의 핵심 키워드(Trace-Server #78). 근거 청크 원문에 그대로 있는 문구입니다. */
 /**
- * LLM의 문서 수정 제안(docs199-AI-v2 editProposals). Spring 전달 합의 전 임시 형식입니다.
+ * LLM의 문서 수정 제안(Trace-AI-v2 editProposals). Spring 전달 합의 전 임시 형식입니다.
  * sample은 개발 서버의 샘플 표시입니다.
  */
 export interface AnswerEditProposal {
@@ -55,7 +55,7 @@ export interface AnswerKeyword {
 }
 
 /**
- * 질문 검색 필터(docs199-Server #48). 같은 필드의 배열 값은 OR, 서로 다른 필드는 AND입니다.
+ * 질문 검색 필터(Trace-Server #48). 같은 필드의 배열 값은 OR, 서로 다른 필드는 AND입니다.
  * 빈 배열은 서버가 400으로 거부하므로 보내지 않습니다. AI 서버가 실제로 적용하는지는 아직 미확정입니다.
  */
 export interface AskQuestionFilters {

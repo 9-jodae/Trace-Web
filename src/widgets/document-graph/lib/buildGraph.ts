@@ -3,7 +3,7 @@ import type { Document } from '@/entities/document'
 import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
- * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
+ * 문서 간 연결선. Trace-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
  * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=빨강, TOPIC=청록).
  * label은 선 위에 표시할 글자입니다.
  */
@@ -56,6 +56,8 @@ export interface EdgeAttributes {
    * 선(직접 연결 노드끼리 포함)은 'dimmed'입니다.
    */
   focus: FocusLevel
+  /** 양 끝 문서 중 한쪽에서 가장 중요한 선. 노드를 고르지 않았을 때는 이 선만 그립니다. */
+  primary?: boolean
 }
 
 /** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색(파란 톤에 맞춤). */
@@ -419,8 +421,30 @@ export function buildDocumentGraph({
   })
 
   const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
+  markPrimaryEdges(graph)
 
   return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings, focus }
+}
+
+/** 경고, 충돌, 주제, 참조 순으로 중요합니다. */
+function edgePriority(attributes: EdgeAttributes) {
+  return attributes.warning ? 3 : EDGE_STYLE[attributes.type].rank
+}
+
+/** 문서마다 가장 중요한 선 하나를 고릅니다. 같은 순위면 먼저 들어온 선을 씁니다. */
+export function markPrimaryEdges(graph: Graph<NodeAttributes, EdgeAttributes>) {
+  graph.forEachNode((node) => {
+    let best: string | null = null
+    let bestPriority = -1
+    graph.forEachEdge(node, (edge, attributes) => {
+      const priority = edgePriority(attributes)
+      if (priority > bestPriority) {
+        best = edge
+        bestPriority = priority
+      }
+    })
+    if (best !== null) graph.setEdgeAttribute(best, 'primary', true)
+  })
 }
 
 /**
@@ -467,4 +491,32 @@ export function applyEvidenceFocus(
   })
 
   return { evidence: evidenceCount, neighbors: neighbors.size }
+}
+
+/** 호버한 노드의 바로 이웃을 그 둘레에 떨어뜨려 놓을 거리(그래프 좌표 단위). */
+const HOVER_RADIAL_SPREAD = 45
+
+/**
+ * 호버한 노드의 바로 이웃만 그 주변에 바퀴살처럼 임시로 펼쳐 놓습니다. 유형별 해바라기 배치는
+ * 연결 관계를 모르고 정해지므로, 호버한 노드의 이웃이 화면 반대편에 있을 수 있어 강조된 선이
+ * 길게 가로지르며 다른 선과 교차해 보이는 문제가 있습니다. 호출한 쪽(SigmaCanvas)이 이 결과로
+ * sigma 렌더링에서만 노드 위치를 잠깐 덮어쓰고, 그래프의 실제 x/y는 바꾸지 않습니다 — 호버가
+ * 끝나면 그대로 원래 자리로 돌아갑니다.
+ */
+export function computeHoverRadialPositions(
+  graph: Graph<NodeAttributes>,
+  center: string,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>()
+  if (!graph.hasNode(center)) return positions
+  const centerPosition = graph.getNodeAttributes(center)
+  const neighbors = graph.neighbors(center)
+  neighbors.forEach((neighbor, index) => {
+    const angle = (index / neighbors.length) * Math.PI * 2
+    positions.set(neighbor, {
+      x: centerPosition.x + HOVER_RADIAL_SPREAD * Math.cos(angle),
+      y: centerPosition.y + HOVER_RADIAL_SPREAD * Math.sin(angle),
+    })
+  })
+  return positions
 }

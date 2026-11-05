@@ -1,4 +1,4 @@
-// docs199-Server의 대화 API(GET /api/conversations, GET /api/conversations/{id})와 맞춥니다.
+// Trace-Server의 대화 API(GET /api/conversations, GET /api/conversations/{id})와 맞춥니다.
 
 export interface ConversationSummary {
   id: string

@@ -1,12 +1,29 @@
-import type { Citation } from '@/entities/citation/@x/answer'
+// docs199-Server의 QuestionResponse(POST /api/conversations/messages)와 맞춥니다.
 
-export interface AnswerSentence {
+/** 답변의 근거 청크. 사용자가 볼 수 없는 문서의 출처는 서버가 미리 제외합니다. */
+export interface AnswerSource {
+  /** 청크 ID. 근거 조회 API(GET /api/evidence/{chunkId})에 그대로 씁니다. */
+  id: string
   text: string
-  citationIds: string[]
+  source: string
+  documentId: string
+  documentTitle: string
+  versionId: string | null
+  /** 청크 텍스트 안에서의 하이라이트 위치. PDF 등은 null일 수 있습니다. */
+  charStart: number | null
+  charEnd: number | null
 }
 
-/** "찾을 수 없음"과 "검색 불필요 질문"도 에러가 아니라 정상 상태로 표현 */
-export type Answer =
-  | { status: 'answered'; sentences: AnswerSentence[]; citations: Citation[] }
-  | { status: 'not_found'; message: string }
-  | { status: 'small_talk'; message: string } // 미리 설정된 구문
+/**
+ * route, contextProbability, failedSources, fallbackReason의 값과 의미는 서버·AI 계약에
+ * 아직 정해지지 않아 화면에서 해석하지 않습니다(docs/architecture.md 결정 필요 참고).
+ */
+export interface Answer {
+  conversationId: string
+  answer: string
+  route: string | null
+  contextProbability: number | null
+  sources: AnswerSource[]
+  failedSources: string[]
+  fallbackReason: string | null
+}

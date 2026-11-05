@@ -1,9 +1,2 @@
-export type {
-  Document,
-  DocumentVersion,
-  DocumentPermission,
-  ProcessingStatus,
-} from './model/types'
-export { documentApi } from './api/document-api'
-export { useDocumentStatus } from './model/use-document-status'
-export { DocumentStatusBadge } from './ui/status-badge'
+export { documentKeys, fetchAllDocuments, listDocuments, useAllDocuments } from './api/documentApi'
+export type { Document, DocumentListParams, ProcessingStatus, SourceKind } from './model/types'

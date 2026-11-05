@@ -1,32 +1,43 @@
-import type { DocumentType, FileExtension, SecurityLevel } from '@/shared/config'
-import type { SourceKind } from '@/entities/source/@x/document'
+import type { Clearance, Position } from '@/entities/user/@x/document'
 
-export type ProcessingStatus = 'pending' | 'processing' | 'done' | 'failed'
+// docs199-Server의 DocumentRecord(GET /api/documents)와 맞춥니다.
 
-export interface DocumentPermission {
-  departments: string[]
-  ranks: string[]
-  securityLevel: SecurityLevel
-  canView: boolean
-  canEdit: boolean
-  canDownload: boolean
-}
+export type SourceKind = 'LOCAL' | 'OBSIDIAN' | 'NOTION'
 
-export interface DocumentVersion {
-  version: number
-  createdAt: string
-  isCurrent: boolean
-}
+/** 문서 처리(파싱·임베딩) 상태 */
+export type ProcessingStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED'
 
 export interface Document {
   id: string
+  sourceId: string
+  externalId: string
   title: string
-  source: SourceKind
-  extension: FileExtension
-  type: DocumentType
-  author: string
-  createdAt: string
+  relativePath: string
+  extension: string
+  /**
+   * 문서 유형. 기획은 분류 모델이 유형 체계를 자동으로 만드는 방식이라 값 목록을 고정하지 않고
+   * 서버가 준 문자열을 그대로 씁니다. AI 처리가 끝나기 전에는 null입니다.
+   */
+  documentType: string | null
+  author: string | null
+  authoredAt: string | null
+  clearance: Clearance
+  minimumPosition: Position | null
   currentVersion: number
-  status: ProcessingStatus
-  permission: DocumentPermission
+  deletedAt: string | null
+  ownerDepartmentId: string | null
+  sourceModifiedAt: string | null
+}
+
+export interface DocumentListParams {
+  sourceId?: string
+  sourceKind?: SourceKind
+  extension?: string
+  documentType?: string
+  authoredFrom?: string
+  authoredTo?: string
+  status?: ProcessingStatus
+  ownerDepartmentId?: string
+  page?: number
+  size?: number
 }

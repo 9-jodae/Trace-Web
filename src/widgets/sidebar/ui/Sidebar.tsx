@@ -137,6 +137,12 @@ function RecentQuestions() {
         activeConversationId={conversationId}
         disabled={asking || isLoading}
         onSelect={(id) => void select(id)}
+        onDeleted={(id) => {
+          // 지금 보고 있는 대화를 지웠으면 이어서 질문하지 못하도록 새 대화로 돌립니다.
+          if (useChatStore.getState().conversationId === id) {
+            useChatStore.getState().startNewConversation()
+          }
+        }}
       />
       {openError && (
         <p role="alert" className="px-3 pt-1 text-xs text-red-300">

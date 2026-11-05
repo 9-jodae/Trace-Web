@@ -102,7 +102,7 @@ body,
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   filter: drop-shadow(0 0 4px rgb(96 165 250 / 0.8));
-  animation: graph-answer-line 450ms ease-out forwards;
+  animation: graph-answer-line 250ms ease-out forwards;
 }
 
 /* 채팅의 "입력 중" 점 3개. 점마다 0.2s씩 늦게 시작해 차례로 위로 튀며 밝아집니다. */

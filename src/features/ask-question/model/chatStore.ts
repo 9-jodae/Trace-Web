@@ -7,7 +7,18 @@ import type {
 } from '@/entities/answer'
 
 /** 충돌을 다루는 답변의 표현. 글자로 판단하므로 가끔 틀릴 수 있습니다. */
-const CONFLICT_ANSWER = /(충돌|모순|일치하지 않|서로 다|값이 다|수치가 다|수정안|수정을 제안)/
+// 충돌 쌍만 강조하는 건 사용자가 충돌을 물었을 때뿐입니다. 답변에 차이가 언급됐다고 바꾸지 않습니다
+const CONFLICT_QUESTION = /(충돌|모순|불일치|상충|서로 다른|다르게 (적|기재)|안 맞)/
+
+function asksAboutConflict(messages: ChatMessage[]) {
+  const question = [...messages].reverse().find((message) => message.kind === 'question')
+  return question?.kind === 'question' && CONFLICT_QUESTION.test(question.text)
+}
+
+/** 답변이 인용한 문서를 앞에 두고, 나머지 출처 문서도 이어 그래프에 함께 잇습니다. */
+function relatedDocumentIds(sources: { documentId: string }[], evidence: { documentId: string }[]) {
+  return [...new Set([...evidence, ...sources].map((item) => item.documentId))]
+}
 
 /** createdAt은 말풍선 옆 시각 표시용 ISO 문자열입니다. 없으면 시각을 그리지 않습니다. */
 export type ChatMessage =
@@ -93,11 +104,8 @@ export const useChatStore = create<ChatState>()((set) => ({
     set((state) => ({
       conversationId,
       sequence: state.sequence + 1,
-      answerAboutConflict: editProposals.length > 0 || CONFLICT_ANSWER.test(text),
-      // 답변이 실제로 인용한 문서만 강조합니다. 검색에 걸렸을 뿐인 문서까지 키우면 관련 없어 보입니다.
-      evidenceDocumentIds: [
-        ...new Set((evidence.length > 0 ? evidence : sources).map((item) => item.documentId)),
-      ],
+      answerAboutConflict: editProposals.length > 0 || asksAboutConflict(state.messages),
+      evidenceDocumentIds: relatedDocumentIds(sources, evidence),
       messages: [
         ...state.messages,
         {
@@ -138,14 +146,14 @@ export const useChatStore = create<ChatState>()((set) => ({
       const lastAnswer = [...messages].reverse().find((message) => message.kind === 'answer')
       const evidenceDocumentIds =
         lastAnswer?.kind === 'answer'
-          ? [...new Set(lastAnswer.sources.map((source) => source.documentId))]
+          ? relatedDocumentIds(lastAnswer.sources, lastAnswer.evidence ?? [])
           : []
       return {
         conversationId,
         contextId: nextContextId(),
         messages,
         evidenceDocumentIds,
-        answerAboutConflict: lastAnswer?.kind === 'answer' && CONFLICT_ANSWER.test(lastAnswer.text),
+        answerAboutConflict: asksAboutConflict(messages),
         sequence: state.sequence + messages.length,
       }
     }),

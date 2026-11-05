@@ -11,6 +11,7 @@ const MESSAGES: Record<string, string> = {
   INTERNAL_ERROR: '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
   NETWORK_ERROR: '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.',
   TIMEOUT: '응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.',
+  PAYLOAD_TOO_LARGE: '업로드 크기 한도를 넘었습니다.',
 }
 
 const UNKNOWN = '알 수 없는 오류가 발생했습니다.'

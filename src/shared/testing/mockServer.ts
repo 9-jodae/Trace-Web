@@ -26,6 +26,12 @@ export const ok = (data: unknown): Reply => ({
   body: { success: true, data, error: null },
 })
 
+/** 응답 봉투 없이 파일 본문을 그대로 주는 API(원문 다운로드)의 성공 응답 */
+export const file = (content: string, type = 'application/octet-stream'): Reply => ({
+  status: 200,
+  body: new Blob([content], { type }),
+})
+
 export const fail = (status: number, code: string, message = '오류'): Reply => ({
   status,
   body: { success: false, data: null, error: { code, message } },

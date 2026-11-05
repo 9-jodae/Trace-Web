@@ -6,41 +6,60 @@
 
 폴더는 [Feature-Sliced Design](https://feature-sliced.design/kr/)을 따릅니다. 위 레이어는 아래 레이어만 가져올 수 있고, 같은 레이어의 다른 슬라이스는 가져올 수 없습니다.
 
-| 레이어     | 역할                                    | 현재 슬라이스                                 |
-| ---------- | --------------------------------------- | --------------------------------------------- |
-| `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)   |
-| `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`                          |
-| `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph` |
-| `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`       |
-| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `answer`                  |
-| `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `testing`)    |
+| 레이어     | 역할                                    | 현재 슬라이스                                                                                                                                                                          |
+| ---------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)                                                                                                                                            |
+| `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`, `admin-documents`, `admin-document-detail`                                                                                                                       |
+| `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph`, `document-viewer`, `sidebar`, `home-composer`, `admin-document-table`                                                                   |
+| `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`, `filter-documents`, `conversation-history`, `create-source`, `upload-documents`, `edit-document-access`, `revise-document`, `delete-document` |
+| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`, `conversation`, `evidence`, `source`                                                                                                       |
+| `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `ui`, `testing`)                                                                                                                                       |
 
 ```
 src/
   app/
-    routes/router.tsx       라우트 정의 (/login, 인증이 필요한 /)
+    routes/router.tsx       라우트 정의 (/login, 인증이 필요한 /, 관리자용 /admin/documents[/:id])
     routes/AuthGuard.tsx    토큰이 없거나 만료되면 로그인으로 이동
+    routes/AdminGuard.tsx   관리자 역할이 아니면 /로 이동 (화면 편의용)
     model/resetOnLogout.ts  로그아웃·만료 시 대화와 탭 상태 초기화
     styles/index.css        Tailwind와 전역 스타일
     App.tsx                 QueryClient·Router 연결
   pages/
     login/                  로그인 화면
     workspace/              메인 화면 (그래프·문서 탭 + 채팅)
+    admin-documents/        문서 관리 목록 (소스 선택·추가, 업로드, URL 쿼리 필터)
+    admin-document-detail/  문서 관리 상세 (처리 상태, 기본 정보, 권한, 버전 이력, 개정·삭제)
   widgets/
-    editor-area/            그래프·문서 탭 영역 (그래프는 페이지가 넣어 줌)
+    editor-area/            그래프·문서 탭 영역 (그래프와 문서 뷰어는 페이지가 넣어 줌)
     chat-panel/             채팅 패널 (근거를 누르면 문서 탭 열기)
     document-graph/         Sigma.js 문서 그래프 (lib: 그래프 구성·배치·색)
+    document-viewer/        문서 상세 정보, 답변 근거 하이라이트 영역, PDF·Markdown 원문 뷰어
+    sidebar/                왼쪽 네비게이션 (새 질문, 최근 대화 목록, 프로필)
+    home-composer/          첫 질문 전 홈 화면 (가운데 입력창 + 추천 질문)
+    admin-document-table/   관리자 문서 목록 필터 + 표 + 페이지 이동
   features/
     auth/                   로그인·로그아웃
     ask-question/           질문 보내기, 대화 상태, 근거 강조 대상
     document-tabs/          탭 열기·전환·닫기
+    filter-documents/       문서 유형·확장자·기간·부서·작성자·소스 종류 필터 상태
+    conversation-history/   과거 대화를 메시지 목록으로 재구성해서 열기
+    create-source/          소스 추가 모달
+    upload-documents/       업로드 모달 (lib: 경로 만들기·미리 거르기·묶기, model: 묶음 순차 전송)
+    edit-document-access/   열람 권한 보기·수정
+    revise-document/        파일 1개로 새 버전 만들기
+    delete-document/        소프트 삭제 확인
   entities/
     user/                   사용자 타입과 GET /api/users/me
-    document/               문서 타입과 GET /api/documents
+    document/               문서 타입과 목록·상세·다운로드·처리 상태 API, 관리자 API(/api/admin/documents)
+    source/                 소스 타입과 관리자 소스 API(/api/admin/sources)
+    department/             부서 타입과 GET /api/departments
     answer/                 질문 API(POST /api/conversations/messages)와 답변 타입
+    conversation/           대화 목록·상세 API (GET /api/conversations[/{id}])
+    evidence/               근거 조회 API(GET /api/evidence/{chunkId})와 하이라이트 구절 표시
   shared/
     api/                    HTTP 클라이언트, 응답 봉투, 토큰, 오류 문구, queryClient
-    config/                 환경 변수
+    config/                 환경 변수, 업로드 한도 상수
+    ui/                     모달·카드·버튼 스타일 같은 공통 UI
     testing/                테스트 전용 가짜 서버 도우미
 ```
 
@@ -49,11 +68,19 @@ src/
 ## 메인 화면
 
 - 로그인하면 토큰을 세션 스토리지에 보관하고 `GET /api/users/me`로 사용자 정보를 받습니다. 토큰이 없거나 401을 받으면 토큰을 지우고 로그인 화면으로 보냅니다.
+- 왼쪽 네비게이션(사이드바)은 항상 보입니다. 대화가 없으면("홈") 가운데 큰 입력창과 추천 질문을 보여주고, 첫 질문을 보내면 그래프·문서 탭 + 채팅 레이아웃("답변")으로 바뀝니다. 둘 다 같은 라우트(`/`)의 `WorkspacePage` 안에서 `messages.length`로 전환하며, 별도 라우트를 두지 않습니다.
 - 왼쪽 탭 영역은 고정된 그래프 탭과, 연 순서대로 쌓이는 문서 탭으로 구성합니다. 같은 문서를 다시 열면 기존 탭으로 이동합니다.
 - 그래프 탭은 볼 수 있는 모든 문서를 노드로 한꺼번에 보여주고 문서 유형별로 색을 나눕니다. 노드를 누르면 문서 탭이 열립니다. 서버가 권한 범위의 문서만 주므로 권한 없는 문서는 나타나지 않습니다.
-- 오른쪽 채팅 패널에서 질문하면 서버의 질문 API로 보냅니다. 단건 응답이고 최대 70초까지 걸릴 수 있어 대기 문구를 보여줍니다. 첫 질문은 새 대화를 만들고, 이후 질문은 같은 대화에 이어서 보냅니다.
-- 답변의 근거를 누르면 해당 문서 탭이 열리고, 가장 최근 답변의 근거 문서는 그래프에서 강조됩니다. 새 질문을 하면 이전 강조를 지웁니다.
+- 문서 탭은 문서 정보와 버전·처리 상태를 보여주고, 확장자에 따라 PDF(`react-pdf`)와 Markdown(`react-markdown`) 원문을 표시합니다. 처리 중인 문서는 5초마다 상태를 다시 확인해 완료되면 자동으로 갱신합니다.
+- 원문 파일은 `GET /api/documents/{id}/download`(관리 화면은 `/api/admin/documents/{id}/download`)에서 받습니다. 서버(`docs199-Server` PR #75)가 S3 presigned URL 대신 Spring으로 파일을 스트리밍하고 인증 헤더를 요구하므로, 브라우저가 주소를 직접 열지 않고 `@/shared/api`의 `requestBlob`으로 받은 파일을 그리거나 저장합니다. `download-url` API는 쓰지 않습니다. 같은 문서·버전의 파일은 내용이 바뀌지 않아 버전 번호를 키로 캐시하고, 다운로드 버튼은 미리보기로 이미 받은 파일을 그대로 저장합니다. 새 창으로 열지 않고 파일로만 내려받으므로 파일 내용이 이 사이트 출처에서 실행되지 않습니다.
+- 오른쪽 채팅 패널에서 질문하면 서버의 질문 API로 보냅니다. 단건 응답이고 최대 70초까지 걸릴 수 있어 대기 문구를 보여줍니다. 첫 질문은 새 대화를 만들고, 이후 질문은 같은 대화에 이어서 보냅니다. 답변을 기다리는 동안 새 대화를 시작하거나 다른 대화를 열거나 로그아웃하면, 늦게 도착한 답변과 오류는 바뀐 화면에 붙이지 않고 버립니다.
+- 답변 문장은 LLM이 만든 Markdown(제목, 굵게, 목록, 표, 코드 등)을 `react-markdown`과 `remark-gfm`으로 서식에 맞춰 보여줍니다(`features/ask-question/ui/AnswerMarkdown.tsx`). 원시 HTML은 렌더링하지 않고, 답변에 섞인 외부 URL을 브라우저가 자동으로 요청하지 않도록 이미지도 표시하지 않습니다. 링크는 새 탭(`noopener noreferrer`)으로 엽니다.
+- 답변의 근거를 누르면 해당 문서 탭이 열리고 원문 위에 근거 청크와 앞뒤 문맥, 하이라이트 구절을 고정해 보여줍니다. 가장 최근 답변의 근거 문서는 그래프에서 강조되고, 새 질문을 하면 이전 강조를 지웁니다.
 - 실패한 요청은 서버 오류 코드에 맞는 한국어 문구로 화면에 표시합니다.
+
+## 문서 관리 화면
+
+관리자(`DOC_ADMIN`·`SYSTEM_ADMIN`)는 사이드바의 "문서 관리"로 `/admin/documents`에 들어가 소스 추가, 폴더·파일 업로드, 권한 수정, 개정, 삭제를 합니다. 화면 구성, 서버 동작 확인 결과, 남은 결정은 [문서 관리 화면](admin-documents.md)에 있습니다.
 
 ## 결정 필요
 
@@ -64,16 +91,22 @@ src/
 - **토큰 보관**: 세션 스토리지. 새로고침해도 로그인이 유지되고 탭을 닫으면 지워집니다. 서버 토큰은 1시간 후 만료되고 갱신 토큰이 없어, 만료되면 다시 로그인해야 합니다. 갱신 토큰은 서버 정책이 정해지면 반영합니다.
 - **답변 방식**: 서버 결정을 따릅니다. 지금 서버는 SSE가 아닌 단건 응답이므로 스트리밍을 쓰지 않습니다.
 - **그래프**: 서버 API(#22)보다 먼저 화면을 만듭니다. 지금은 문서 목록으로 노드만 그리고, 연결선은 API가 확정되면 서버 응답에 맞춰 연결합니다. `DocumentLink` 형태는 임시입니다.
+- **문서 유형 표시명·색**: 서버 enum 5종(`HANDOVER`/`APPROVAL`/`REPORT`/`PRESENTATION`/`ETC`)에 한글 표시명과 색을 고정 매핑했습니다(`entities/document/model/typeDisplay.ts`). 디자인(Figma "02 답변 · 관계 그래프 + 근거")의 색을 그대로 썼습니다.
+- **그래프 탭 필터**: 문서 유형/확장자/작성 기간/부서·작성자 필터를 그래프 표시 범위에 적용합니다(`features/filter-documents`). 작성자는 서버에 필터 파라미터가 없어 클라이언트에서 부분 일치로만 거릅니다.
+- **질문 검색 필터 연동**: 서버에 생긴 질문 API `filters`(`docs199-Server` PR #48)를 홈 화면·채팅 질문 전송에 그대로 실어 보냅니다(`features/filter-documents`의 `toQuestionFilters`). `sourceKinds`는 그래프 표시에는 못 쓰지만(문서 목록에 소스 종류가 없음) 질문 검색에는 보낼 수 있어 홈 화면의 "전체 문서함" 버튼에만 둡니다. AI 서버가 실제로 필터를 적용하는지는 서버 문서(`ai-server-contract.md`)에도 아직 미확정이라고 적혀 있습니다.
+- **홈 화면("01 홈")**: 대화가 없을 때 보여주는 화면을 추가했습니다(`widgets/home-composer`). 가운데 입력창 + 추천 질문 3개로 구성되고, 질문을 보내면 "답변" 레이아웃으로 바뀝니다.
+- **대화 기록 화면**: 채팅 패널 헤더의 "대화 기록" 버튼으로 과거 대화 목록(오늘/지난 7일/이전)을 보여주고, 고르면 다시 불러옵니다(`entities/conversation`, `entities/evidence`, `features/conversation-history`). 메시지의 `evidenceChunkIds`는 근거 조회 API(`GET /api/evidence/{chunkId}`)로 하나씩 조회해 문서 제목 등을 채웁니다. 문서 삭제·개정·권한 변경으로 404가 난 근거만 빼고, 저장된 답변은 그대로 보여주며 "근거 N개는 표시할 수 없습니다"라고 알립니다. 연결 끊김·시간 초과·5xx처럼 일시적인 오류가 나면 근거를 빼지 않고 대화 열기를 실패로 알려 다시 시도하게 합니다. 사이드바와 대화 기록 화면에서 대화를 연달아 고르면 마지막에 고른 대화만 반영합니다. 목록 API에 근거 개수가 없어 와이어프레임의 "근거 N" 표시는 뺐습니다. 사이드바의 "최근 질문"도 같은 대화 목록 API로 최근 대화 10개를 보여주고, 누르면 그 대화를 다시 불러옵니다. 새 대화가 생기거나 답변이 추가되면 목록을 다시 받아옵니다. 전체 목록과 검색은 "대화 기록" 화면에서 봅니다.
 
 ### 보류
 
 - **답변 상태 구분**(찾을 수 없음, 검색이 필요 없는 질문): 서버·AI에 해당 응답 값이 정해지면 따릅니다. 지금은 `route`, `fallbackReason` 등을 해석하지 않고 답변 문장과 근거만 보여줍니다.
-- **원문 보기와 근거 하이라이트**: 근거 조회 API의 위치값은 청크 텍스트 안의 위치이고 PDF는 좌표가 없어, 원본 뷰어 위에 하이라이트할 수 있는지가 구현 가능 여부에 달려 있습니다. 문서 탭은 지금 안내 문구만 보여줍니다.
-- **문서 유형 체계**: 기획은 분류 모델이 유형을 자동으로 만드는 방식인데, 서버에는 고정 enum(`HANDOVER`, `APPROVAL`, `REPORT`, `PRESENTATION`, `ETC`)이 있습니다. 서버가 바뀔 때까지 웹은 유형 목록을 고정하지 않고 서버 값을 그대로 범례에 표시합니다. 표시용 이름과 유형 수 상한(색 구분)도 함께 정해야 합니다.
-- **관리자 기능**(문서 업로드·권한 변경, 사용자 관리, 소스 연결, `DOC_ADMIN`/`SYSTEM_ADMIN` 화면 구분): 기획이 정해지지 않아 화면을 만들지 않았습니다.
-- **검색 필터**: 질문 API가 필터를 받지 않아, 필터를 질문 범위에 적용할지 그래프·목록 표시에만 적용할지 정해야 합니다.
+- **원문 안 근거 하이라이트**: 지금은 원문 위에 고정된 답변 근거 영역에서 근거 청크와 앞뒤 문맥, 강조 구절을 보여줍니다. PDF·Markdown 원문 뷰어 안에서 근거 위치로 스크롤하거나 직접 하이라이트하는 것은 PDF 좌표가 없어 보류합니다.
+- **답변 문장 단위 인용**: 디자인은 답변 문장 안에 근거 번호를 바로 붙이는데, `AnswerSource`에는 답변 텍스트 안에서의 위치가 없어(청크 안 위치만 있음) 구현할 수 없습니다. 지금처럼 답변 아래에 출처 목록으로만 보여줍니다.
+- **디자인의 8개 문서 유형(규정/매뉴얼/회의록 포함)**: Figma 목업은 서버 enum에 없는 유형까지 가정하고 있습니다. 분류 체계가 서버 enum을 포함해 넓어지기 전까지는 실제 5종만 씁니다.
+- **문서 폐지/이전 버전 표시**: 디자인에 있는 "(폐지)" 마커는 문서 간 관계(버전 승계)를 나타내는 서버 데이터가 없어 구현하지 않았습니다. 엣지 API(#22)와 함께 정해질 것 같습니다.
+- **그래프의 소스(문서함)별 필터**: `sourceKind`는 질문 검색 필터로는 쓸 수 있지만, `GET /api/documents` 응답에는 문서별 소스 종류가 없어(소스 ID만 있음) 그래프 표시를 소스별로 거르지는 못합니다. 문서 목록에 `sourceKind`(또는 소스 종류를 바로 알 수 있는 값)가 추가되면 그래프 필터 바의 "소스" 버튼도 켤 수 있습니다. 연결된 소스 이름(어떤 Notion/Obsidian인지)까지 보여주려면 일반 사용자가 쓸 수 있는 소스 조회 API(지금은 `GET /api/admin/sources`만 있어 관리자 전용)가 따로 필요합니다.
+- **관리자 기능 중 문서 관리 외의 것**(사용자·부서·Notion 토큰 같은 시스템 관리): 서버 API가 없어 만들지 않았습니다. 문서 관리 화면은 [문서 관리 화면](admin-documents.md)에 정리했습니다.
 - **알림**(문서 변경 시 위험도): 서버 API(#25)와 위험도 기준이 없습니다.
-- **대화 기록 화면**: 서버에는 대화 목록·상세 API가 있지만 메시지에 근거 청크 ID만 저장되어, 지난 답변의 근거를 다시 보여주는 방식을 정해야 합니다. 지금은 화면을 새로 열면 대화가 비어 있습니다.
 - **최대 문서 탭 수**: 임시로 10개입니다. 넘치면 가장 오래 안 본 탭을 닫습니다.
 - **미리보기 탭 방식**, **새 질문 시 열린 문서 탭 처리**: 기획서에서 미결정입니다.
 - **배포 방식**: 정적 파일을 서버 레포의 nginx에서 제공할지, 별도로 배포할지 미정입니다.

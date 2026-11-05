@@ -13,7 +13,7 @@
 | 분할 레이아웃    | react-resizable-panels                  | VS Code처럼 탭 영역과 채팅 패널 너비 조절                        |
 | 문서 관계 그래프 | Sigma.js, graphology, @react-sigma/core | WebGL로 그려 문서 수천 개도 버벅이지 않음 (기획서 F5)            |
 | PDF 원문 뷰어    | react-pdf                               | 페이지 렌더링과 텍스트 레이어로 근거 구절 하이라이트 (기획서 F4) |
-| Markdown 원문    | react-markdown, remark-gfm              | Notion·Obsidian·MD 문서 표시                                     |
+| Markdown 원문    | react-markdown, remark-gfm              | Notion·Obsidian·MD 문서 표시, 채팅 답변 서식                     |
 | 아이콘           | lucide-react                            | 가볍고 일관된 아이콘 세트                                        |
 | 린트·포맷        | oxlint, Prettier                        | Vite 기본 템플릿의 oxlint, 코드 정렬은 Prettier                  |
 | 구조 검사        | Steiger, @feature-sliced/steiger-plugin | FSD 공식 린터. 레이어 간 가져오기 규칙과 공개 API를 검사         |

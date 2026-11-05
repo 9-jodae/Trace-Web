@@ -19,7 +19,11 @@ const me = {
 }
 
 const emptyPage = { items: [], page: 0, size: 100, totalElements: 0, totalPages: 0 }
-const serve = (url?: string) => (url === '/api/documents' ? ok(emptyPage) : ok(me))
+const serve = (url?: string) => {
+  if (url === '/api/documents') return ok(emptyPage)
+  if (url === '/api/departments') return ok([])
+  return ok(me)
+}
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
@@ -59,7 +63,8 @@ describe('인증 흐름', () => {
     await userEvent.type(screen.getByLabelText('비밀번호'), 'pw')
     await userEvent.click(screen.getByRole('button', { name: '로그인' }))
 
-    expect(await screen.findByText('인사팀 · 정서윤')).toBeInTheDocument()
+    expect(await screen.findByText('정서윤')).toBeInTheDocument()
+    expect(screen.getByText('인사팀')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
     expect(useTokenStore.getState().accessToken).toBe('new-token')
   })
@@ -91,6 +96,37 @@ describe('인증 흐름', () => {
     useTokenStore.setState({ accessToken: 'valid' })
     restore = mockServer((config) => serve(config.url))
     renderAt('/')
-    expect(await screen.findByText('인사팀 · 정서윤')).toBeInTheDocument()
+    expect(await screen.findByText('정서윤')).toBeInTheDocument()
+    expect(screen.getByText('인사팀')).toBeInTheDocument()
+  })
+})
+
+describe('관리 화면 접근', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    useTokenStore.setState({ accessToken: 'valid' })
+  })
+  afterEach(() => restore())
+
+  const serveAs = (role: string) => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok({ ...me, role })
+      if (config.url === '/api/admin/sources') return ok([])
+      return serve(config.url)
+    })
+  }
+
+  it('직원 역할은 /admin/documents에 들어오면 /로 보낸다', async () => {
+    serveAs('EMPLOYEE')
+    const router = renderAt('/admin/documents')
+    expect(await screen.findByText('정서윤')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/')
+  })
+
+  it.each(['DOC_ADMIN', 'SYSTEM_ADMIN'])('%s는 문서 관리 화면을 본다', async (role) => {
+    serveAs(role)
+    const router = renderAt('/admin/documents')
+    expect(await screen.findByRole('heading', { name: '문서 관리' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/documents')
   })
 })

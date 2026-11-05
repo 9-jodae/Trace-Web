@@ -1,35 +1,54 @@
-import type { AnswerSource } from '@/entities/answer'
+import { useRef, useState } from 'react'
+import type { AnswerSource, AskQuestionFilters } from '@/entities/answer'
 import { useChatStore } from '../model/chatStore'
-import { useAskQuestion, useIsAsking } from '../model/useAskQuestion'
+import { useAskQuestion } from '../model/useAskQuestion'
 import { MessageList } from './MessageList'
 import { QuestionInput } from './QuestionInput'
 
-/** 대화 목록과 질문 입력. 근거를 눌렀을 때의 동작은 호출하는 쪽에서 정합니다. */
-export function ChatView({ onOpenSource }: { onOpenSource: (source: AnswerSource) => void }) {
+/**
+ * 대화 목록과 질문 입력. 근거를 눌렀을 때의 동작은 호출하는 쪽에서 정합니다.
+ * 검색 필터는 widget(features/filter-documents를 아는 쪽)이 변환해서 넘겨주고,
+ * "필터 해제하고 다시 찾기"를 누르면 widget이 준 onClearFilters로 필터 자체도 지웁니다.
+ */
+export function ChatView({
+  onOpenSource,
+  filters,
+  onClearFilters,
+}: {
+  onOpenSource: (source: AnswerSource) => void
+  filters?: AskQuestionFilters
+  onClearFilters?: () => void
+}) {
   const messages = useChatStore((state) => state.messages)
   const { ask, isPending } = useAskQuestion()
+  const [question, setQuestion] = useState('')
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <MessageList messages={messages} pending={isPending} onOpenSource={onOpenSource} />
-      <QuestionInput onSubmit={ask} disabled={isPending} />
+      <MessageList
+        messages={messages}
+        pending={isPending}
+        onOpenSource={onOpenSource}
+        onRetryWithoutFilters={(text) => {
+          onClearFilters?.()
+          ask(text)
+        }}
+        onRephrase={(text) => {
+          setQuestion(text)
+          inputRef.current?.focus()
+        }}
+      />
+      <QuestionInput
+        ref={inputRef}
+        value={question}
+        onChange={setQuestion}
+        onSubmit={(text) => {
+          ask(text, filters)
+          setQuestion('')
+        }}
+        disabled={isPending}
+      />
     </div>
-  )
-}
-
-/** 답변을 기다리는 동안에는 새 대화를 시작할 수 없습니다(늦게 온 답변이 섞이지 않도록). */
-export function NewConversationButton() {
-  const asking = useIsAsking()
-  const startNewConversation = useChatStore((state) => state.startNewConversation)
-  const hasMessages = useChatStore((state) => state.messages.length > 0)
-  return (
-    <button
-      type="button"
-      onClick={startNewConversation}
-      disabled={asking || !hasMessages}
-      className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-40"
-    >
-      새 대화
-    </button>
   )
 }

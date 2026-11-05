@@ -10,15 +10,18 @@ export interface DocumentTab {
   title: string
   /** 마지막으로 활성화된 순서. 탭이 넘칠 때 가장 오래 안 본 탭을 닫는 데 씁니다. */
   lastViewed: number
+  /** 탭 상단에 표시할 답변 근거 청크 ID. 없으면 근거 영역을 표시하지 않습니다. */
+  focusChunkId?: string
 }
 
 interface TabState {
   documentTabs: DocumentTab[]
   activeTabId: string
   sequence: number
-  openDocument: (document: { documentId: string; title: string }) => void
+  openDocument: (document: { documentId: string; title: string; chunkId?: string }) => void
   activateTab: (tabId: string) => void
   closeDocument: (documentId: string) => void
+  closeEvidence: (documentId: string) => void
 }
 
 const initialState = {
@@ -31,7 +34,7 @@ const initialState = {
 export const useTabStore = create<TabState>()((set) => ({
   ...initialState,
 
-  openDocument: ({ documentId, title }) =>
+  openDocument: ({ documentId, title, chunkId }) =>
     set((state) => {
       const sequence = state.sequence + 1
       const existing = state.documentTabs.find((tab) => tab.documentId === documentId)
@@ -40,12 +43,15 @@ export const useTabStore = create<TabState>()((set) => ({
           sequence,
           activeTabId: documentId,
           documentTabs: state.documentTabs.map((tab) =>
-            tab === existing ? { ...tab, lastViewed: sequence } : tab,
+            tab === existing ? { ...tab, lastViewed: sequence, focusChunkId: chunkId } : tab,
           ),
         }
       }
 
-      let documentTabs = [...state.documentTabs, { documentId, title, lastViewed: sequence }]
+      let documentTabs = [
+        ...state.documentTabs,
+        { documentId, title, lastViewed: sequence, focusChunkId: chunkId },
+      ]
       if (documentTabs.length > MAX_DOCUMENT_TABS) {
         const oldest = documentTabs.reduce((a, b) => (a.lastViewed <= b.lastViewed ? a : b))
         documentTabs = documentTabs.filter((tab) => tab !== oldest)
@@ -76,6 +82,16 @@ export const useTabStore = create<TabState>()((set) => ({
       // 닫은 탭이 활성 탭이면 왼쪽 탭으로, 없으면 그래프 탭으로 이동합니다.
       const next = documentTabs[index - 1] ?? documentTabs[index]
       return { documentTabs, activeTabId: next?.documentId ?? GRAPH_TAB_ID }
+    }),
+
+  closeEvidence: (documentId) =>
+    set((state) => {
+      if (!state.documentTabs.some((tab) => tab.documentId === documentId)) return state
+      return {
+        documentTabs: state.documentTabs.map((tab) =>
+          tab.documentId === documentId ? { ...tab, focusChunkId: undefined } : tab,
+        ),
+      }
     }),
 }))
 

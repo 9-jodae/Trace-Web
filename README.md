@@ -1,6 +1,6 @@
 # docs199 웹
 
-사내 문서 검색 서비스의 React 웹 클라이언트입니다. 메인 화면은 왼쪽의 그래프·문서 탭 영역과 오른쪽의 채팅 패널로 구성합니다. 서버는 [docs199-Server](https://github.com/9-jodae/docs199-Server)입니다.
+사내 문서 검색 서비스의 React 웹 클라이언트입니다. 메인 화면은 왼쪽의 그래프·문서 탭 영역과 오른쪽의 채팅 패널로 구성하고, 관리자에게는 [문서 관리 화면](docs/admin-documents.md)(`/admin/documents`)을 제공합니다. 서버는 [docs199-Server](https://github.com/9-jodae/docs199-Server)입니다.
 
 ## 로컬 실행
 

@@ -72,7 +72,7 @@ export function typeLegend(documents: Document[]): TypeLegendItem[] {
 /**
  * 유형별로 따로 뭉치지 않도록, 유형 그룹을 한 명씩 돌아가며 뽑아 하나의 해바라기 나선에 섞어 배치합니다.
  * 유형 구분은 색으로만 하고, 위치는 화면 전체에 고르게 섞여 보이게 합니다.
- * 연결선이 생기면 힘 기반 배치로 바꿀 수 있습니다.
+ * 연결선(GET /api/graph)이 생긴 뒤에도 힘 기반 배치 대신 이 배치를 씁니다(docs/architecture.md).
  */
 export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
   const positions = new Map<string, { x: number; y: number }>()

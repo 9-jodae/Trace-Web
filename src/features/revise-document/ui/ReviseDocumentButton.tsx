@@ -7,6 +7,7 @@ import {
   invalidateAfterDocumentChange,
   type DocumentDetail,
 } from '@/entities/document'
+import { graphKeys } from '@/entities/graph'
 import { MAX_FILE_BYTES } from '@/shared/config'
 import { buttonPrimary, buttonSecondary, fieldInput, fieldLabel, Modal } from '@/shared/ui'
 import { hasSameExtension } from '../lib/extension'
@@ -43,6 +44,8 @@ function ReviseModal({ detail, onClose }: { detail: DocumentDetail; onClose: () 
       }),
     onSuccess: async (result) => {
       await invalidateAfterDocumentChange(queryClient)
+      // 그래프 탭의 문서 메타데이터(버전 수 등)도 최신이 되도록 그래프 쿼리를 함께 새로 받습니다.
+      await queryClient.invalidateQueries({ queryKey: graphKeys.all })
       if (result.outcome === 'UNCHANGED') setUnchanged(true)
       else onClose()
     },

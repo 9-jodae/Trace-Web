@@ -27,6 +27,7 @@ export function DocumentGraph() {
   const { data: documents, isPending, error, refetch } = useAllDocuments()
   const { data: graphData } = useGraph()
   const evidenceDocumentIds = useChatStore((state) => state.evidenceDocumentIds)
+  const answerAboutConflict = useChatStore((state) => state.answerAboutConflict)
   const graphHighlightEnabled = useChatStore((state) => state.graphHighlightEnabled)
   const openDocument = useTabStore((state) => state.openDocument)
   const { filter } = useDocumentFilterStore()
@@ -53,10 +54,19 @@ export function DocumentGraph() {
   const noEvidence = useMemo(() => [] as string[], [])
   const effectiveEvidenceIds = useMemo(
     () =>
-      graphHighlightEnabled
-        ? focusConflictDocuments(evidenceDocumentIds, graphData?.edges ?? [], resolvedPairs)
-        : noEvidence,
-    [graphHighlightEnabled, evidenceDocumentIds, graphData, noEvidence, resolvedPairs],
+      !graphHighlightEnabled
+        ? noEvidence
+        : answerAboutConflict
+          ? focusConflictDocuments(evidenceDocumentIds, graphData?.edges ?? [], resolvedPairs)
+          : evidenceDocumentIds,
+    [
+      graphHighlightEnabled,
+      answerAboutConflict,
+      evidenceDocumentIds,
+      graphData,
+      noEvidence,
+      resolvedPairs,
+    ],
   )
   const links = useMemo<DocumentLink[]>(
     () =>

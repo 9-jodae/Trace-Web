@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnswerEditProposal, AnswerSource } from '@/entities/answer'
 import { useLocalEditStore } from '@/entities/document'
+import { useChatStore } from '../model/chatStore'
 import { isSampleEditRequest, sampleEditProposals } from '../lib/sampleEditProposals'
 import { EditProposalCard } from './EditProposalCard'
 
@@ -135,5 +136,17 @@ describe('sampleEditProposals', () => {
     expect(proposal?.before).toBe('이월은 최대 7일, 6월 30일까지다.')
     expect(proposal?.after).toBe('이월은 최대 5일, 3월 31일까지다.')
     expect(await sampleEditProposals([{ documentTitle: '다른 문서' } as AnswerSource])).toEqual([])
+  })
+})
+
+describe('answerAboutConflict', () => {
+  it('충돌을 다룬 답변이거나 제안이 있을 때만 켜진다', () => {
+    const { addAnswer } = useChatStore.getState()
+    addAnswer('c', '이월 한도가 문서마다 달라 충돌합니다.', [], [])
+    expect(useChatStore.getState().answerAboutConflict).toBe(true)
+    addAnswer('c', '담당은 영업본부장입니다.', [], [])
+    expect(useChatStore.getState().answerAboutConflict).toBe(false)
+    addAnswer('c', '제안입니다.', [], [], [], [proposal])
+    expect(useChatStore.getState().answerAboutConflict).toBe(true)
   })
 })

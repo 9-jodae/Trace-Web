@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { useChatStore } from '@/features/ask-question'
 import { useTabStore } from '@/features/document-tabs'
 import {
   documentFileName,
@@ -52,6 +53,13 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   const focusHighlights = useTabStore(
     (state) => state.documentTabs.find((tab) => tab.documentId === documentId)?.focusHighlights,
+  )
+
+  // 원문에는 가장 최근 답변이 이 문서에서 인용한 문구만 칠합니다. 새 질문을 하면 지워집니다.
+  const latestEvidence = useChatStore((state) => state.latestEvidence)
+  const quotes = useMemo(
+    () => latestEvidence.filter((item) => item.documentId === documentId).map((item) => item.quote),
+    [latestEvidence, documentId],
   )
 
   const { data, isPending, error, refetch } = useDocument(documentId)
@@ -214,6 +222,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             <PdfContent
               key={`${documentId}-${fileUpdatedAt}`}
               file={file}
+              quotes={quotes}
               onError={handleContentError}
             />
           </Suspense>
@@ -221,6 +230,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           <MarkdownContent
             key={`${documentId}-${fileUpdatedAt}`}
             file={file}
+            quotes={quotes}
             onError={handleContentError}
           />
         )}

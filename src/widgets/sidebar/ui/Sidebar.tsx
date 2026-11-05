@@ -127,6 +127,7 @@ function RecentQuestions() {
     setOpenError(false)
     try {
       const messages = await open(id)
+      if (!messages) return
       useChatStore.getState().loadConversation(id, messages)
       navigate('/')
     } catch {

@@ -9,6 +9,8 @@ export type ChatMessage =
       text: string
       sources: AnswerSource[]
       evidence: AnswerEvidence[]
+      /** 과거 대화를 다시 열 때 문서 삭제·개정·권한 변경으로 불러오지 못한 근거 수. 있을 때만 둡니다. */
+      missingSourceCount?: number
     }
   | { id: string; kind: 'error'; text: string }
 

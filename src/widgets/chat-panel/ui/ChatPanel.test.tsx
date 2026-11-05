@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetChatStore, useChatStore } from '@/features/ask-question'
 import { resetTabStore, useTabStore } from '@/features/document-tabs'
 import { useDocumentFilterStore } from '@/features/filter-documents'
-import { mockServer, ok } from '@/shared/testing'
+import { fail, mockServer, ok } from '@/shared/testing'
 import { ChatPanel } from './ChatPanel'
 
 const CONVERSATIONS = [
@@ -91,6 +91,39 @@ describe('ChatPanel 대화 기록', () => {
     expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
     expect(useChatStore.getState().conversationId).toBe('c1')
     expect(useChatStore.getState().evidenceDocumentIds).toEqual(['d1'])
+  })
+
+  it('근거 문서를 더는 볼 수 없으면 저장된 답변과 빠진 근거 수를 보여준다', async () => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/conversations') return ok(CONVERSATIONS)
+      if (config.url === '/api/conversations/c1') return ok(DETAIL)
+      if (config.url === '/api/evidence/k1') return fail(404, 'NOT_FOUND')
+      return ok(null)
+    })
+    renderPanel()
+
+    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
+    await userEvent.click(await screen.findByText('연차 이월은?'))
+
+    expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
+    expect(screen.getByText(/근거 1개는 문서가 개정·삭제되었거나/)).toBeInTheDocument()
+    expect(screen.queryByText('사내 문서에서 확인할 수 없습니다')).not.toBeInTheDocument()
+  })
+
+  it('근거를 일시적으로 불러오지 못하면 대화를 열지 않고 오류를 보여준다', async () => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/conversations') return ok(CONVERSATIONS)
+      if (config.url === '/api/conversations/c1') return ok(DETAIL)
+      if (config.url === '/api/evidence/k1') return fail(500, 'INTERNAL_ERROR')
+      return ok(null)
+    })
+    renderPanel()
+
+    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
+    await userEvent.click(await screen.findByText('연차 이월은?'))
+
+    expect(await screen.findByText('대화를 불러오지 못했습니다.')).toBeInTheDocument()
+    expect(useChatStore.getState().conversationId).toBeNull()
   })
 
   it('"새 대화"를 누르면 지금 대화를 지운다', async () => {

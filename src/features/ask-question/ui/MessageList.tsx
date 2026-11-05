@@ -50,6 +50,7 @@ export function MessageList({
                 text={message.text}
                 sources={message.sources}
                 evidence={message.evidence}
+                missingSourceCount={message.missingSourceCount ?? 0}
                 onOpen={onOpenSource}
                 originalQuestion={originalQuestion}
                 onRetryWithoutFilters={onRetryWithoutFilters}
@@ -78,6 +79,7 @@ function AnswerBubble({
   text,
   sources,
   evidence,
+  missingSourceCount,
   onOpen,
   originalQuestion,
   onRetryWithoutFilters,
@@ -86,12 +88,15 @@ function AnswerBubble({
   text: string
   sources: AnswerSource[]
   evidence: AnswerEvidence[]
+  missingSourceCount: number
   onOpen: (source: AnswerSource) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
-  if (sources.length === 0) {
+  // 근거 없이 온 답변만 "확인할 수 없음"으로 보여줍니다. 과거 대화의 근거를 지금 볼 수 없게 된
+  // 경우(문서 삭제·개정·권한 변경)는 저장된 답변을 그대로 보여주고 빠진 근거 수만 알립니다.
+  if (sources.length === 0 && missingSourceCount === 0) {
     return (
       <NoEvidenceAnswer
         originalQuestion={originalQuestion}
@@ -133,21 +138,28 @@ function AnswerBubble({
           ))}
         </ul>
       )}
-      <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
-        {sources.map((source, index) => (
-          <li key={source.id}>
-            <button
-              type="button"
-              onClick={() => onOpen(source)}
-              className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
-            >
-              <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
-              <FileText className="size-3.5 shrink-0 text-ink-muted" aria-hidden />
-              <span className="flex-1 truncate text-sm text-ink">{source.documentTitle}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {sources.length > 0 && (
+        <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
+          {sources.map((source, index) => (
+            <li key={source.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(source)}
+                className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
+              >
+                <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
+                <FileText className="size-3.5 shrink-0 text-ink-muted" aria-hidden />
+                <span className="flex-1 truncate text-sm text-ink">{source.documentTitle}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {missingSourceCount > 0 && (
+        <p className="text-xs text-ink-muted">
+          근거 {missingSourceCount}개는 문서가 개정·삭제되었거나 볼 권한이 없어 표시할 수 없습니다
+        </p>
+      )}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import Graph from 'graphology'
 import type { Document } from '@/entities/document'
+import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
  * 문서 간 연결선. 서버의 문서 관계 그래프 API(docs199-Server #22)가 아직 없어
@@ -18,21 +19,12 @@ export interface NodeAttributes {
   label: string
   highlighted: boolean
   documentType: string | null
+  extension: string
+  authoredAt: string | null
 }
 
-/** 유형별 노드 색. 유형 수 상한(8개 이하 권장)이 정해지지 않아 넘치면 앞 색을 다시 씁니다. */
-export const TYPE_PALETTE = [
-  '#2563eb',
-  '#16a34a',
-  '#ea580c',
-  '#9333ea',
-  '#0891b2',
-  '#db2777',
-  '#ca8a04',
-  '#4f46e5',
-]
-export const UNCLASSIFIED_COLOR = '#94a3b8'
-export const DIMMED_COLOR = '#e2e8f0'
+/** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색. */
+export const DIMMED_COLOR = '#3a3733'
 
 const NODE_SIZE = 6
 const EVIDENCE_NODE_SIZE = 11
@@ -41,24 +33,32 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
 export interface TypeLegendItem {
   /** 서버가 준 문서 유형 값. 분류 전이면 null */
   type: string | null
+  label: string
   color: string
   count: number
 }
 
-/** 문서 유형을 정렬해 색을 정합니다. 분류 전 문서는 마지막에 회색으로 둡니다. */
+/** 문서 유형별 범례. 색과 표시명은 entities/document의 고정 맵(실제 서버 enum 5종)을 씁니다. */
 export function typeLegend(documents: Document[]): TypeLegendItem[] {
   const counts = new Map<string | null, number>()
   for (const document of documents) {
     counts.set(document.documentType, (counts.get(document.documentType) ?? 0) + 1)
   }
   const types = [...counts.keys()].filter((type): type is string => type !== null).sort()
-  const items: TypeLegendItem[] = types.map((type, index) => ({
+  const items: TypeLegendItem[] = types.map((type) => ({
     type,
-    color: TYPE_PALETTE[index % TYPE_PALETTE.length] ?? UNCLASSIFIED_COLOR,
+    label: documentTypeLabel(type),
+    color: documentTypeColor(type),
     count: counts.get(type) ?? 0,
   }))
-  if (counts.has(null))
-    items.push({ type: null, color: UNCLASSIFIED_COLOR, count: counts.get(null) ?? 0 })
+  if (counts.has(null)) {
+    items.push({
+      type: null,
+      label: documentTypeLabel(null),
+      color: documentTypeColor(null),
+      count: counts.get(null) ?? 0,
+    })
+  }
   return items
 }
 
@@ -91,6 +91,7 @@ export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
 /**
  * 문서 그래프를 만듭니다. 근거 문서가 있으면 크게 강조하고 나머지는 흐리게 표시합니다.
  * 서버가 권한 범위의 문서만 주므로, 권한 없는 문서는 노드로 나타나지 않습니다.
+ * `documents`는 호출하는 쪽에서 필터(features/filter-documents)를 적용해 넘깁니다.
  */
 export function buildDocumentGraph({
   documents,
@@ -116,19 +117,21 @@ export function buildDocumentGraph({
       ...position,
       label: document.title,
       documentType: document.documentType,
+      extension: document.extension,
+      authoredAt: document.authoredAt,
       size: isEvidence ? EVIDENCE_NODE_SIZE : NODE_SIZE,
       highlighted: isEvidence,
       color:
         focusing && !isEvidence
           ? DIMMED_COLOR
-          : (colorOf.get(document.documentType) ?? UNCLASSIFIED_COLOR),
+          : (colorOf.get(document.documentType) ?? documentTypeColor(document.documentType)),
     })
   }
   for (const link of links) {
     if (link.source === link.target) continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
     if (graph.hasEdge(link.source, link.target)) continue
-    graph.addEdge(link.source, link.target, { size: 1, color: '#cbd5e1' })
+    graph.addEdge(link.source, link.target, { size: 1, color: 'rgba(255,255,255,0.12)' })
   }
   return { graph, legend }
 }

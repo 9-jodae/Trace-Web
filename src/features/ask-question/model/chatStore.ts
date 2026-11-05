@@ -22,6 +22,12 @@ interface ChatState {
   /** 채팅 헤더의 "관계 그래프" 토글. 꺼두면 근거 강조를 그래프에 반영하지 않습니다. */
   graphHighlightEnabled: boolean
   sequence: number
+  /**
+   * 지금 대화의 맥락 번호. 새 대화·다른 대화 열기·로그아웃 초기화 때마다 바뀌며, 질문을 보낸 뒤
+   * 이 값이 바뀌었으면 늦게 도착한 답변을 버리는 데 씁니다. 첫 답변으로 conversationId가
+   * 정해지는 것은 같은 대화라 바꾸지 않습니다.
+   */
+  contextId: number
   addQuestion: (text: string) => void
   addAnswer: (
     conversationId: string,
@@ -36,12 +42,17 @@ interface ChatState {
   loadConversation: (conversationId: string, messages: ChatMessage[]) => void
 }
 
+// 초기화해도 이전 값으로 돌아가지 않도록 스토어 밖에서 셉니다.
+let lastContextId = 0
+const nextContextId = () => ++lastContextId
+
 const initialState = {
   conversationId: null,
   messages: [] as ChatMessage[],
   evidenceDocumentIds: [] as string[],
   graphHighlightEnabled: true,
   sequence: 0,
+  contextId: 0,
 }
 
 export const useChatStore = create<ChatState>()((set) => ({
@@ -74,7 +85,11 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   // 대화 자체를 초기화해도 "관계 그래프" 토글은 화면 설정이라 유지합니다.
   startNewConversation: () =>
-    set((state) => ({ ...initialState, graphHighlightEnabled: state.graphHighlightEnabled })),
+    set((state) => ({
+      ...initialState,
+      contextId: nextContextId(),
+      graphHighlightEnabled: state.graphHighlightEnabled,
+    })),
 
   toggleGraphHighlight: () =>
     set((state) => ({ graphHighlightEnabled: !state.graphHighlightEnabled })),
@@ -88,6 +103,7 @@ export const useChatStore = create<ChatState>()((set) => ({
           : []
       return {
         conversationId,
+        contextId: nextContextId(),
         messages,
         evidenceDocumentIds,
         sequence: state.sequence + messages.length,
@@ -96,5 +112,5 @@ export const useChatStore = create<ChatState>()((set) => ({
 }))
 
 export function resetChatStore() {
-  useChatStore.setState(initialState)
+  useChatStore.setState({ ...initialState, contextId: nextContextId() })
 }

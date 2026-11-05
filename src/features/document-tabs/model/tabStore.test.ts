@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { GRAPH_TAB_ID, MAX_DOCUMENT_TABS, resetTabStore, useTabStore } from './tabStore'
 
-const open = (id: string) => useTabStore.getState().openDocument({ documentId: id, title: id })
+const open = (id: string, chunkId?: string) =>
+  useTabStore.getState().openDocument({ documentId: id, title: id, chunkId })
 const ids = () => useTabStore.getState().documentTabs.map((tab) => tab.documentId)
+const tabOf = (id: string) =>
+  useTabStore.getState().documentTabs.find((tab) => tab.documentId === id)
 
 describe('tabStore', () => {
   beforeEach(() => {
@@ -52,5 +55,35 @@ describe('tabStore', () => {
     open('b')
     useTabStore.getState().closeDocument('a')
     expect(useTabStore.getState().activeTabId).toBe('b')
+  })
+
+  it('인용으로 문서를 열면 새 탭에 focusChunkId를 저장한다', () => {
+    open('a', 'chunk-1')
+    expect(tabOf('a')?.focusChunkId).toBe('chunk-1')
+    expect(useTabStore.getState().activeTabId).toBe('a')
+  })
+
+  it('같은 문서의 다른 인용을 열면 새 탭 없이 focusChunkId만 바꾸고 활성화한다', () => {
+    open('a', 'chunk-1')
+    open('b')
+    open('a', 'chunk-2')
+    expect(ids()).toEqual(['a', 'b'])
+    expect(useTabStore.getState().activeTabId).toBe('a')
+    expect(tabOf('a')?.focusChunkId).toBe('chunk-2')
+  })
+
+  it('그래프 노드처럼 chunkId 없이 같은 문서를 열면 근거 영역을 닫는다', () => {
+    open('a', 'chunk-1')
+    open('a')
+    expect(tabOf('a')?.focusChunkId).toBeUndefined()
+  })
+
+  it('closeEvidence를 호출하면 해당 문서 탭의 focusChunkId만 지운다', () => {
+    open('a', 'chunk-1')
+    open('b', 'chunk-2')
+    useTabStore.getState().closeEvidence('a')
+    expect(tabOf('a')?.focusChunkId).toBeUndefined()
+    expect(tabOf('b')?.focusChunkId).toBe('chunk-2')
+    expect(ids()).toEqual(['a', 'b'])
   })
 })

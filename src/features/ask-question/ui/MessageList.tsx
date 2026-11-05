@@ -2,6 +2,7 @@ import { FileText, Quote, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
+import { AnswerMarkdown } from './AnswerMarkdown'
 
 export function MessageList({
   messages,
@@ -102,7 +103,7 @@ function AnswerBubble({
 
   return (
     <div className="flex max-w-96 flex-col gap-3 text-[15px]">
-      <p className="whitespace-pre-wrap text-[#e8e6e1]">{text}</p>
+      <AnswerMarkdown text={text} />
       {evidence.length > 0 && (
         <ul aria-label="핵심 인용" className="flex flex-col gap-1.5">
           {evidence.map((item) => (

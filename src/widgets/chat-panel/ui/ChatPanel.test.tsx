@@ -1,171 +1,23 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { resetChatStore, useChatStore } from '@/features/ask-question'
 import { resetTabStore, useTabStore } from '@/features/document-tabs'
-import { useDocumentFilterStore } from '@/features/filter-documents'
-import { fail, mockServer, ok } from '@/shared/testing'
 import { ChatPanel } from './ChatPanel'
 
-const CONVERSATIONS = [
-  {
-    id: 'c1',
-    userId: 'u1',
-    title: '연차 이월은?',
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-01-01T00:00:00Z',
-  },
-]
+describe('ChatPanel 헤더', () => {
+  beforeEach(() => resetChatStore())
 
-const DETAIL = {
-  conversation: CONVERSATIONS[0],
-  messages: [
-    {
-      id: 'm1',
-      conversationId: 'c1',
-      role: 'USER',
-      content: '연차 이월은?',
-      evidenceChunkIds: [],
-      createdAt: '2026-01-01T00:00:00Z',
-    },
-    {
-      id: 'm2',
-      conversationId: 'c1',
-      role: 'ASSISTANT',
-      content: '최대 5일까지 이월할 수 있습니다.',
-      evidenceChunkIds: ['k1'],
-      createdAt: '2026-01-01T00:00:10Z',
-    },
-  ],
-}
-
-const EVIDENCE = {
-  chunkId: 'k1',
-  documentId: 'd1',
-  documentTitle: '연차 규정',
-  extension: 'md',
-  versionId: 'v1',
-  versionNumber: 1,
-  content: '연차는 최대 5일까지 이월된다.',
-  charStart: 0,
-  charEnd: 10,
-  page: null,
-  previousChunk: null,
-  nextChunk: null,
-  downloadUrl: 'https://example.com/signed',
-}
-
-function renderPanel() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={client}>
-      <ChatPanel />
-    </QueryClientProvider>,
-  )
-}
-
-let restore: () => void = () => {}
-
-describe('ChatPanel 대화 기록', () => {
-  beforeEach(() => {
-    resetChatStore()
-    useDocumentFilterStore.getState().reset()
-  })
-  afterEach(() => restore())
-
-  it('대화 기록에서 과거 대화를 고르면 채팅 화면에 다시 불러온다', async () => {
-    restore = mockServer((config) => {
-      if (config.url === '/api/conversations') return ok(CONVERSATIONS)
-      if (config.url === '/api/conversations/c1') return ok(DETAIL)
-      if (config.url === '/api/evidence/k1') return ok(EVIDENCE)
-      return ok(null)
-    })
-    renderPanel()
-
-    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
-    expect(await screen.findByText('연차 이월은?')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByText('연차 이월은?'))
-
-    expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
-    expect(useChatStore.getState().conversationId).toBe('c1')
-    expect(useChatStore.getState().evidenceDocumentIds).toEqual(['d1'])
-  })
-
-  it('대화 기록에서 지금 열린 대화를 삭제하면 목록에서 빼고 채팅을 비운다', async () => {
-    const deleted: string[] = []
-    restore = mockServer((config) => {
-      if (config.url === '/api/conversations') {
-        return ok(CONVERSATIONS.filter((conversation) => !deleted.includes(conversation.id)))
-      }
-      if (config.method === 'delete' && config.url === '/api/conversations/c1') {
-        deleted.push('c1')
-        return ok({ deleted: true })
-      }
-      return ok(null)
-    })
-    useChatStore
-      .getState()
-      .loadConversation('c1', [{ id: 'q', kind: 'question', text: '연차 이월은?' }])
-    renderPanel()
-
-    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
-    await userEvent.click(await screen.findByRole('button', { name: '‘연차 이월은?’ 대화 삭제' }))
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }))
-
-    expect(await screen.findByText('대화 기록이 없습니다.')).toBeInTheDocument()
-    await waitFor(() => expect(deleted).toEqual(['c1']))
-    expect(useChatStore.getState().conversationId).toBeNull()
-    expect(useChatStore.getState().messages).toEqual([])
-  })
-
-  it('근거 문서를 더는 볼 수 없으면 저장된 답변과 빠진 근거 수를 보여준다', async () => {
-    restore = mockServer((config) => {
-      if (config.url === '/api/conversations') return ok(CONVERSATIONS)
-      if (config.url === '/api/conversations/c1') return ok(DETAIL)
-      if (config.url === '/api/evidence/k1') return fail(404, 'NOT_FOUND')
-      return ok(null)
-    })
-    renderPanel()
-
-    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
-    await userEvent.click(await screen.findByText('연차 이월은?'))
-
-    expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.getByText(/근거 1개는 문서가 개정·삭제되었거나/)).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: '필터 해제하고 다시 찾기' }),
-    ).not.toBeInTheDocument()
-  })
-
-  it('근거를 일시적으로 불러오지 못하면 대화를 열지 않고 오류를 보여준다', async () => {
-    restore = mockServer((config) => {
-      if (config.url === '/api/conversations') return ok(CONVERSATIONS)
-      if (config.url === '/api/conversations/c1') return ok(DETAIL)
-      if (config.url === '/api/evidence/k1') return fail(500, 'INTERNAL_ERROR')
-      return ok(null)
-    })
-    renderPanel()
-
-    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
-    await userEvent.click(await screen.findByText('연차 이월은?'))
-
-    expect(await screen.findByText('대화를 불러오지 못했습니다.')).toBeInTheDocument()
-    expect(useChatStore.getState().conversationId).toBeNull()
-  })
-
-  it('"새 대화"를 누르면 지금 대화를 지운다', async () => {
-    restore = mockServer((config) =>
-      config.url === '/api/conversations' ? ok(CONVERSATIONS) : ok(null),
+  it('대화 기록 버튼 없이 채팅 제목만 보여준다(대화 기록은 사이드바에서만 봅니다)', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatPanel />
+      </QueryClientProvider>,
     )
-    renderPanel()
 
-    await userEvent.click(screen.getByRole('button', { name: '대화 기록' }))
-    await userEvent.click(await screen.findByRole('button', { name: '새 대화' }))
-
-    expect(useChatStore.getState().messages).toEqual([])
-    expect(useChatStore.getState().conversationId).toBeNull()
+    expect(screen.getByText('채팅')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '대화 기록' })).not.toBeInTheDocument()
   })
 })
 

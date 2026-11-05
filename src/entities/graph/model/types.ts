@@ -25,6 +25,12 @@ export interface GraphNode {
   versionCount: number
 }
 
+/** REFERENCES 엣지에만 있습니다(docs199-Server #96). CONTENT_CHECK는 조건 수정 전까지 표시하지 않습니다. */
+export interface GraphWarning {
+  type: 'SECURITY_RISK' | 'CONTENT_CHECK'
+  modifiedDocumentId?: string
+}
+
 export interface GraphEdge {
   id: string
   source: string
@@ -33,6 +39,8 @@ export interface GraphEdge {
   /** 표시용 문자열. 참조와 충돌은 "참조"/"충돌", 주제는 공유 주제를 이은 값입니다. */
   label: string
   detail: GraphConflictDetail | { topics: string[] } | null
+  /** 서버 배포 전 응답에는 없습니다. */
+  warnings?: GraphWarning[]
 }
 
 export interface GraphResponse {

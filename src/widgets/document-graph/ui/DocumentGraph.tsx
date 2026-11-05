@@ -1,13 +1,21 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
+import { clsx } from 'clsx'
+import { Minus, Plus, X } from 'lucide-react'
 import type { Sigma } from 'sigma'
 import { useChatStore } from '@/features/ask-question'
 import { useTabStore } from '@/features/document-tabs'
 import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/filter-documents'
-import { useAllDocuments, documentTypeLabel } from '@/entities/document'
+import { useAllDocuments, documentTypeLabel, useLocalEditStore } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
-import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
+import { describeEdge, focusConflictDocuments, type EdgeDetailItem } from '../lib/edgeDetail'
+import {
+  buildDocumentGraph,
+  conflictWarning,
+  DIMMED_COLOR,
+  type DocumentLink,
+  type TypeLegendItem,
+} from '../lib/buildGraph'
 import type { NodeHover } from './SigmaCanvas'
 
 const SigmaCanvas = lazy(() => import('./SigmaCanvas'))
@@ -26,23 +34,59 @@ export function DocumentGraph() {
   const { data: documents, isPending, error, refetch } = useAllDocuments()
   const { data: graphData } = useGraph()
   const evidenceDocumentIds = useChatStore((state) => state.evidenceDocumentIds)
+  const answerAboutConflict = useChatStore((state) => state.answerAboutConflict)
   const graphHighlightEnabled = useChatStore((state) => state.graphHighlightEnabled)
+  const toggleGraphHighlight = useChatStore((state) => state.toggleGraphHighlight)
   const openDocument = useTabStore((state) => state.openDocument)
   const { filter } = useDocumentFilterStore()
+  const localEdits = useLocalEditStore((state) => state.edits)
+  const modifiedDocuments = useMemo(
+    () =>
+      Object.entries(localEdits)
+        .filter(([, edit]) => !edit.resolvedWith)
+        .map(([id, edit]) => ({ id, title: edit.title })),
+    [localEdits],
+  )
+  const resolvedPairs = useMemo(
+    () =>
+      Object.entries(localEdits).flatMap(([id, edit]) =>
+        (edit.resolvedWith ?? []).map((peer): [string, string] => [id, peer]),
+      ),
+    [localEdits],
+  )
 
   const filteredDocuments = useMemo(
     () => (documents ? filterDocuments(documents, filter) : undefined),
     [documents, filter],
   )
   const noEvidence = useMemo(() => [] as string[], [])
-  const effectiveEvidenceIds = graphHighlightEnabled ? evidenceDocumentIds : noEvidence
+  const effectiveEvidenceIds = useMemo(
+    () =>
+      !graphHighlightEnabled
+        ? noEvidence
+        : answerAboutConflict
+          ? focusConflictDocuments(evidenceDocumentIds, graphData?.edges ?? [], resolvedPairs)
+          : evidenceDocumentIds,
+    [
+      graphHighlightEnabled,
+      answerAboutConflict,
+      evidenceDocumentIds,
+      graphData,
+      noEvidence,
+      resolvedPairs,
+    ],
+  )
   const links = useMemo<DocumentLink[]>(
     () =>
       (graphData?.edges ?? []).map((edge) => ({
         source: edge.source,
         target: edge.target,
         type: edge.type,
-        label: edge.label,
+        label:
+          edge.type === 'CONFLICTS'
+            ? conflictWarning(edge.detail && 'item' in edge.detail ? edge.detail.item : undefined)
+            : edge.label,
+        securityRisk: edge.warnings?.some((warning) => warning.type === 'SECURITY_RISK'),
       })),
     [graphData],
   )
@@ -60,10 +104,32 @@ export function DocumentGraph() {
       links,
       evidenceDocumentIds: effectiveEvidenceIds,
       positionOverrides: draggedPositionsRef.current,
+      modifiedDocuments,
+      resolvedPairs,
     })
-  }, [filteredDocuments, links, effectiveEvidenceIds])
+  }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments, resolvedPairs])
 
   const [sigma, setSigma] = useState<Sigma | null>(null)
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
+  const edgeDetail = useMemo(() => {
+    if (!built || !selectedEdge || !built.graph.hasEdge(selectedEdge)) return null
+    const [source, target] = built.graph.extremities(selectedEdge) as [string, string]
+    const titleOf = (id: string) =>
+      built.graph.hasNode(id) ? built.graph.getNodeAttribute(id, 'label') : id
+    return {
+      source,
+      target,
+      title: `${titleOf(source)} ↔ ${titleOf(target)}`,
+      items: describeEdge({
+        source,
+        target,
+        edges: graphData?.edges ?? [],
+        titleOf,
+        modifiedDocuments,
+        resolvedPairs,
+      }),
+    }
+  }, [built, selectedEdge, graphData, modifiedDocuments, resolvedPairs])
 
   // 드래그가 끝나면 sigma 그래프에 반영된 최종 좌표를 기억합니다.
   useEffect(() => {
@@ -130,6 +196,8 @@ export function DocumentGraph() {
     [built, openDocument],
   )
 
+  const focusing = (built?.focus.evidence ?? 0) > 0
+
   if (isPending) return <Message>문서 그래프를 불러오는 중…</Message>
   if (error) {
     return (
@@ -167,19 +235,23 @@ export function DocumentGraph() {
               패널은 이 바깥에 둬서 또렷하게 유지합니다.
               drop-shadow는 캔버스의 투명 배경 위에서 각 원의 알파 윤곽을 따라가므로,
               블러를 아주 작게 주면 원마다 테두리처럼 보이는 효과를 낼 수 있습니다.
-              - 1px 밝은 림(테두리 강조) + 4px 블루 글로우(은은한 색 강조), 두 겹을 쌓았습니다.
+              - 1px 밝은 림(테두리 강조) + 4px 블루 글로우(은은한 색 강조) + 아래로 치우친 어두운
+              그림자(왼쪽 위에서 빛이 오는 것처럼 보이게 해 입체감을 더함), 세 겹을 쌓았습니다.
             */}
             <div
               className="size-full"
               style={{
-                filter:
-                  'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4))',
+                // 근거 포커스 중에는 흰 림을 빼야 흐린 노드가 테두리 때문에 다시 도드라지지 않습니다.
+                filter: focusing
+                  ? 'drop-shadow(0 0 3px rgba(96,165,250,0.35))'
+                  : 'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4)) drop-shadow(1px 2px 2px rgba(0,0,0,0.5))',
               }}
             >
               <Suspense fallback={<Message>그래프를 준비하는 중…</Message>}>
                 <SigmaCanvas
                   graph={built.graph}
                   onNodeClick={onNodeClick}
+                  onEdgeClick={setSelectedEdge}
                   onNodeHover={setHover}
                   onReady={onReady}
                 />
@@ -191,15 +263,31 @@ export function DocumentGraph() {
               items={built.legend}
               hasReferences={built.hasReferences}
               hasConflicts={built.hasConflicts}
+              hasWarnings={built.hasWarnings}
               hasTopics={built.hasTopics}
             />
             <ZoomControls sigma={sigma} />
+            {evidenceDocumentIds.length > 0 && (
+              <FocusBar
+                enabled={graphHighlightEnabled}
+                onToggle={toggleGraphHighlight}
+                evidenceCount={built.focus.evidence}
+                neighborCount={built.focus.neighbors}
+              />
+            )}
             {rings.map((ring) => (
               <NodeRing key={ring.documentId} x={ring.x} y={ring.y} radius={ring.radius} />
             ))}
             {badges.map((badge) => (
               <EvidenceBadge key={badge.documentId} order={badge.order} x={badge.x} y={badge.y} />
             ))}
+            {edgeDetail && (
+              <EdgeDetailPanel
+                title={edgeDetail.title}
+                items={edgeDetail.items}
+                onClose={() => setSelectedEdge(null)}
+              />
+            )}
             {hover && built.graph.hasNode(hover.nodeId) && (
               <HoverTooltip hover={hover} graph={built.graph} />
             )}
@@ -208,6 +296,87 @@ export function DocumentGraph() {
       </div>
     </div>
   )
+}
+
+/** 선을 눌렀을 때 두 문서 사이의 관계와 문제를 보여 줍니다. */
+function EdgeDetailPanel({
+  title,
+  items,
+  onClose,
+}: {
+  title: string
+  items: EdgeDetailItem[]
+  onClose: () => void
+}) {
+  return (
+    <section
+      aria-label="관계 내용"
+      className="absolute right-3 bottom-3 z-10 flex max-h-[60%] w-80 flex-col gap-2 overflow-y-auto rounded-xl border border-blue-400/20 bg-surface-raised p-3 text-sm text-ink"
+    >
+      <header className="flex items-start justify-between gap-2">
+        <h3 className="font-semibold">{title}</h3>
+        <button type="button" aria-label="닫기" onClick={onClose} className="text-ink-muted">
+          <X className="size-4" aria-hidden />
+        </button>
+      </header>
+      {items.map((item, index) => (
+        <EdgeDetailRow key={`${item.kind}-${index}`} item={item} />
+      ))}
+    </section>
+  )
+}
+
+function EdgeDetailRow({ item }: { item: EdgeDetailItem }) {
+  switch (item.kind) {
+    case 'CONFLICT':
+      return (
+        <div className="rounded-md bg-red-400/10 p-2">
+          <p className="font-semibold text-red-300">경고! 내용 충돌 · {item.item}</p>
+          <ul className="mt-1 text-ink-dim">
+            {item.values.map(({ title, value }) => (
+              <li key={title}>
+                {title}: <strong className="text-ink">{value}</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-ink-muted">어느 값이 맞는지 담당자 확인이 필요합니다.</p>
+        </div>
+      )
+    case 'MODIFIED':
+      return (
+        <div className="rounded-md bg-red-400/10 p-2">
+          <p className="font-semibold text-red-300">경고! 내용 확인 필요</p>
+          <p className="mt-1 text-ink-dim">
+            {item.modifiedTitle}이(가) 수정됐습니다. 이 문서를 참조하는 {item.referrerTitle}의
+            내용을 다시 확인해 주세요.
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            수정 여부만 본 경고이며 실제 내용을 비교한 결과는 아닙니다.
+          </p>
+        </div>
+      )
+    case 'SECURITY':
+      return (
+        <div className="rounded-md bg-red-400/10 p-2">
+          <p className="font-semibold text-red-300">경고! 보안 위험 · 열람 등급 불일치</p>
+          <p className="mt-1 text-ink-dim">
+            {item.fromTitle}의 보안 등급이 참조하는 {item.toTitle}보다 낮습니다. 높은 등급 내용이
+            담겨 있지 않은지 확인해 주세요.
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            등급만 비교한 경고이며 실제 내용을 비교한 결과는 아닙니다.
+          </p>
+        </div>
+      )
+    case 'TOPIC':
+      return <p className="text-ink-dim">같은 주제: {item.topics.join(', ')}</p>
+    case 'REFERENCE':
+      return (
+        <p className="text-ink-dim">
+          {item.fromTitle}이(가) {item.toTitle}을(를) 참조합니다.
+        </p>
+      )
+  }
 }
 
 /** 근거 노드를 감싸는 링 글로우. 노드 자체는 평범한 원이라 이 링으로 "타겟" 느낌을 더합니다. */
@@ -260,6 +429,74 @@ function HoverTooltip({
   )
 }
 
+/**
+ * 근거 포커스 켜기/끄기와 단계 범례. 채팅 패널의 "관계 그래프" 토글과 같은 상태를 씁니다.
+ * 답변에 근거가 있을 때만 보입니다(근거가 없으면 강조할 대상이 없음).
+ */
+function FocusBar({
+  enabled,
+  onToggle,
+  evidenceCount,
+  neighborCount,
+}: {
+  enabled: boolean
+  onToggle: () => void
+  evidenceCount: number
+  neighborCount: number
+}) {
+  return (
+    <div className="absolute bottom-4 left-4 flex max-w-[calc(100%-6rem)] flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[10px] border border-blue-400/20 bg-surface-raised/90 px-3 py-2 text-xs text-ink-dim shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={onToggle}
+        className="flex items-center gap-2 font-medium text-ink"
+      >
+        <span
+          className={clsx(
+            'relative h-3.5 w-[26px] shrink-0 rounded-full transition-colors',
+            enabled ? 'bg-ink' : 'bg-white/15',
+          )}
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 left-0 size-2.5 rounded-full bg-[#111110] transition-transform',
+              enabled ? 'translate-x-[14px]' : 'translate-x-0.5',
+            )}
+          />
+        </span>
+        근거 포커스
+      </button>
+      <span aria-hidden className="h-3 w-px bg-white/15" />
+      {enabled ? (
+        <>
+          <span>
+            근거 {evidenceCount} · 직접 연결 {neighborCount}
+          </span>
+          <span aria-hidden className="h-3 w-px bg-white/15" />
+          <ul aria-label="근거 포커스 범례" className="flex items-center gap-3">
+            <li className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full border-[1.5px] border-white bg-sky-200" />
+              근거
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-blue-400" />
+              직접 연결
+            </li>
+            <li className="flex items-center gap-1.5 text-ink-muted">
+              <span className="size-2 rounded-full" style={{ backgroundColor: DIMMED_COLOR }} />그
+              외
+            </li>
+          </ul>
+        </>
+      ) : (
+        <span>전체 보기 중</span>
+      )}
+    </div>
+  )
+}
+
 function ZoomControls({ sigma }: { sigma: Sigma | null }) {
   return (
     <div className="absolute right-4 bottom-4 flex flex-col gap-2">
@@ -287,11 +524,13 @@ function Legend({
   items,
   hasReferences,
   hasConflicts,
+  hasWarnings,
   hasTopics,
 }: {
   items: TypeLegendItem[]
   hasReferences: boolean
   hasConflicts: boolean
+  hasWarnings: boolean
   hasTopics: boolean
 }) {
   return (
@@ -308,7 +547,7 @@ function Legend({
           {item.label} ({item.count})
         </li>
       ))}
-      {(hasReferences || hasConflicts || hasTopics) && (
+      {(hasReferences || hasConflicts || hasTopics || hasWarnings) && (
         <>
           <li aria-hidden className="my-0.5 border-t border-border-dark" />
           {hasReferences && (
@@ -317,10 +556,16 @@ function Legend({
               참조
             </li>
           )}
+          {hasWarnings && (
+            <li className="flex items-center gap-2 text-ink-dim">
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
+              경고
+            </li>
+          )}
           {hasConflicts && (
             <li className="flex items-center gap-2 text-ink-dim">
-              <span className="h-0.5 w-3 rounded-full bg-[rgb(251,146,60)]" />
-              충돌
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
+              경고: 내용 충돌
             </li>
           )}
           {hasTopics && (

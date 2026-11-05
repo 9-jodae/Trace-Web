@@ -12,5 +12,5 @@
 - Imports go strictly downward: `app → pages → widgets → features → entities → shared`. No imports from a higher layer or a sibling slice on the same layer. If two features need each other, move the shared part down to an entity or compose them in a widget.
 - Slice names are kebab-case nouns or actions (`document-tabs`, `ask-question`). Segments are named by purpose: `ui`, `model`, `api`, `lib`, `config`. Never use `components`, `hooks`, `utils`, `helpers`, or `providers`.
 - Every slice exposes a public API in `index.ts`. Outside the slice, import only from that file (`@/features/document-tabs`). Inside the slice, use relative imports.
-- `shared` and `app` have segments but no slices. `@/shared/api` owns the HTTP client, response envelope, token, and `queryClient`.
+- `shared` and `app` have segments but no slices. `@/shared/api` owns the HTTP client, response envelope, token, error messages, and `queryClient`. `@/shared/testing` holds test-only helpers such as `mockServer`; import it only from `*.test.ts(x)` files.
 - Run `npm run lint`; Steiger reports structure violations. `fsd/insignificant-slice` is off until more pages exist.

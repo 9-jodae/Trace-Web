@@ -42,6 +42,7 @@ export function DocumentGraph() {
         source: edge.source,
         target: edge.target,
         type: edge.type,
+        label: edge.label,
       })),
     [graphData],
   )
@@ -190,6 +191,7 @@ export function DocumentGraph() {
               items={built.legend}
               hasReferences={built.hasReferences}
               hasConflicts={built.hasConflicts}
+              hasTopics={built.hasTopics}
             />
             <ZoomControls sigma={sigma} />
             {rings.map((ring) => (
@@ -285,10 +287,12 @@ function Legend({
   items,
   hasReferences,
   hasConflicts,
+  hasTopics,
 }: {
   items: TypeLegendItem[]
   hasReferences: boolean
   hasConflicts: boolean
+  hasTopics: boolean
 }) {
   return (
     <ul
@@ -304,7 +308,7 @@ function Legend({
           {item.label} ({item.count})
         </li>
       ))}
-      {(hasReferences || hasConflicts) && (
+      {(hasReferences || hasConflicts || hasTopics) && (
         <>
           <li aria-hidden className="my-0.5 border-t border-border-dark" />
           {hasReferences && (
@@ -317,6 +321,12 @@ function Legend({
             <li className="flex items-center gap-2 text-ink-dim">
               <span className="h-0.5 w-3 rounded-full bg-[rgb(251,146,60)]" />
               충돌
+            </li>
+          )}
+          {hasTopics && (
+            <li className="flex items-center gap-2 text-ink-dim">
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(45,212,191)]" />
+              같은 주제
             </li>
           )}
         </>

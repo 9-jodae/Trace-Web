@@ -15,7 +15,7 @@ const ADMIN_ROLES: readonly Role[] = ['DOC_ADMIN', 'SYSTEM_ADMIN']
 const ADMIN_PATH = '/admin/documents'
 
 /**
- * 왼쪽 네비게이션. "문서 관리"는 관리자 역할(DOC_ADMIN·SYSTEM_ADMIN)에게만 켭니다(화면 편의용,
+ * 왼쪽 네비게이션. "문서 관리"는 관리자 역할(DOC_ADMIN·SYSTEM_ADMIN)에게만 보여줍니다(화면 편의용,
  * 실제 권한은 서버가 판단). 현재 경로에 따라 "질문하기"와 "문서 관리" 중 하나를 선택 상태로 둡니다.
  * "최근 질문"은 서버에 저장된 내 대화를 최근순으로 보여주고, 고르면 그 대화를 다시 불러옵니다.
  */
@@ -45,21 +45,17 @@ export function Sidebar() {
           <MessageCircle className="size-[18px]" aria-hidden />
           질문하기
         </button>
-        <button
-          type="button"
-          disabled={!isAdmin}
-          aria-current={onAdmin ? 'page' : undefined}
-          title={isAdmin ? undefined : '문서 관리자만 사용할 수 있습니다'}
-          onClick={() => navigate(ADMIN_PATH)}
-          className={clsx(
-            navItem,
-            !isAdmin && 'cursor-not-allowed text-ink-muted/60',
-            isAdmin && (onAdmin ? navActive : navIdle),
-          )}
-        >
-          <FolderOpen className="size-[18px]" aria-hidden />
-          문서 관리
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            aria-current={onAdmin ? 'page' : undefined}
+            onClick={() => navigate(ADMIN_PATH)}
+            className={clsx(navItem, onAdmin ? navActive : navIdle)}
+          >
+            <FolderOpen className="size-[18px]" aria-hidden />
+            문서 관리
+          </button>
+        )}
       </nav>
 
       <div className="flex min-h-0 flex-1 flex-col">

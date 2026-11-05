@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { splitHighlight } from '../lib/highlight'
-import type { Evidence } from '../model/types'
+import type { EvidenceChunk } from '../model/types'
 
 /**
  * 근거 청크와 앞뒤 문맥 청크를 일반 텍스트로 보여주고, 하이라이트 구절로 스크롤합니다.
@@ -10,7 +10,7 @@ export function EvidencePassage({
   evidence,
 }: {
   evidence: Pick<
-    Evidence,
+    EvidenceChunk,
     'chunkId' | 'content' | 'charStart' | 'charEnd' | 'previousChunk' | 'nextChunk'
   >
 }) {

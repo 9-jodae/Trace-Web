@@ -16,13 +16,18 @@ function renderGraph() {
 const page = (items: unknown[]) =>
   ok({ items, page: 0, size: 100, totalElements: items.length, totalPages: 1 })
 
+/** 문서 목록 요청에는 주어진 응답을, 부서 목록(필터 바) 요청에는 빈 배열을 돌려줍니다. */
+function serveDocuments(reply: () => ReturnType<typeof page> | ReturnType<typeof fail>) {
+  return mockServer((config) => (config.url === '/api/departments' ? ok([]) : reply()))
+}
+
 let restore: () => void = () => {}
 
 describe('DocumentGraph', () => {
   afterEach(() => restore())
 
   it('볼 수 있는 문서가 없으면 안내한다', async () => {
-    restore = mockServer(() => page([]))
+    restore = serveDocuments(() => page([]))
     renderGraph()
     expect(await screen.findByText('볼 수 있는 문서가 없습니다.')).toBeInTheDocument()
   })
@@ -35,7 +40,7 @@ describe('DocumentGraph', () => {
   })
 
   it('WebGL을 쓸 수 없으면 그래프 대신 안내한다', async () => {
-    restore = mockServer(() =>
+    restore = serveDocuments(() =>
       page([{ id: 'd1', title: '연차 규정', documentType: 'ETC', deletedAt: null }]),
     )
     renderGraph()

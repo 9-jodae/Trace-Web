@@ -15,7 +15,7 @@ export function EditorArea({
   const activeTabId = useTabStore((state) => state.activeTabId)
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       <TabBar />
       <section className="min-h-0 flex-1">
         {activeTabId === GRAPH_TAB_ID ? graph : renderDocument(activeTabId)}

@@ -6,7 +6,7 @@ import { ApiRequestError, toErrorMessage } from '@/shared/api'
 
 /**
  * 문서 뷰어 상단에 고정되는 답변 근거 영역입니다.
- * Evidence.downloadUrl은 사용하지 않으며 화면이나 로그에 노출하지 않습니다.
+ * EvidenceChunk.downloadUrl은 사용하지 않으며 화면이나 로그에 노출하지 않습니다.
  */
 export function EvidencePanel({ documentId, chunkId }: { documentId: string; chunkId: string }) {
   const closeEvidence = useTabStore((state) => state.closeEvidence)

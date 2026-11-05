@@ -1,6 +1,6 @@
 // docs199-Server의 EvidenceResponse(GET /api/evidence/{chunkId})와 맞춥니다.
 
-export interface Evidence {
+export interface EvidenceChunk {
   chunkId: string
   documentId: string
   documentTitle: string

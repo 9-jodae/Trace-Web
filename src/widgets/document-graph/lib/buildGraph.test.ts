@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Document } from '@/entities/document'
-import {
-  buildDocumentGraph,
-  DIMMED_COLOR,
-  TYPE_PALETTE,
-  typeLegend,
-  UNCLASSIFIED_COLOR,
-} from './buildGraph'
+import { documentTypeColor } from '@/entities/document'
+import { buildDocumentGraph, DIMMED_COLOR, typeLegend } from './buildGraph'
 
 const doc = (
   id: string,
@@ -39,9 +34,9 @@ describe('typeLegend', () => {
       doc('d', 'REPORT'),
     ])
     expect(legend).toEqual([
-      { type: 'APPROVAL', color: TYPE_PALETTE[0], count: 1 },
-      { type: 'REPORT', color: TYPE_PALETTE[1], count: 2 },
-      { type: null, color: UNCLASSIFIED_COLOR, count: 1 },
+      { type: 'APPROVAL', label: '결재', color: documentTypeColor('APPROVAL'), count: 1 },
+      { type: 'REPORT', label: '보고서', color: documentTypeColor('REPORT'), count: 2 },
+      { type: null, label: '분류 전', color: documentTypeColor(null), count: 1 },
     ])
   })
 })
@@ -61,7 +56,7 @@ describe('buildDocumentGraph', () => {
       evidenceDocumentIds: ['a'],
     })
     expect(graph.getNodeAttribute('a', 'highlighted')).toBe(true)
-    expect(graph.getNodeAttribute('a', 'color')).toBe(TYPE_PALETTE[0])
+    expect(graph.getNodeAttribute('a', 'color')).toBe(documentTypeColor('REPORT'))
     expect(graph.getNodeAttribute('a', 'size')).toBeGreaterThan(graph.getNodeAttribute('b', 'size'))
     expect(graph.getNodeAttribute('b', 'color')).toBe(DIMMED_COLOR)
   })
@@ -71,7 +66,7 @@ describe('buildDocumentGraph', () => {
       documents: [doc('a', 'REPORT')],
       evidenceDocumentIds: ['x'],
     })
-    expect(graph.getNodeAttribute('a', 'color')).toBe(TYPE_PALETTE[0])
+    expect(graph.getNodeAttribute('a', 'color')).toBe(documentTypeColor('REPORT'))
   })
 
   it('양쪽 노드가 있는 연결선만 한 번씩 추가한다', () => {

@@ -20,3 +20,9 @@ export type {
   ProcessingStatus,
   SourceKind,
 } from './model/types'
+export {
+  DOCUMENT_TYPE_COLOR,
+  DOCUMENT_TYPE_LABEL,
+  documentTypeColor,
+  documentTypeLabel,
+} from './model/typeDisplay'

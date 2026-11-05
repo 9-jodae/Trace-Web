@@ -6,7 +6,7 @@ import { ChatView, resetChatStore, useChatStore } from '@/features/ask-question'
 import { GRAPH_TAB_ID, resetTabStore, TabBar, useTabStore } from '@/features/document-tabs'
 import type { AnswerSource } from '@/entities/answer'
 import type { DocumentDetail } from '@/entities/document'
-import type { Evidence } from '@/entities/evidence'
+import type { EvidenceChunk } from '@/entities/evidence'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { DocumentViewer } from './DocumentViewer'
 
@@ -42,7 +42,7 @@ const sampleDetail: DocumentDetail = {
   job: null,
 }
 
-const makeEvidence = (overrides: Partial<Evidence> = {}): Evidence => ({
+const makeEvidence = (overrides: Partial<EvidenceChunk> = {}): EvidenceChunk => ({
   chunkId: 'c1',
   documentId: 'd1',
   documentTitle: '취업규칙',
@@ -140,6 +140,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
           kind: 'answer',
           text: '최대 5일까지 이월할 수 있습니다.',
           sources: [makeSource('c1'), makeSource('c2')],
+          evidence: [],
         },
       ],
       evidenceDocumentIds: ['d1'],
@@ -169,7 +170,7 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
 
     const { container } = renderHarness()
 
-    await userEvent.click(screen.getByRole('button', { name: '[1] 취업규칙' }))
+    await userEvent.click(screen.getByRole('button', { name: /^1\s*취업규칙$/ }))
 
     const evidenceSection = await screen.findByRole('region', { name: '답변 근거' })
     expect(within(evidenceSection).getByText('제14조 (연차 휴가의 사용)')).toBeInTheDocument()
@@ -184,12 +185,12 @@ describe('인용 클릭부터 근거 표시까지 흐름', () => {
     expect(mark).toHaveTextContent('최대 5일까지')
     expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' })
 
-    // 원문 영역도 아래에 함께 표시되며 Evidence.downloadUrl은 노출되지 않습니다.
+    // 원문 영역도 아래에 함께 표시되며 EvidenceChunk.downloadUrl은 노출되지 않습니다.
     expect(await screen.findByText('사내 규정 본문입니다.')).toBeInTheDocument()
     expect(container.textContent).not.toContain('evidence-secret-presigned-url')
 
-    // 같은 문서의 다른 인용([2] 취업규칙)을 누르면 새 탭 없이 근거만 바뀌고, null 위치는 전체 강조됩니다.
-    await userEvent.click(screen.getByRole('button', { name: '[2] 취업규칙' }))
+    // 같은 문서의 다른 인용(2번 취업규칙)을 누르면 새 탭 없이 근거만 바뀌고, null 위치는 전체 강조됩니다.
+    await userEvent.click(screen.getByRole('button', { name: /^2\s*취업규칙$/ }))
 
     expect(useTabStore.getState().documentTabs).toHaveLength(1)
     const updatedSection = await screen.findByRole('region', { name: '답변 근거' })

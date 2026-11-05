@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useRef } from 'react'
 import {
   NO_EVIDENCE_ANSWER,
+  type AnswerEditProposal,
   type AnswerEvidence,
   type AnswerKeyword,
   type AnswerSource,
@@ -10,6 +11,7 @@ import type { EvidencePhrases } from '@/entities/evidence'
 import { buildEvidenceCards } from '../lib/evidenceCards'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
+import { EditProposalCard } from './EditProposalCard'
 import { AssistantRow, MessageTime, TypingIndicator, assistantBubble } from './AssistantMessage'
 
 const isAssistantSide = (message: ChatMessage | undefined) =>
@@ -70,6 +72,7 @@ export function MessageList({
                   evidence={message.evidence}
                   missingSourceCount={message.missingSourceCount ?? 0}
                   keywords={message.keywords}
+                  editProposals={message.editProposals}
                   onOpen={onOpenSource}
                   originalQuestion={originalQuestion}
                   onRetryWithoutFilters={onRetryWithoutFilters}
@@ -113,6 +116,7 @@ function AnswerBubble({
   evidence,
   missingSourceCount,
   keywords = [],
+  editProposals = [],
   onOpen,
   originalQuestion,
   onRetryWithoutFilters,
@@ -123,6 +127,7 @@ function AnswerBubble({
   evidence: AnswerEvidence[]
   missingSourceCount: number
   keywords?: AnswerKeyword[]
+  editProposals?: AnswerEditProposal[]
   onOpen: (source: AnswerSource, highlights?: EvidencePhrases) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
@@ -158,6 +163,25 @@ function AnswerBubble({
         )}
       >
         <AnswerMarkdown text={text} />
+        {editProposals.length > 0 && (
+          <div aria-label="수정 제안" className="flex flex-col gap-2">
+            {editProposals.map((proposal) => (
+              <EditProposalCard
+                key={`${proposal.chunkId}:${proposal.before}`}
+                proposal={{
+                  ...proposal,
+                  peerDocumentIds: [
+                    ...new Set(
+                      evidence
+                        .map((item) => item.documentId)
+                        .filter((id) => id !== proposal.documentId),
+                    ),
+                  ],
+                }}
+              />
+            ))}
+          </div>
+        )}
         {cards.length > 0 && (
           <ul aria-label="근거" className="flex flex-col gap-2 border-t border-border-dark pt-3">
             {cards.map(({ source, section, quotes }, index) => (

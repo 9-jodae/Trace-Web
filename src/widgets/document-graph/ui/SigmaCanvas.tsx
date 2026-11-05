@@ -57,6 +57,10 @@ const SIGMA_OPTIONS = {
         then: { labelColor: '#fb923c' },
       },
       {
+        when: (attributes: { warning?: boolean }) => attributes.warning === true,
+        then: { labelColor: '#fca5a5' },
+      },
+      {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },
@@ -70,6 +74,8 @@ const SIGMA_OPTIONS = {
     // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
     enableNodeDrag: true,
     renderEdgeLabels: true,
+    // 선을 눌러 관계 내용을 봅니다.
+    enableEdgeEvents: true,
     // 기본값(true)은 그릴 때마다 전체 노드 범위에 화면을 다시 맞춥니다. 노드 하나를 멀리 끌면
     // 범위가 넓어져 그래프 전체가 갑자기 확 작아졌습니다. 그래프를 새로 불러올 때(새 답변·필터 변경)
     // 한 번만 맞추고, 끄는 동안에는 배율을 그대로 둡니다.
@@ -84,11 +90,13 @@ const SIGMA_OPTIONS = {
 export default function SigmaCanvas({
   graph,
   onNodeClick,
+  onEdgeClick,
   onNodeHover,
   onReady,
 }: {
   graph: Graph<NodeAttributes>
   onNodeClick: (documentId: string) => void
+  onEdgeClick?: (edge: string | null) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
 }) {
@@ -101,7 +109,12 @@ export default function SigmaCanvas({
       options={SIGMA_OPTIONS as never}
     >
       <GraphLoader graph={graph} />
-      <GraphEvents onNodeClick={onNodeClick} onNodeHover={onNodeHover} onReady={onReady} />
+      <GraphEvents
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onNodeHover={onNodeHover}
+        onReady={onReady}
+      />
     </SigmaContainer>
   )
 }
@@ -116,10 +129,12 @@ function GraphLoader({ graph }: { graph: Graph<NodeAttributes> }) {
 
 function GraphEvents({
   onNodeClick,
+  onEdgeClick,
   onNodeHover,
   onReady,
 }: {
   onNodeClick: (documentId: string) => void
+  onEdgeClick?: (edge: string | null) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
 }) {
@@ -133,6 +148,10 @@ function GraphEvents({
   useEffect(() => {
     registerEvents({
       clickNode: ({ node }) => onNodeClick(node),
+      clickEdge: ({ edge }) => onEdgeClick?.(edge),
+      clickStage: () => onEdgeClick?.(null),
+      enterEdge: () => sigma.getContainer().style.setProperty('cursor', 'pointer'),
+      leaveEdge: () => sigma.getContainer().style.removeProperty('cursor'),
       enterNode: ({ node, event }) => {
         // 'grab'으로 눌러서 끌 수 있다는 걸 알려줍니다.
         sigma.getContainer().style.setProperty('cursor', 'grab')
@@ -152,6 +171,6 @@ function GraphEvents({
         sigma.getContainer().style.setProperty('cursor', 'grab')
       },
     })
-  }, [registerEvents, sigma, onNodeClick, onNodeHover])
+  }, [registerEvents, sigma, onNodeClick, onEdgeClick, onNodeHover])
   return null
 }

@@ -14,6 +14,8 @@ export interface DocumentLink {
   target: string
   type?: LinkType
   label?: string
+  /** 참조하는 문서의 보안 등급이 더 낮은 선 */
+  securityRisk?: boolean
 }
 
 /**
@@ -37,7 +39,14 @@ export interface NodeAttributes {
   authoredAt: string | null
 }
 
+export interface ModifiedDocument {
+  id: string
+  title: string
+}
+
 export interface EdgeAttributes {
+  /** 참조하는 문서가 수정돼 다시 확인해야 하는 선 */
+  warning?: boolean
   type: LinkType
   size: number
   color: string
@@ -249,6 +258,47 @@ function edgeStyle(type: LinkType) {
 /** 근거끼리 잇는 선은 한 단계 더 굵게 그려, 답변이 어떤 문서 쌍을 엮었는지 먼저 보이게 합니다. */
 const EVIDENCE_EDGE_EXTRA_SIZE = 1
 
+export function isResolvedPair(pairs: [string, string][], first: string, second: string) {
+  return pairs.some(([a, b]) => (a === first && b === second) || (a === second && b === first))
+}
+
+const WARNING_EDGE_COLOR = 'rgba(248,113,113,0.95)'
+
+export const SECURITY_RISK_WARNING = '경고! 보안 위험 · 열람 등급 불일치'
+
+function markWarning(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  link: DocumentLink,
+  warning: string,
+) {
+  if (!graph.hasEdge(link.source, link.target)) return
+  const edge = graph.edge(link.source, link.target) as string
+  const label = graph.getEdgeAttribute(edge, 'label')
+  if (label?.includes(warning)) return
+  graph.mergeEdgeAttributes(edge, {
+    warning: true,
+    color: WARNING_EDGE_COLOR,
+    size: 2.5,
+    label: label ? `${warning} · ${label}` : warning,
+    // 근거 포커스로 가라앉은 선이어도 경고는 색과 글자를 보여 줍니다.
+    ...(graph.getEdgeAttribute(edge, 'focus') === 'dimmed' ? { focus: 'neighbor' as const } : {}),
+  })
+}
+
+/** 수정된 문서를 참조하는 문서는 내용을 다시 확인해야 하므로 선을 빨갛게 하고 경고를 앞에 둡니다. */
+function markModifiedReferences(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  links: DocumentLink[],
+  modified: ModifiedDocument[],
+) {
+  for (const { id, title } of modified) {
+    for (const link of links) {
+      if (link.target !== id || (link.type ?? 'REFERENCES') !== 'REFERENCES') continue
+      markWarning(graph, link, `경고! 내용 확인 필요 · ${title} 수정됨`)
+    }
+  }
+}
+
 /** 한 문서 쌍의 관계 글자를 합칩니다. 주제와 참조가 함께 있으면 "보안 참조"처럼 읽히게 붙입니다. */
 function edgeLabel(parts: Map<LinkType, string>) {
   const topic = parts.get('TOPIC')
@@ -268,6 +318,8 @@ export function buildDocumentGraph({
   links = [],
   evidenceDocumentIds = [],
   positionOverrides,
+  modifiedDocuments = [],
+  resolvedPairs = [],
 }: {
   documents: Document[]
   links?: DocumentLink[]
@@ -278,6 +330,9 @@ export function buildDocumentGraph({
    * 여기 없는 문서는 해바라기 배치로 매번 새로 계산한 위치를 받습니다.
    */
   positionOverrides?: Map<string, { x: number; y: number }>
+  modifiedDocuments?: ModifiedDocument[]
+  /** 수정 제안으로 해소한 문서 쌍. 이 쌍의 충돌만 그리지 않습니다. */
+  resolvedPairs?: [string, string][]
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -312,6 +367,9 @@ export function buildDocumentGraph({
   const labelParts = new Map<string, Map<LinkType, string>>()
   for (const link of links) {
     if (link.source === link.target) continue
+    if (link.type === 'CONFLICTS' && isResolvedPair(resolvedPairs, link.source, link.target)) {
+      continue
+    }
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
     const type = link.type ?? 'REFERENCES'
     if (graph.hasEdge(link.source, link.target)) {
@@ -341,6 +399,11 @@ export function buildDocumentGraph({
   avoidEdgeNodeCrossings(graph, pinned)
   separateEvidenceNodes(graph, evidence, pinned)
 
+  markModifiedReferences(graph, links, modifiedDocuments)
+  for (const link of links) {
+    if (link.securityRisk) markWarning(graph, link, SECURITY_RISK_WARNING)
+  }
+
   let hasReferences = false
   let hasConflicts = false
   let hasTopics = false
@@ -350,7 +413,9 @@ export function buildDocumentGraph({
     else hasReferences = true
   })
 
-  return { graph, legend, hasReferences, hasConflicts, hasTopics, focus }
+  const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
+
+  return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings, focus }
 }
 
 /**

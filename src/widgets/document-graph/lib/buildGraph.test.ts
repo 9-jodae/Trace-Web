@@ -285,6 +285,80 @@ describe('간선 종류와 글자', () => {
     expect(hasReferences).toBe(false)
   })
 
+  it('수정된 문서를 참조하는 선만 빨갛게 경고한다', () => {
+    const links = [
+      { source: 'a', target: 'b', type: 'REFERENCES' as const, label: '참조' },
+      { source: 'b', target: 'c', type: 'REFERENCES' as const, label: '참조' },
+      topic('a', 'c', '보안'),
+    ]
+    const { graph, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links,
+      modifiedDocuments: [{ id: 'b', title: '연차 규정' }],
+    })
+    const warned = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(warned.warning).toBe(true)
+    expect(warned.label).toBe('경고! 내용 확인 필요 · 연차 규정 수정됨 · 참조')
+    expect(graph.getEdgeAttribute(graph.edge('b', 'c'), 'warning')).toBeUndefined()
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'warning')).toBeUndefined()
+    expect(hasWarnings).toBe(true)
+  })
+
+  it('수정 제안으로 해소한 문서는 충돌을 지우고 참조와 주제만 남긴다', () => {
+    const { graph, hasConflicts, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
+      ],
+      resolvedPairs: [['a', 'b']],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.type).toBe('REFERENCES')
+    expect(attributes.label).toBe('참조')
+    expect(attributes.warning).toBeUndefined()
+    expect(hasConflicts).toBe(false)
+    expect(hasWarnings).toBe(false)
+  })
+
+  it('다른 문서와의 충돌은 해소 처리와 무관하게 남긴다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
+        { source: 'a', target: 'c', type: 'CONFLICTS', label: '충돌' },
+      ],
+      resolvedPairs: [['a', 'b']],
+    })
+    expect(graph.hasEdge('a', 'b')).toBe(false)
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'type')).toBe('CONFLICTS')
+  })
+
+  it('보안 위험 참조는 빨간 경고로 표시하고 범례에 알린다', () => {
+    const { graph, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조', securityRisk: true },
+        { source: 'b', target: 'a', type: 'REFERENCES', label: '참조', securityRisk: true },
+      ],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.warning).toBe(true)
+    expect(attributes.label).toBe('경고! 보안 위험 · 열람 등급 불일치 · 참조')
+    expect(hasWarnings).toBe(true)
+  })
+
+  it('근거 포커스로 가라앉은 선도 경고는 색과 글자를 유지한다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links: [{ source: 'a', target: 'b', type: 'REFERENCES', label: '참조', securityRisk: true }],
+      evidenceDocumentIds: ['c'],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.color).toBe('rgba(248,113,113,0.95)')
+    expect(attributes.focus).toBe('neighbor')
+  })
+
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
     const links = [
       topic('a', 'b', '연차'),

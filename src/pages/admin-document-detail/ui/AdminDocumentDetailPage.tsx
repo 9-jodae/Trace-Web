@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { DeleteDocumentButton } from '@/features/delete-document'
 import { DocumentAccessCard } from '@/features/edit-document-access'
+import { EditDocumentTextButton } from '@/features/edit-document-text'
 import { ReviseDocumentButton } from '@/features/revise-document'
 import { useDepartments } from '@/entities/department'
 import {
@@ -98,6 +99,7 @@ function DetailContent({ detail, listPath }: { detail: DocumentDetail; listPath:
         </span>
         <div className="ml-auto flex items-center gap-2">
           <DownloadOriginalButton document={document} />
+          <EditDocumentTextButton detail={detail} />
           <ReviseDocumentButton detail={detail} />
           <DeleteDocumentButton
             documentId={document.id}

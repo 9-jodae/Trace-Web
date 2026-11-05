@@ -5,7 +5,8 @@ import { create } from 'zustand'
  * 새로고침하면 사라집니다. 재적재가 연결되면 서버 저장으로 시험합니다(docs199-Server #89).
  */
 export function isLocalEditMode() {
-  return import.meta.env.DEV
+  // 실제 저장 경로를 개발 서버에서 시험할 때는 설정을 켜서 메모리 저장을 끕니다.
+  return import.meta.env.DEV && !isServerEditEnabled()
 }
 
 /**
@@ -30,6 +31,11 @@ interface LocalEditState {
 
 export const useLocalEditStore = create<LocalEditState>((set) => ({
   edits: {},
+  // 같은 문서에 수정안을 여러 번 수락해도 먼저 해소한 쌍을 잃지 않습니다. 직접 고쳐 저장하면 해소 기록을 지웁니다.
   saveEdit: (documentId, edit) =>
-    set((state) => ({ edits: { ...state.edits, [documentId]: edit } })),
+    set((state) => {
+      const previous = state.edits[documentId]?.resolvedWith ?? []
+      const resolvedWith = edit.resolvedWith && [...new Set([...previous, ...edit.resolvedWith])]
+      return { edits: { ...state.edits, [documentId]: { ...edit, resolvedWith } } }
+    }),
 }))

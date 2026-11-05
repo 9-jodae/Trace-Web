@@ -62,6 +62,15 @@ describe('EditProposalCard', () => {
     })
   })
 
+  it('같은 문서를 다시 수락해도 먼저 해소한 쌍을 유지하고, 직접 저장하면 지운다', () => {
+    const { saveEdit } = useLocalEditStore.getState()
+    saveEdit('d1', { title: 't', text: '1', resolvedWith: ['d2'] })
+    saveEdit('d1', { title: 't', text: '2', resolvedWith: ['d3'] })
+    expect(useLocalEditStore.getState().edits.d1?.resolvedWith).toEqual(['d2', 'd3'])
+    saveEdit('d1', { title: 't', text: '3' })
+    expect(useLocalEditStore.getState().edits.d1?.resolvedWith).toBeUndefined()
+  })
+
   it('유지를 고르면 문서를 읽거나 바꾸지 않는다', async () => {
     renderCard()
     await userEvent.click(screen.getByRole('button', { name: '유지' }))

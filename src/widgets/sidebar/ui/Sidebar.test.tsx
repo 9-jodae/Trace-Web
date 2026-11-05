@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetChatStore, useChatStore } from '@/features/ask-question'
 import { useTokenStore } from '@/shared/api'
-import { mockServer, ok } from '@/shared/testing'
+import { fail, mockServer, ok } from '@/shared/testing'
 import { Sidebar } from './Sidebar'
 
 const ME = {
@@ -91,8 +91,10 @@ describe('Sidebar 최근 질문', () => {
     renderSidebar()
 
     const recent = await screen.findByRole('navigation', { name: '최근 질문' })
-    const items = within(recent).getAllByRole('button')
-    expect(items.map((item) => item.textContent)).toEqual(['출장비 정산 순서는?', '연차 이월은?'])
+    const items = within(recent)
+      .getAllByRole('listitem')
+      .map((item) => within(item).getAllByRole('button')[0])
+    expect(items.map((item) => item?.textContent)).toEqual(['출장비 정산 순서는?', '연차 이월은?'])
     expect(within(recent).queryByText('지금 세션에서 보낸 질문')).not.toBeInTheDocument()
   })
 
@@ -111,6 +113,91 @@ describe('Sidebar 최근 질문', () => {
     const state = useChatStore.getState()
     expect(state.conversationId).toBe('c1')
     expect(state.messages.map((message) => message.kind)).toEqual(['question', 'answer'])
+  })
+
+  it('지금 열린 대화를 확인 후 삭제하면 목록에서 빼고 새 대화로 돌린다', async () => {
+    const deleted: string[] = []
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok(ME)
+      if (config.url === '/api/conversations') {
+        return ok(CONVERSATIONS.filter((conversation) => !deleted.includes(conversation.id)))
+      }
+      if (config.method === 'delete' && config.url === '/api/conversations/c1') {
+        deleted.push('c1')
+        return ok({ deleted: true })
+      }
+      return ok(null)
+    })
+    useChatStore
+      .getState()
+      .loadConversation('c1', [{ id: 'q', kind: 'question', text: '연차 이월은?' }])
+    renderSidebar()
+
+    await userEvent.click(await screen.findByRole('button', { name: '‘연차 이월은?’ 대화 삭제' }))
+    const dialog = screen.getByRole('dialog', { name: '대화 삭제' })
+    expect(deleted).toEqual([])
+    await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '연차 이월은?' })).not.toBeInTheDocument(),
+    )
+    expect(deleted).toEqual(['c1'])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '출장비 정산 순서는?' })).toBeInTheDocument()
+    expect(useChatStore.getState().conversationId).toBeNull()
+    expect(useChatStore.getState().messages).toEqual([])
+  })
+
+  it('다른 대화를 삭제하면 지금 대화는 그대로 두고, 취소하면 지우지 않는다', async () => {
+    const deleted: string[] = []
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok(ME)
+      if (config.url === '/api/conversations') {
+        return ok(CONVERSATIONS.filter((conversation) => !deleted.includes(conversation.id)))
+      }
+      if (config.method === 'delete' && config.url === '/api/conversations/c2') {
+        deleted.push('c2')
+        return ok({ deleted: true })
+      }
+      return ok(null)
+    })
+    useChatStore
+      .getState()
+      .loadConversation('c1', [{ id: 'q', kind: 'question', text: '연차 이월은?' }])
+    renderSidebar()
+
+    const trash = await screen.findByRole('button', { name: '‘출장비 정산 순서는?’ 대화 삭제' })
+    await userEvent.click(trash)
+    await userEvent.click(screen.getByRole('button', { name: '취소' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(deleted).toEqual([])
+
+    await userEvent.click(trash)
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }))
+
+    await waitFor(() => expect(deleted).toEqual(['c2']))
+    expect(useChatStore.getState().conversationId).toBe('c1')
+    expect(useChatStore.getState().messages).toHaveLength(1)
+  })
+
+  it('삭제에 실패하면 모달에 오류를 보여주고 목록과 대화를 그대로 둔다', async () => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok(ME)
+      if (config.url === '/api/conversations') return ok(CONVERSATIONS)
+      if (config.method === 'delete') return fail(500, 'INTERNAL_ERROR')
+      return ok(null)
+    })
+    useChatStore
+      .getState()
+      .loadConversation('c1', [{ id: 'q', kind: 'question', text: '연차 이월은?' }])
+    renderSidebar()
+
+    await userEvent.click(await screen.findByRole('button', { name: '‘연차 이월은?’ 대화 삭제' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('대화를 삭제하지 못했습니다.')
+    expect(screen.getByRole('button', { name: '연차 이월은?', current: true })).toBeInTheDocument()
+    expect(useChatStore.getState().conversationId).toBe('c1')
   })
 
   it('저장된 대화가 없으면 최근 질문 영역을 숨긴다', async () => {

@@ -1,6 +1,6 @@
 import { ApiRequestError } from './client'
 
-// 서버 오류 코드(docs199-Server docs/api-guide.md)별로 화면에 보여줄 문구입니다.
+// 서버 오류 코드(Trace-Server docs/api-guide.md)별로 화면에 보여줄 문구입니다.
 // 목록에 없는 코드와 INVALID_INPUT은 서버가 보낸 message를 그대로 씁니다.
 const MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: '로그인이 만료되었습니다. 다시 로그인해 주세요.',

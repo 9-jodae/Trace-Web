@@ -1,4 +1,4 @@
-// docs199-Server의 UserResponse(GET /api/users/me)와 enum에 맞춥니다.
+// Trace-Server의 UserResponse(GET /api/users/me)와 enum에 맞춥니다.
 
 export type Role = 'EMPLOYEE' | 'DOC_ADMIN' | 'SYSTEM_ADMIN'
 

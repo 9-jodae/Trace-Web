@@ -1,6 +1,6 @@
 # 문서 관리 화면
 
-`DOC_ADMIN`·`SYSTEM_ADMIN`이 소스를 만들고, 문서를 올리고, 권한·버전을 관리하는 화면입니다. 서버(`docs199-Server` `develop`, PR #69 머지 시점)의 `/api/admin` API를 그대로 씁니다. 서버 변경이 필요한 기능은 넣지 않았습니다.
+`DOC_ADMIN`·`SYSTEM_ADMIN`이 소스를 만들고, 문서를 올리고, 권한·버전을 관리하는 화면입니다. 서버(`Trace-Server` `develop`, PR #69 머지 시점)의 `/api/admin` API를 그대로 씁니다. 서버 변경이 필요한 기능은 넣지 않았습니다.
 
 ## 화면과 라우트
 

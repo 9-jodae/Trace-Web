@@ -3,7 +3,7 @@ import type { Document } from '@/entities/document'
 import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
- * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
+ * 문서 간 연결선. Trace-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
  * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=빨강, TOPIC=청록).
  * label은 선 위에 표시할 글자입니다.
  */

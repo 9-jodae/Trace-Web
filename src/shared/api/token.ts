@@ -6,7 +6,7 @@ interface TokenState {
   setAccessToken: (token: string | null) => void
 }
 
-export const TOKEN_STORAGE_KEY = 'docs199.auth'
+export const TOKEN_STORAGE_KEY = 'trace.auth'
 
 // 새로고침해도 로그인이 유지되도록 세션 스토리지에 보관합니다(팀 결정, 2026-11-05).
 // 탭을 닫으면 지워집니다. 서버 토큰은 1시간 후 만료되며 갱신 토큰은 아직 없습니다.

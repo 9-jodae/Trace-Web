@@ -12,6 +12,16 @@ export interface NodeHover {
   y: number
 }
 
+// dragPositionToAttributes가 드래그 중 위치를 읽을 live 그래프. SIGMA_OPTIONS는 아래처럼 한 번만
+// 만든 안정된 객체여야 해서 컴포넌트 props(graph)를 직접 캡처할 수 없어, GraphEvents가 sigma
+// 인스턴스를 받을 때(onReady) sigma.getGraph()로 채워 둡니다(참고: useLoadGraph는 우리가 넘긴
+// graph를 그대로 쓰지 않고 sigma 내부 그래프로 복사해 가져가므로, 드래그 중 실제로 바뀌는 건
+// sigma.getGraph()입니다).
+let liveGraph: Graph<NodeAttributes> | null = null
+
+/** 1보다 작을수록 마우스를 움직인 거리보다 노드가 덜 움직입니다(끌기 민감도). */
+const DRAG_DAMPING = 0.35
+
 // 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.
 const SIGMA_OPTIONS = {
   // 라벨 글자색 기본값(검정)이 다크 배경에서 안 보여서 밝은 색으로 바꿉니다.
@@ -49,6 +59,17 @@ const SIGMA_OPTIONS = {
     // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
     enableNodeDrag: true,
     renderEdgeLabels: true,
+    // 기본값대로면 마우스 이동량이 그대로(화면 배율만큼) 좌표 변화로 들어가, 그래프가 넓어질수록
+    // 같은 마우스 움직임이 더 크게 반영돼 "조금만 움직여도 훅 튄다"는 느낌을 줍니다. 목표 위치로
+    // 매 프레임 일부만 다가가게 해서 체감 민감도를 낮춥니다.
+    dragPositionToAttributes: (position: { x: number; y: number }, node: string) => {
+      if (!liveGraph?.hasNode(node)) return position
+      const current = liveGraph.getNodeAttributes(node)
+      return {
+        x: current.x + (position.x - current.x) * DRAG_DAMPING,
+        y: current.y + (position.y - current.y) * DRAG_DAMPING,
+      }
+    },
   },
 }
 
@@ -99,6 +120,7 @@ function GraphEvents({
   const sigma = useSigma()
 
   useEffect(() => {
+    liveGraph = sigma.getGraph() as unknown as Graph<NodeAttributes>
     onReady(sigma)
   }, [sigma, onReady])
 

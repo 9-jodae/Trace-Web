@@ -62,10 +62,11 @@ export function HomeComposer() {
           {question === '' && (
             <p
               aria-hidden
-              className="pointer-events-none absolute inset-x-6 top-5 bottom-2 flex items-center justify-center text-[16px] text-ink-muted"
+              // 입력창의 글자가 시작되는 자리(왼쪽 위)에 그대로 겹쳐, 입력하면 그 자리에서 바뀌어 보이게 합니다
+              className="pointer-events-none absolute inset-x-6 top-5 truncate text-[16px] text-ink-muted"
             >
               {example}
-              <span className="ml-0.5 inline-block h-[1.1em] w-px animate-pulse bg-ink-muted" />
+              <span className="ml-0.5 inline-block h-[1.1em] w-px animate-pulse bg-ink-muted align-middle" />
             </p>
           )}
         </div>

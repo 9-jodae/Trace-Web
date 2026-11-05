@@ -35,7 +35,7 @@ const SIGMA_OPTIONS = {
       },
       {
         when: (attributes: { type?: string }) => attributes.type === 'CONFLICTS',
-        then: { labelColor: '#fb923c' },
+        then: { labelColor: '#fca5a5' },
       },
       {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',

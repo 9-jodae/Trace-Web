@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Document } from '@/entities/document'
 import { documentTypeColor } from '@/entities/document'
 import {
+  conflictWarning,
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
   DIMMED_COLOR,
@@ -226,11 +227,16 @@ describe('간선 종류와 글자', () => {
     expect(hasReferences).toBe(false)
   })
 
+  it('충돌 경고 문구는 항목이 있을 때만 항목을 붙인다', () => {
+    expect(conflictWarning('연차 이월 일수')).toBe('경고! 내용 충돌 · 연차 이월 일수')
+    expect(conflictWarning()).toBe('경고! 내용 충돌')
+  })
+
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
     const links = [
       topic('a', 'b', '연차'),
-      { source: 'a', target: 'b', type: 'CONFLICTS' as const, label: '충돌' },
-      { source: 'b', target: 'a', type: 'REFERENCES' as const },
+      { source: 'a', target: 'b', type: 'CONFLICTS' as const, label: conflictWarning('이월 일수') },
+      { source: 'b', target: 'a', type: 'REFERENCES' as const, label: '참조' },
     ]
     const { graph, hasConflicts, hasTopics } = buildDocumentGraph({
       documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
@@ -238,7 +244,7 @@ describe('간선 종류와 글자', () => {
     })
     const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
     expect(attributes.type).toBe('CONFLICTS')
-    expect(attributes.label).toBe('연차 · 충돌')
+    expect(attributes.label).toBe('경고! 내용 충돌 · 이월 일수 · 연차 참조')
     expect(hasConflicts).toBe(true)
     expect(hasTopics).toBe(false)
   })

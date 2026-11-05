@@ -7,7 +7,12 @@ import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/f
 import { useAllDocuments, documentTypeLabel } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
-import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
+import {
+  buildDocumentGraph,
+  conflictWarning,
+  type DocumentLink,
+  type TypeLegendItem,
+} from '../lib/buildGraph'
 import type { NodeHover } from './SigmaCanvas'
 
 const SigmaCanvas = lazy(() => import('./SigmaCanvas'))
@@ -42,7 +47,10 @@ export function DocumentGraph() {
         source: edge.source,
         target: edge.target,
         type: edge.type,
-        label: edge.label,
+        label:
+          edge.type === 'CONFLICTS'
+            ? conflictWarning(edge.detail && 'item' in edge.detail ? edge.detail.item : undefined)
+            : edge.label,
       })),
     [graphData],
   )
@@ -319,8 +327,8 @@ function Legend({
           )}
           {hasConflicts && (
             <li className="flex items-center gap-2 text-ink-dim">
-              <span className="h-0.5 w-3 rounded-full bg-[rgb(251,146,60)]" />
-              충돌
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
+              경고: 내용 충돌
             </li>
           )}
           {hasTopics && (

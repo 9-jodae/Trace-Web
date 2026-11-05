@@ -111,6 +111,26 @@ describe('buildDocumentGraph', () => {
     expect(noLinks.hasConflicts).toBe(false)
   })
 
+  it('근거로 커진 노드끼리 겹치면 서로 떨어뜨린다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'APPROVAL')],
+      evidenceDocumentIds: ['a', 'b'],
+      // a·b를 똑같은 자리에 둬서 "근거로 커졌을 때 겹치는" 상황을 그대로 재현합니다.
+      positionOverrides: new Map([
+        ['a', { x: 0, y: 0 }],
+        ['b', { x: 0, y: 0 }],
+        ['c', { x: 1000, y: 1000 }],
+      ]),
+    })
+    const a = graph.getNodeAttributes('a')
+    const b = graph.getNodeAttributes('b')
+    const distance = Math.hypot(a.x - b.x, a.y - b.y)
+    const minDistance = (a.size + b.size) / 2
+    expect(distance).toBeGreaterThanOrEqual(minDistance)
+    // 근거가 아닌 노드는 건드리지 않는다.
+    expect(graph.getNodeAttributes('c')).toMatchObject({ x: 1000, y: 1000 })
+  })
+
   it('위치를 넘기면 계산된 배치 대신 그 위치를 그대로 쓴다(끌어서 옮긴 자리 유지)', () => {
     const { graph } = buildDocumentGraph({
       documents: [doc('a', 'REPORT'), doc('b', 'ETC')],

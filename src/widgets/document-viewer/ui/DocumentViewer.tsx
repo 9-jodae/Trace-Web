@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useTabStore } from '@/features/document-tabs'
 import {
   documentFileName,
@@ -9,9 +9,11 @@ import {
   useDocumentStatus,
   type ProcessingStatus,
 } from '@/entities/document'
+import { useEvidence } from '@/entities/evidence'
 import { ApiRequestError, toErrorMessage } from '@/shared/api'
 import { saveBlob } from '@/shared/lib'
-import { EvidencePanel } from './EvidencePanel'
+import { useEvidenceHighlight } from '../lib/useEvidenceHighlight'
+import { EvidenceBar } from './EvidenceBar'
 import { MarkdownContent } from './MarkdownContent'
 
 const PdfContent = lazy(() => import('./PdfContent'))
@@ -46,6 +48,7 @@ function StatusBadge({ status }: { status: ProcessingStatus | null }) {
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const queryClient = useQueryClient()
   const closeDocument = useTabStore((state) => state.closeDocument)
+  const closeEvidence = useTabStore((state) => state.closeEvidence)
   const focusChunkId = useTabStore(
     (state) => state.documentTabs.find((tab) => tab.documentId === documentId)?.focusChunkId,
   )
@@ -80,6 +83,36 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
   const [downloadActionError, setDownloadActionError] = useState<string | null>(null)
 
   const handleContentError = useCallback(() => setFailedFileAt(fileUpdatedAt), [fileUpdatedAt])
+
+  // 원문은 비동기로 그려지므로 그릴 때마다 값을 올려 근거를 다시 찾습니다.
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [render, setRender] = useState({ version: 0, complete: false })
+  const handleRendered = useCallback(
+    (complete: boolean) => setRender((prev) => ({ version: prev.version + 1, complete })),
+    [],
+  )
+
+  const evidenceQuery = useEvidence(focusChunkId)
+  const evidence = evidenceQuery.data
+  const { status: highlightStatus, scrollToEvidence } = useEvidenceHighlight({
+    rootRef: contentRef,
+    name: ext === 'pdf' ? 'evidence-pdf' : 'evidence-text',
+    focusKey: focusChunkId,
+    chunkText: evidence?.content,
+    phrases: focusHighlights,
+    renderVersion: render.version,
+  })
+
+  // PDF에서 글자 위치를 못 찾아도 근거 페이지는 알 수 있으면 그 페이지로 이동합니다.
+  const pageScrolledFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (ext !== 'pdf' || highlightStatus !== 'missing' || !render.complete) return
+    if (!focusChunkId || evidence?.page == null || pageScrolledFor.current === focusChunkId) return
+    pageScrolledFor.current = focusChunkId
+    contentRef.current
+      ?.querySelector(`[data-page-number="${evidence.page}"]`)
+      ?.scrollIntoView?.({ block: 'start' })
+  }, [ext, highlightStatus, render.complete, focusChunkId, evidence?.page])
 
   const handleRetryContent = useCallback(() => void refetchFile(), [refetchFile])
 
@@ -155,15 +188,20 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
       )}
 
       {focusChunkId && (
-        <EvidencePanel
-          key={focusChunkId}
-          documentId={documentId}
-          chunkId={focusChunkId}
-          highlights={focusHighlights}
+        <EvidenceBar
+          evidence={evidence}
+          isPending={evidenceQuery.isPending}
+          error={evidenceQuery.error}
+          currentVersion={document?.currentVersion}
+          status={highlightStatus}
+          contentReady={render.complete}
+          onRetry={() => void evidenceQuery.refetch()}
+          onScrollToEvidence={scrollToEvidence}
+          onClose={() => closeEvidence(documentId)}
         />
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div ref={contentRef} className="min-h-0 flex-1 overflow-auto">
         {isPending ? (
           <CenteredMessage>문서를 불러오는 중…</CenteredMessage>
         ) : error ? (
@@ -215,6 +253,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
               key={`${documentId}-${fileUpdatedAt}`}
               file={file}
               onError={handleContentError}
+              onRendered={handleRendered}
             />
           </Suspense>
         ) : (
@@ -222,6 +261,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             key={`${documentId}-${fileUpdatedAt}`}
             file={file}
             onError={handleContentError}
+            onRendered={handleRendered}
           />
         )}
       </div>

@@ -45,7 +45,8 @@ export function HomeComposer() {
         <p className="text-[17px] text-ink-dim">답변마다 원문 근거를 함께 보여 드립니다.</p>
       </div>
 
-      <div className="relative flex w-[1040px] flex-col rounded-[22px] border border-border-dark-strong bg-surface-raised shadow-[0px_24px_60px_rgba(0,0,0,0.45)]">
+      {/* 노트북(1280·1366px)에서도 잘리지 않도록 고정 폭 대신 최대 폭만 둡니다. */}
+      <div className="relative flex w-full max-w-[1040px] flex-col rounded-[22px] border border-border-dark-strong bg-surface-raised shadow-[0px_24px_60px_rgba(0,0,0,0.45)]">
         <div className="px-7 pt-6.5 pb-2.5">
           <textarea
             aria-label="질문"

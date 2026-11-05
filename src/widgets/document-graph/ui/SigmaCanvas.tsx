@@ -18,12 +18,31 @@ const SIGMA_OPTIONS = {
   // backdrop(호버 시 뜨는 흰 알약 배경)도 꺼서 우리가 직접 그리는 HoverTooltip과 안 겹치게 합니다.
   // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
   styles: {
-    nodes: {
-      ...DEFAULT_STYLES.nodes,
-      labelColor: '#e8edf5',
-      labelVisibility: 'auto',
-      backdropVisibility: 'hidden',
-    },
+    nodes: [
+      {
+        ...DEFAULT_STYLES.nodes,
+        labelColor: '#e8edf5',
+        labelVisibility: 'auto',
+        backdropVisibility: 'hidden',
+      },
+      // 근거 포커스(buildGraph의 applyEvidenceFocus): 근거와 직접 연결 노드는 라벨을 항상 보이고,
+      // 흐린 노드는 라벨을 숨겨 화면에 남는 글자를 근거 주변으로 좁힙니다.
+      {
+        whenData: { focus: 'evidence' },
+        then: { labelVisibility: 'visible', labelColor: '#ffffff' },
+      },
+      {
+        whenData: { focus: 'neighbor' },
+        then: { labelVisibility: 'visible', labelColor: '#cbd5e1' },
+      },
+      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
+      // 흐린 노드에 마우스를 올리면 원래 유형 색을 반쯤 되살려 어떤 문서인지 가늠하게 합니다.
+      {
+        when: (attributes: { focus?: string }, state: { isHovered: boolean }) =>
+          attributes.focus === 'dimmed' && state.isHovered,
+        then: { color: { attribute: 'baseColor' }, opacity: 0.6 },
+      },
+    ],
     // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
     edges: [
       DEFAULT_STYLES.edges,
@@ -45,6 +64,8 @@ const SIGMA_OPTIONS = {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },
+      // 근거에 닿지 않는 선은 관계 글자를 숨깁니다(색·굵기는 buildGraph가 이미 흐리게 정함).
+      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
     ],
   },
   settings: {
@@ -55,6 +76,13 @@ const SIGMA_OPTIONS = {
     renderEdgeLabels: true,
     // 선을 눌러 관계 내용을 봅니다.
     enableEdgeEvents: true,
+    // 기본값(true)은 그릴 때마다 전체 노드 범위에 화면을 다시 맞춥니다. 노드 하나를 멀리 끌면
+    // 범위가 넓어져 그래프 전체가 갑자기 확 작아졌습니다. 그래프를 새로 불러올 때(새 답변·필터 변경)
+    // 한 번만 맞추고, 끄는 동안에는 배율을 그대로 둡니다.
+    autoRescale: 'once',
+    // 확대·축소 한도. 비율이 작을수록 확대입니다(0.1 = 10배 확대, 3 = 3배 축소).
+    minCameraRatio: 0.1,
+    maxCameraRatio: 3,
   },
 }
 

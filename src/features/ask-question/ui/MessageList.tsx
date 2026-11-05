@@ -1,4 +1,4 @@
-import { FileText, Quote } from 'lucide-react'
+import { FileText, Loader2, Quote } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import {
   NO_EVIDENCE_ANSWER,
@@ -72,7 +72,8 @@ export function MessageList({
         )
       })}
       {pending && (
-        <li className="self-start text-sm text-ink-muted" role="status">
+        <li className="flex items-center gap-2 self-start text-sm text-ink-muted" role="status">
+          <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
           답변을 만드는 중입니다. 최대 1분 정도 걸릴 수 있습니다.
         </li>
       )}

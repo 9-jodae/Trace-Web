@@ -48,6 +48,11 @@ function easeOutCubic(t: number) {
   return 1 - (1 - t) ** 3
 }
 
+/** 시작·끝이 둘 다 느려서(완급 있는 S자 곡선) easeOutCubic보다 "서서히 나타나는" 느낌을 줍니다. */
+function easeInOutCubic(t: number) {
+  return t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2
+}
+
 /** sigma 인스턴스가 새로 만들어질 때(그래프 탭을 열 때)마다 한 번 재생합니다. */
 function playAppearAnimation(sigma: Sigma) {
   if (appearAnimationFrame !== null) cancelAnimationFrame(appearAnimationFrame)
@@ -77,14 +82,15 @@ const HOP_REVEAL_INTERVAL_MS = 400
 // 적용되는 0~1 진행도로, 각 hop이 열릴 때마다 다시 0부터 재생합니다.
 let hopPopProgress = 1
 let hopPopFrame: number | null = null
-const HOP_POP_DURATION_MS = 300
+// 너무 짧으면 "뿅" 하고 튀어나오는 것처럼 보여서, 천천히 커지는 느낌이 들 만큼 길게 둡니다.
+const HOP_POP_DURATION_MS = 900
 
 function playHopPop(sigma: Sigma) {
   if (hopPopFrame !== null) cancelAnimationFrame(hopPopFrame)
   const start = performance.now()
   hopPopProgress = 0
   const step = (now: number) => {
-    hopPopProgress = easeOutCubic(Math.min(1, (now - start) / HOP_POP_DURATION_MS))
+    hopPopProgress = easeInOutCubic(Math.min(1, (now - start) / HOP_POP_DURATION_MS))
     sigma.refresh({ skipIndexation: true })
     hopPopFrame = hopPopProgress < 1 ? requestAnimationFrame(step) : null
   }
@@ -216,7 +222,11 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
         const trueColor = documentTypeColor(attrs.documentType)
         base =
           hop === revealStep && hop > 0
-            ? { ...base, color: trueColor, size: base.size * hopPopProgress }
+            ? {
+                ...base,
+                color: withAlpha(trueColor, hopPopProgress),
+                size: base.size * hopPopProgress,
+              }
             : { ...base, color: trueColor }
       }
     }

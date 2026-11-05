@@ -13,7 +13,7 @@ let restore: () => void = () => {}
 describe('fetchAllDocuments', () => {
   afterEach(() => restore())
 
-  it('모든 페이지를 차례로 받아 합친다', async () => {
+  it('모든 페이지를 받아 순서대로 합친다', async () => {
     const pages: unknown[] = []
     restore = mockServer((config) => {
       const page = (config.params as { page: number }).page

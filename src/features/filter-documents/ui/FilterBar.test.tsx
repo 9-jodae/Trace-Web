@@ -78,6 +78,8 @@ describe('FilterBar 드롭다운', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     await userEvent.click(screen.getByText('보고서'))
     expect(screen.getByText('보고서')).toBeInTheDocument()
+    // 고른 항목 수를 버튼 이름 뒤에 붙인다
+    expect(trigger).toHaveTextContent('문서 유형 (1)')
 
     await userEvent.click(screen.getByText('바깥'))
     expect(screen.queryByText('보고서')).not.toBeInTheDocument()

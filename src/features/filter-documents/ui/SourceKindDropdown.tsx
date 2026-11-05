@@ -6,7 +6,11 @@ import { SourceKindField } from './FilterFields'
 export function SourceKindDropdown() {
   const { filter } = useDocumentFilterStore()
   return (
-    <FilterDropdown label="전체 문서함" active={filter.sourceKinds.length > 0}>
+    <FilterDropdown
+      label="전체 문서함"
+      active={filter.sourceKinds.length > 0}
+      count={filter.sourceKinds.length}
+    >
       <SourceKindField />
     </FilterDropdown>
   )

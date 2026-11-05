@@ -270,7 +270,8 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
 
     expect(await screen.findByRole('status')).toHaveTextContent('근거를 찾고 답변을 만들고 있어요')
-    expect(screen.getByText('가 답변을 생성 중…', { exact: false })).toBeInTheDocument()
+    // 입력창 위의 "답변을 생성 중" 줄은 대화 목록의 표시와 겹쳐 없앴습니다
+    expect(screen.queryByText('가 답변을 생성 중…', { exact: false })).not.toBeInTheDocument()
 
     await act(async () => respond(ok(answer('c1', [source('k1', 'd1')]))))
 

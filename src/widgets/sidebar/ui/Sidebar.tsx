@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { FolderOpen, MessageCircle, Plus } from 'lucide-react'
+import { FolderOpen, Plus } from 'lucide-react'
 import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
@@ -16,7 +16,8 @@ const ADMIN_PATH = '/admin/documents'
 
 /**
  * 왼쪽 네비게이션. "문서 관리"는 관리자 역할(DOC_ADMIN·SYSTEM_ADMIN)에게만 보여줍니다(화면 편의용,
- * 실제 권한은 서버가 판단). 현재 경로에 따라 "질문하기"와 "문서 관리" 중 하나를 선택 상태로 둡니다.
+ * 실제 권한은 서버가 판단). 로고를 누르면 지금 대화를 그대로 둔 채 채팅 화면으로 돌아가고,
+ * "New Chat"은 새 대화를 시작합니다.
  * "최근 질문"은 서버에 저장된 내 대화를 최근순으로 보여주고, 고르면 그 대화를 다시 불러옵니다.
  */
 export function Sidebar() {
@@ -28,24 +29,20 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-full w-[249px] shrink-0 flex-col gap-6 bg-panel px-4 py-5">
-      <div className="flex items-center gap-3 px-1 py-0.5">
+      <button
+        type="button"
+        aria-label={`${SERVICE_NAME} 채팅 화면으로`}
+        onClick={() => navigate('/')}
+        className="flex items-center gap-3 self-start rounded-lg px-1 py-0.5 hover:bg-white/5"
+      >
         <img src={serviceLogo} alt="" className="size-9" />
         <p className="text-[17px] font-semibold tracking-tight text-ink">{SERVICE_NAME}</p>
-      </div>
+      </button>
 
       <NewQuestionButton />
 
-      <nav className="flex flex-col gap-0.5" aria-label="주 메뉴">
-        <button
-          type="button"
-          aria-current={onAdmin ? undefined : 'page'}
-          onClick={() => navigate('/')}
-          className={clsx(navItem, onAdmin ? navIdle : navActive)}
-        >
-          <MessageCircle className="size-[18px]" aria-hidden />
-          질문하기
-        </button>
-        {isAdmin && (
+      {isAdmin && (
+        <nav className="flex flex-col gap-0.5" aria-label="주 메뉴">
           <button
             type="button"
             aria-current={onAdmin ? 'page' : undefined}
@@ -55,8 +52,8 @@ export function Sidebar() {
             <FolderOpen className="size-[18px]" aria-hidden />
             문서 관리
           </button>
-        )}
-      </nav>
+        </nav>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col">
         <RecentQuestions />
@@ -97,7 +94,8 @@ function NewQuestionButton() {
       }}
       className="flex h-11 w-full items-center justify-center gap-2 rounded-[22px] bg-ink text-sm font-medium text-[#111110] disabled:opacity-50"
     >
-      <Plus className="size-4" aria-hidden />새 질문
+      <Plus className="size-4" aria-hidden />
+      New Chat
     </button>
   )
 }

@@ -10,6 +10,8 @@ import {
 import type { EvidencePhrases } from '@/entities/evidence'
 import { buildEvidenceCards } from '../lib/evidenceCards'
 import type { ChatMessage } from '../model/chatStore'
+import { EXAMPLE_QUESTIONS } from '../lib/exampleQuestions'
+import { useTypewriter } from '../lib/useTypewriter'
 import { AnswerMarkdown } from './AnswerMarkdown'
 import { EditProposalCard } from './EditProposalCard'
 import { AssistantRow, MessageTime, TypingIndicator, assistantBubble } from './AssistantMessage'
@@ -38,13 +40,7 @@ export function MessageList({
     endRef.current?.scrollIntoView?.({ block: 'end' })
   }, [messages.length, pendingSince])
 
-  if (messages.length === 0 && pendingSince === null) {
-    return (
-      <p className="flex flex-1 items-center justify-center px-6 text-center text-sm text-ink-muted">
-        질문하면 사내 문서에서 근거를 찾아 답변합니다.
-      </p>
-    )
-  }
+  if (messages.length === 0 && pendingSince === null) return <EmptyChat />
 
   return (
     <ol className="flex flex-1 flex-col gap-5 overflow-y-auto p-6" aria-label="대화">
@@ -244,5 +240,28 @@ function AnswerBubble({
         </div>
       )}
     </>
+  )
+}
+
+/** 첫 질문 전 채팅. 예시 질문을 한 글자씩 썼다가 지우며 차례로 보여 줍니다. */
+function EmptyChat() {
+  const example = useTypewriter(EXAMPLE_QUESTIONS, !prefersReducedMotion())
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="text-xl tracking-tight text-white">
+        사내 문서에 <span className="font-semibold">물어보세요</span>.
+      </p>
+      <p className="text-sm text-ink-muted">질문하면 사내 문서에서 근거를 찾아 답변합니다.</p>
+      <p aria-hidden className="flex min-h-6 items-center text-sm text-ink-dim">
+        예: {example}
+        <span className="ml-0.5 inline-block h-[1.1em] w-px animate-pulse bg-ink-dim" />
+      </p>
+    </div>
+  )
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   )
 }

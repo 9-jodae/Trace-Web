@@ -28,4 +28,9 @@ describe('isEdgeVisible', () => {
   it('마우스를 올린 노드의 선은 보인다', () => {
     expect(isEdgeVisible({ ...edge(false), hoveredNode: 'b' })).toBe(true)
   })
+
+  it('답변 선을 그리는 애니메이션 중에는 실제 답변 선을 숨긴다', () => {
+    expect(isEdgeVisible({ ...edge(true), drawingAnswer: true })).toBe(false)
+    expect(isEdgeVisible({ ...edge(true), drawingAnswer: true, selectedNode: 'a' })).toBe(true)
+  })
 })

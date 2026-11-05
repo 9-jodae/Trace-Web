@@ -132,3 +132,40 @@ describe('buildDocumentGraph', () => {
     expect(distance('a1', 'b1')).toBeLessThan(distance('a1', 'a2'))
   })
 })
+
+describe('간선 종류와 글자', () => {
+  const topic = (source: string, target: string, label: string) => ({
+    source,
+    target,
+    type: 'TOPIC' as const,
+    label,
+  })
+
+  it('주제 간선에 주제 이름을 붙이고 범례 값을 켠다', () => {
+    const { graph, hasTopics, hasReferences } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [topic('a', 'b', '공부 · 전공')],
+    })
+    const edge = graph.edge('a', 'b')
+    expect(graph.getEdgeAttribute(edge, 'label')).toBe('공부 · 전공')
+    expect(hasTopics).toBe(true)
+    expect(hasReferences).toBe(false)
+  })
+
+  it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
+    const links = [
+      topic('a', 'b', '연차'),
+      { source: 'a', target: 'b', type: 'CONFLICTS' as const, label: '충돌' },
+      { source: 'b', target: 'a', type: 'REFERENCES' as const },
+    ]
+    const { graph, hasConflicts, hasTopics } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links,
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.type).toBe('CONFLICTS')
+    expect(attributes.label).toBe('연차 · 충돌')
+    expect(hasConflicts).toBe(true)
+    expect(hasTopics).toBe(false)
+  })
+})

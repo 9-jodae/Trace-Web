@@ -107,7 +107,9 @@ describe('ChatPanel 대화 기록', () => {
 
     expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
     expect(screen.getByText(/근거 1개는 문서가 개정·삭제되었거나/)).toBeInTheDocument()
-    expect(screen.queryByText('사내 문서에서 확인할 수 없습니다')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '필터 해제하고 다시 찾기' }),
+    ).not.toBeInTheDocument()
   })
 
   it('근거를 일시적으로 불러오지 못하면 대화를 열지 않고 오류를 보여준다', async () => {

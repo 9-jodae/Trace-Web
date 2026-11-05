@@ -147,4 +147,13 @@ describe('invalidateAfterDocumentChange', () => {
 
     for (const key of keys) expect(client.getQueryState(key)?.isInvalidated).toBe(true)
   })
+
+  it('버전별로 내용이 고정된 원문 파일은 다시 받지 않도록 무효화하지 않는다', async () => {
+    const client = new QueryClient()
+    client.setQueryData(documentKeys.file('d1', 1), new Blob(['x']))
+
+    await invalidateAfterDocumentChange(client)
+
+    expect(client.getQueryState(documentKeys.file('d1', 1))?.isInvalidated).toBe(false)
+  })
 })

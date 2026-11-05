@@ -121,10 +121,15 @@ export function useAdminDocument(id: string) {
 /**
  * 업로드·개정·삭제·권한 수정 뒤에 문서 쿼리를 모두 새로 받습니다. 관리 목록·상세뿐 아니라 직원용
  * 전체 문서 목록(그래프)과 문서 탭의 상세·처리 상태도 포함해, 열려 있던 문서 탭이 옛 버전을 보이지 않게 합니다.
- * 원문 파일은 버전 번호가 키에 있어 상세가 새 버전을 받으면 새로 받습니다.
+ * 원문 파일은 버전 번호가 키에 있어 같은 버전의 내용이 바뀌지 않으므로 빼고(최대 20MB를 다시 받지 않도록),
+ * 상세가 새 버전을 받으면 새 키로 따로 받습니다.
  */
 export function invalidateAfterDocumentChange(queryClient: QueryClient) {
-  return queryClient.invalidateQueries({ queryKey: documentKeys.all })
+  return queryClient.invalidateQueries({
+    queryKey: documentKeys.all,
+    // documentKeys.file(id, version) = ['document', 'file', id, version]
+    predicate: (query) => query.queryKey[1] !== 'file',
+  })
 }
 
 /** CREATED·UPDATED 중 기존 문서의 다음 버전인지. 서버는 새 버전도 CREATED로 줄 수 있습니다. */

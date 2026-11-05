@@ -161,10 +161,12 @@ export function DocumentGraph() {
                 />
               </Suspense>
             </div>
+            {/* 범례는 서버가 보낸 전체 링크가 아니라 실제로 그려진 엣지 기준입니다(같은 문서
+                쌍에 참조·충돌이 둘 다 있으면 충돌 선만 그려지므로, 범례도 그에 맞춰야 합니다). */}
             <Legend
               items={built.legend}
-              hasReferences={links.some((link) => link.type === 'REFERENCES')}
-              hasConflicts={links.some((link) => link.type === 'CONFLICTS')}
+              hasReferences={built.hasReferences}
+              hasConflicts={built.hasConflicts}
             />
             <ZoomControls sigma={sigma} />
             {rings.map((ring) => (

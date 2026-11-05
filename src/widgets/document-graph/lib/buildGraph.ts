@@ -24,6 +24,12 @@ export interface NodeAttributes {
   authoredAt: string | null
 }
 
+export interface EdgeAttributes {
+  type: 'REFERENCES' | 'CONFLICTS'
+  size: number
+  color: string
+}
+
 /** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색(파란 톤에 맞춤). */
 export const DIMMED_COLOR = '#1e293b'
 
@@ -121,7 +127,7 @@ export function buildDocumentGraph({
   const evidence = new Set(evidenceDocumentIds)
   const focusing = visible.some((document) => evidence.has(document.id))
 
-  const graph = new Graph<NodeAttributes>({ type: 'undirected', multi: false })
+  const graph = new Graph<NodeAttributes, EdgeAttributes>({ type: 'undirected', multi: false })
   for (const document of visible) {
     const isEvidence = evidence.has(document.id)
     const position = positions.get(document.id) ?? { x: 0, y: 0 }
@@ -142,12 +148,33 @@ export function buildDocumentGraph({
   for (const link of links) {
     if (link.source === link.target) continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
-    if (graph.hasEdge(link.source, link.target)) continue
     const isConflict = link.type === 'CONFLICTS'
+    if (graph.hasEdge(link.source, link.target)) {
+      // 같은 문서 쌍에 참조·충돌이 둘 다 있으면 충돌이 우선합니다(그래프는 쌍마다 선 하나만
+      // 그릴 수 있고, 서버가 엣지를 무작위 순서로 보내므로 도착 순서에 기대면 안 됩니다).
+      if (!isConflict) continue
+      const edgeKey = graph.edge(link.source, link.target)
+      if (graph.getEdgeAttribute(edgeKey, 'type') === 'CONFLICTS') continue
+      graph.mergeEdgeAttributes(edgeKey, {
+        type: 'CONFLICTS',
+        size: 1.5,
+        color: CONFLICT_EDGE_COLOR,
+      })
+      continue
+    }
     graph.addEdge(link.source, link.target, {
+      type: isConflict ? 'CONFLICTS' : 'REFERENCES',
       size: isConflict ? 1.5 : 1,
       color: isConflict ? CONFLICT_EDGE_COLOR : REFERENCE_EDGE_COLOR,
     })
   }
-  return { graph, legend }
+
+  let hasReferences = false
+  let hasConflicts = false
+  graph.forEachEdge((_edge, attributes) => {
+    if (attributes.type === 'CONFLICTS') hasConflicts = true
+    else hasReferences = true
+  })
+
+  return { graph, legend, hasReferences, hasConflicts }
 }

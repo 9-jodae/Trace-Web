@@ -82,6 +82,35 @@ describe('buildDocumentGraph', () => {
     expect(graph.size).toBe(1)
   })
 
+  it('같은 문서 쌍에 참조·충돌이 둘 다 있으면 도착 순서와 무관하게 충돌이 이긴다', () => {
+    const { graph, hasReferences, hasConflicts } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES' },
+        { source: 'b', target: 'a', type: 'REFERENCES' },
+        { source: 'a', target: 'b', type: 'CONFLICTS' },
+      ],
+    })
+    expect(graph.size).toBe(1)
+    const edgeKey = graph.edge('a', 'b')
+    expect(graph.getEdgeAttribute(edgeKey, 'type')).toBe('CONFLICTS')
+    expect(hasConflicts).toBe(true)
+    expect(hasReferences).toBe(false)
+  })
+
+  it('실제로 그려진 엣지 기준으로 참조·충돌 여부를 돌려준다', () => {
+    const onlyReferences = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [{ source: 'a', target: 'b', type: 'REFERENCES' }],
+    })
+    expect(onlyReferences.hasReferences).toBe(true)
+    expect(onlyReferences.hasConflicts).toBe(false)
+
+    const noLinks = buildDocumentGraph({ documents: [doc('a', 'REPORT')] })
+    expect(noLinks.hasReferences).toBe(false)
+    expect(noLinks.hasConflicts).toBe(false)
+  })
+
   it('같은 유형끼리 뭉치지 않도록 유형을 돌아가며 섞어 배치한다', () => {
     const { graph } = buildDocumentGraph({
       documents: [doc('a1', 'A'), doc('a2', 'A'), doc('b1', 'B')],

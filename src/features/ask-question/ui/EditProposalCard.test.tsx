@@ -74,7 +74,13 @@ describe('sampleEditProposals', () => {
 
   it('검색 결과와 무관하게 볼 수 있는 대상 문서로 만들고, 없으면 만들지 않는다', async () => {
     api.fetchAllDocuments.mockResolvedValue([{ id: 'd9', title: 'leave-operation' }])
-    expect((await sampleEditProposals())[0]?.documentId).toBe('d9')
+    api.downloadDocument.mockResolvedValue({
+      text: async () => '머리말\n이월은 최대 7일, 6월 30일까지다.\n끝',
+    })
+    const [proposal] = await sampleEditProposals()
+    expect(proposal?.documentId).toBe('d9')
+    expect(proposal?.before).toBe('이월은 최대 7일, 6월 30일까지다.')
+    expect(proposal?.after).toBe('이월은 최대 5일, 3월 31일까지다.')
     api.fetchAllDocuments.mockResolvedValue([])
     expect(await sampleEditProposals()).toEqual([])
   })

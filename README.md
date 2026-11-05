@@ -14,6 +14,10 @@ npm run dev
 
 `http://localhost:3000`을 엽니다. `/api` 요청은 Vite 프록시가 `http://localhost:8080`의 서버로 전달합니다. 서버 실행 방법과 데모 계정은 서버 레포의 로컬 실행 안내를 참고하세요. 자세한 내용은 [로컬 실행 안내](docs/local-setup.md)에 있습니다.
 
+## 배포
+
+Vercel에 배포합니다. `/api` 요청과 새로고침 처리는 `vercel.json`의 rewrite가 맡습니다. 연결 방법은 [배포 안내](docs/deployment.md)를 참고하세요.
+
 ## 개발
 
 [개발 규약](docs/conventions.md), [구조(FSD)](docs/architecture.md), [라이브러리 선택](docs/libraries.md)을 확인하세요. PR 전에는 `npm run verify`를 실행합니다.

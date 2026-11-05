@@ -34,6 +34,7 @@ const answer = ok({
   route: null,
   contextProbability: null,
   sources: [],
+  evidence: [],
   failedSources: [],
   fallbackReason: null,
 })

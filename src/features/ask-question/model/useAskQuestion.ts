@@ -21,7 +21,9 @@ export function useAskQuestion() {
     mutate(
       { conversationId, message, filters },
       {
-        onSuccess: (answer) => addAnswer(answer.conversationId, answer.answer, answer.sources),
+        // evidence는 "임시 계약" 필드라 아직 안 주는 경로(AI_MODE=mock 등)가 있을 수 있어 기본값을 둡니다.
+        onSuccess: (answer) =>
+          addAnswer(answer.conversationId, answer.answer, answer.sources, answer.evidence ?? []),
         onError: (error) => addError(toErrorMessage(error)),
       },
     )

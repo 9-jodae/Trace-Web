@@ -1,9 +1,15 @@
 import { create } from 'zustand'
-import type { AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 
 export type ChatMessage =
   | { id: string; kind: 'question'; text: string }
-  | { id: string; kind: 'answer'; text: string; sources: AnswerSource[] }
+  | {
+      id: string
+      kind: 'answer'
+      text: string
+      sources: AnswerSource[]
+      evidence: AnswerEvidence[]
+    }
   | { id: string; kind: 'error'; text: string }
 
 interface ChatState {
@@ -17,7 +23,12 @@ interface ChatState {
   graphHighlightEnabled: boolean
   sequence: number
   addQuestion: (text: string) => void
-  addAnswer: (conversationId: string, text: string, sources: AnswerSource[]) => void
+  addAnswer: (
+    conversationId: string,
+    text: string,
+    sources: AnswerSource[],
+    evidence: AnswerEvidence[],
+  ) => void
   addError: (text: string) => void
   startNewConversation: () => void
   toggleGraphHighlight: () => void
@@ -44,14 +55,14 @@ export const useChatStore = create<ChatState>()((set) => ({
       messages: [...state.messages, { id: `m${state.sequence + 1}`, kind: 'question', text }],
     })),
 
-  addAnswer: (conversationId, text, sources) =>
+  addAnswer: (conversationId, text, sources, evidence) =>
     set((state) => ({
       conversationId,
       sequence: state.sequence + 1,
       evidenceDocumentIds: [...new Set(sources.map((source) => source.documentId))],
       messages: [
         ...state.messages,
-        { id: `m${state.sequence + 1}`, kind: 'answer', text, sources },
+        { id: `m${state.sequence + 1}`, kind: 'answer', text, sources, evidence },
       ],
     })),
 

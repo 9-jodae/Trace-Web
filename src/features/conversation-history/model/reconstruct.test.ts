@@ -84,6 +84,7 @@ describe('buildReconstructedMessages', () => {
             charEnd: 4,
           },
         ],
+        evidence: [],
       },
     ])
   })

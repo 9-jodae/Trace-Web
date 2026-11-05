@@ -1,6 +1,6 @@
-import { FileText, TriangleAlert } from 'lucide-react'
+import { FileText, Quote, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import type { AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
 
 export function MessageList({
@@ -48,6 +48,7 @@ export function MessageList({
               <AnswerBubble
                 text={message.text}
                 sources={message.sources}
+                evidence={message.evidence}
                 onOpen={onOpenSource}
                 originalQuestion={originalQuestion}
                 onRetryWithoutFilters={onRetryWithoutFilters}
@@ -75,6 +76,7 @@ export function MessageList({
 function AnswerBubble({
   text,
   sources,
+  evidence,
   onOpen,
   originalQuestion,
   onRetryWithoutFilters,
@@ -82,6 +84,7 @@ function AnswerBubble({
 }: {
   text: string
   sources: AnswerSource[]
+  evidence: AnswerEvidence[]
   onOpen: (source: AnswerSource) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
@@ -100,6 +103,35 @@ function AnswerBubble({
   return (
     <div className="flex max-w-96 flex-col gap-3 text-[15px]">
       <p className="whitespace-pre-wrap text-[#e8e6e1]">{text}</p>
+      {evidence.length > 0 && (
+        <ul aria-label="핵심 인용" className="flex flex-col gap-1.5">
+          {evidence.map((item) => (
+            <li key={item.chunkId}>
+              <button
+                type="button"
+                onClick={() =>
+                  onOpen({
+                    id: item.chunkId,
+                    text: item.quote,
+                    source: item.source,
+                    documentId: item.documentId,
+                    documentTitle: item.source,
+                    versionId: item.versionId,
+                    charStart: item.charStart,
+                    charEnd: item.charEnd,
+                  })
+                }
+                className="flex w-full items-start gap-2 rounded-[10px] border-l-2 border-ink-muted/40 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/5"
+              >
+                <Quote className="mt-0.5 size-3.5 shrink-0 text-ink-muted" aria-hidden />
+                <span className="flex-1 text-sm text-ink-dim italic">
+                  "{item.quote}" <span className="not-italic text-ink-muted">— {item.source}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
         {sources.map((source, index) => (
           <li key={source.id}>

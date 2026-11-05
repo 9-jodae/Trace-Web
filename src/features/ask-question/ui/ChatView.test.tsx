@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { resetChatStore, useChatStore } from '../model/chatStore'
 import { ChatView } from './ChatView'
@@ -19,12 +19,27 @@ const source = (id: string, documentId: string): AnswerSource => ({
   charEnd: 10,
 })
 
-const answer = (conversationId: string, sources: AnswerSource[]) => ({
+const evidenceItem = (chunkId: string, documentId: string): AnswerEvidence => ({
+  chunkId,
+  source: `문서 ${documentId}`,
+  documentId,
+  versionId: 'v1',
+  quote: '연차는 최대 5일까지 이월할 수 있다.',
+  charStart: 10,
+  charEnd: 20,
+})
+
+const answer = (
+  conversationId: string,
+  sources: AnswerSource[],
+  evidence: AnswerEvidence[] = [],
+) => ({
   conversationId,
   answer: '최대 5일까지 이월할 수 있습니다.',
   route: null,
   contextProbability: null,
   sources,
+  evidence,
   failedSources: [],
   fallbackReason: null,
 })
@@ -74,6 +89,16 @@ describe('ChatView', () => {
     await userEvent.click(await screen.findByRole('button', { name: /문서 d1/ }))
 
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }))
+  })
+
+  it('핵심 인용을 보여주고 누르면 그 문서를 넘긴다', async () => {
+    restore = mockServer(() => ok(answer('c1', [source('k1', 'd1')], [evidenceItem('e1', 'd1')])))
+    const onOpen = renderChat()
+
+    await ask('연차 이월은?')
+    await userEvent.click(await screen.findByText(/연차는 최대 5일까지 이월할 수 있다/))
+
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }))
   })
 
   it('새 질문을 하면 이전 답변의 근거 강조를 지운다', async () => {

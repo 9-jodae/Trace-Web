@@ -1,4 +1,4 @@
-import type { AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 
 /**
  * features/ask-question의 ChatMessage와 구조만 같게 둡니다(FSD 규칙상 같은 레이어 feature를
@@ -6,4 +6,10 @@ import type { AnswerSource } from '@/entities/answer'
  */
 export type ReconstructedMessage =
   | { id: string; kind: 'question'; text: string }
-  | { id: string; kind: 'answer'; text: string; sources: AnswerSource[] }
+  | {
+      id: string
+      kind: 'answer'
+      text: string
+      sources: AnswerSource[]
+      evidence: AnswerEvidence[]
+    }

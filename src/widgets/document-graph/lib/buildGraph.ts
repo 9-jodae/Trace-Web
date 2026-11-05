@@ -279,6 +279,7 @@ export function buildDocumentGraph({
   evidenceDocumentIds = [],
   positionOverrides,
   modifiedDocuments = [],
+  resolvedDocumentIds = [],
 }: {
   documents: Document[]
   links?: DocumentLink[]
@@ -290,6 +291,8 @@ export function buildDocumentGraph({
    */
   positionOverrides?: Map<string, { x: number; y: number }>
   modifiedDocuments?: ModifiedDocument[]
+  /** 수정 제안을 적용해 충돌을 해소한 문서. 이 문서의 충돌 관계는 그리지 않습니다. */
+  resolvedDocumentIds?: string[]
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -321,8 +324,11 @@ export function buildDocumentGraph({
   // 위치가 그대로 유지됩니다")을 지키려면, 자동 보정이 그 자리를 다시 밀면 안 됩니다.
   const pinned = new Set(positionOverrides?.keys() ?? [])
   const labelParts = new Map<string, Map<LinkType, string>>()
+  const resolved = new Set(resolvedDocumentIds)
   for (const link of links) {
     if (link.source === link.target) continue
+    if (link.type === 'CONFLICTS' && (resolved.has(link.source) || resolved.has(link.target)))
+      continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
     const type = link.type ?? 'REFERENCES'
     if (graph.hasEdge(link.source, link.target)) {

@@ -245,6 +245,23 @@ describe('간선 종류와 글자', () => {
     expect(hasWarnings).toBe(true)
   })
 
+  it('수정 제안으로 해소한 문서는 충돌을 지우고 참조와 주제만 남긴다', () => {
+    const { graph, hasConflicts, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
+      ],
+      resolvedDocumentIds: ['b'],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.type).toBe('REFERENCES')
+    expect(attributes.label).toBe('참조')
+    expect(attributes.warning).toBeUndefined()
+    expect(hasConflicts).toBe(false)
+    expect(hasWarnings).toBe(false)
+  })
+
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
     const links = [
       topic('a', 'b', '연차'),

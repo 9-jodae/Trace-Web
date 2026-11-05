@@ -11,6 +11,8 @@ export function isLocalEditMode() {
 export interface LocalEdit {
   title: string
   text: string
+  /** 수정 제안을 적용해 충돌을 해소한 저장. 직접 고친 저장은 관련 간선을 경고합니다. */
+  resolved?: boolean
 }
 
 interface LocalEditState {

@@ -28,6 +28,7 @@ export function EditProposalCard({ proposal }: { proposal: AnswerEditProposal })
       saveEdit(proposal.documentId, {
         title: proposal.source,
         text: text.replace(proposal.before, () => proposal.after),
+        resolved: true,
       })
       setDecision('applied')
     } catch (failure) {

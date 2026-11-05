@@ -31,7 +31,17 @@ export function DocumentGraph() {
   const { filter } = useDocumentFilterStore()
   const localEdits = useLocalEditStore((state) => state.edits)
   const modifiedDocuments = useMemo(
-    () => Object.entries(localEdits).map(([id, edit]) => ({ id, title: edit.title })),
+    () =>
+      Object.entries(localEdits)
+        .filter(([, edit]) => !edit.resolved)
+        .map(([id, edit]) => ({ id, title: edit.title })),
+    [localEdits],
+  )
+  const resolvedDocumentIds = useMemo(
+    () =>
+      Object.entries(localEdits)
+        .filter(([, edit]) => edit.resolved)
+        .map(([id]) => id),
     [localEdits],
   )
 
@@ -66,8 +76,9 @@ export function DocumentGraph() {
       evidenceDocumentIds: effectiveEvidenceIds,
       positionOverrides: draggedPositionsRef.current,
       modifiedDocuments,
+      resolvedDocumentIds,
     })
-  }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments])
+  }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments, resolvedDocumentIds])
 
   const [sigma, setSigma] = useState<Sigma | null>(null)
 

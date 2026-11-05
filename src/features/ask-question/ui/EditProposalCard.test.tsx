@@ -39,6 +39,7 @@ describe('EditProposalCard', () => {
     expect(useLocalEditStore.getState().edits.d1).toEqual({
       title: '연차 지침',
       text: '이월은 최대 5일이다.',
+      resolved: true,
     })
   })
 

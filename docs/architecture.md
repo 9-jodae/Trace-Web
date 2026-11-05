@@ -46,7 +46,7 @@ src/
     create-source/          소스 추가 모달
     upload-documents/       업로드 모달 (lib: 경로 만들기·미리 거르기·묶기, model: 묶음 순차 전송)
     edit-document-access/   열람 권한 보기·수정
-    edit-document-text/     md·txt 내용 편집, 저장하면 새 버전 (PDF는 서버 지원 대기). 개발 서버에서는 메모리에만 저장하고 수정 문서를 참조하는 간선을 빨갛게 표시하며, 새로고침하면 돌아감
+    edit-document-text/     md·txt 내용 편집, 저장하면 새 버전 (PDF는 서버 지원 대기). 개발 서버에서는 메모리에만 저장하고 수정 문서를 참조하는 간선을 빨갛게 표시하며, 수정 제안을 적용하면 경고 없이 충돌 선을 지우고, 새로고침하면 돌아감
     revise-document/        파일 1개로 새 버전 만들기
     delete-document/        소프트 삭제 확인
   entities/

@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { InternalAxiosRequestConfig } from 'axios'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DocumentDetail } from '@/entities/document'
 import { useTokenStore } from '@/shared/api'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { AdminDocumentDetailPage } from './AdminDocumentDetailPage'
@@ -34,7 +36,7 @@ const SOURCES = [
   },
 ]
 
-function makeDetail(job: unknown = null) {
+function makeDetail(job: unknown = null): DocumentDetail {
   return {
     document: {
       id: 'd1',
@@ -72,7 +74,7 @@ function makeDetail(job: unknown = null) {
         createdAt: '2026-03-02T00:00:00Z',
       },
     ],
-    job,
+    job: job as DocumentDetail['job'],
   }
 }
 
@@ -95,10 +97,13 @@ function renderAt(path = '/admin/documents/d1') {
 
 let restore: () => void = () => {}
 
-function serve(detail: () => unknown, extra?: (url: string) => unknown) {
+function serve(
+  detail: () => unknown,
+  extra?: (url: string, config: InternalAxiosRequestConfig) => unknown,
+) {
   restore = mockServer((config) => {
     const url = config.url ?? ''
-    const handled = extra?.(url)
+    const handled = extra?.(url, config)
     if (handled) return handled as never
     if (url === '/api/users/me') return ok(ME)
     if (url === '/api/conversations') return ok([])
@@ -209,5 +214,110 @@ describe('AdminDocumentDetailPage', () => {
     await userEvent.click(screen.getByRole('link', { name: '목록으로 가기' }))
     expect(router.state.location.pathname).toBe('/admin/documents')
     expect(router.state.location.search).toBe('?status=FAILED')
+  })
+
+  it('권한을 현재 값으로 채운 폼에서 수정하고 응답 값으로 갱신하며, 취소하면 원래 값으로 돌아간다', async () => {
+    let body: unknown
+    let saved = false
+    const updated = makeDetail()
+    updated.document = { ...updated.document, clearance: 'CONFIDENTIAL', minimumPosition: null }
+    updated.departmentIds = []
+    serve(
+      () => ok(saved ? updated : makeDetail()),
+      (url, config) => {
+        if (url !== '/api/admin/documents/d1/access') return undefined
+        body = JSON.parse(config.data as string)
+        saved = true
+        return ok(updated)
+      },
+    )
+    const access = () => screen.getByRole('region', { name: '열람 권한' })
+    renderAt()
+    await screen.findByRole('heading', { name: '출장비' })
+
+    await userEvent.click(within(access()).getByRole('button', { name: '수정' }))
+    expect(within(access()).getByLabelText('보안 등급')).toHaveValue('INTERNAL')
+    expect(within(access()).getByLabelText('최소 직급')).toHaveValue('MANAGER')
+    expect(await within(access()).findByRole('checkbox', { name: '인사팀' })).toBeChecked()
+    await userEvent.selectOptions(within(access()).getByLabelText('보안 등급'), 'PUBLIC')
+    await userEvent.click(within(access()).getByRole('button', { name: '취소' }))
+    expect(within(access()).getByText('사내')).toBeInTheDocument()
+
+    await userEvent.click(within(access()).getByRole('button', { name: '수정' }))
+    expect(within(access()).getByLabelText('보안 등급')).toHaveValue('INTERNAL')
+    await userEvent.selectOptions(within(access()).getByLabelText('보안 등급'), 'CONFIDENTIAL')
+    await userEvent.selectOptions(within(access()).getByLabelText('최소 직급'), '')
+    await userEvent.click(within(access()).getByRole('checkbox', { name: '인사팀' }))
+    await userEvent.click(within(access()).getByRole('button', { name: '저장' }))
+
+    expect(await within(access()).findByText('기밀')).toBeInTheDocument()
+    expect(within(access()).getByText('전체 부서')).toBeInTheDocument()
+    expect(body).toEqual({
+      clearance: 'CONFIDENTIAL',
+      departmentIds: [],
+      minimumPosition: null,
+      ownerDepartmentId: 'dep1',
+    })
+  })
+
+  it('개정은 같은 형식만 받고, 내용이 같으면 새 버전을 만들지 않았다고 알린다', async () => {
+    let revised: FormData | undefined
+    restore = mockServer((config) => {
+      const url = config.url ?? ''
+      if (url === '/api/users/me') return ok(ME)
+      if (url === '/api/conversations') return ok([])
+      if (url === '/api/departments') return ok(DEPARTMENTS)
+      if (url === '/api/admin/sources') return ok(SOURCES)
+      if (url === '/api/admin/documents/d1') return ok(makeDetail())
+      if (url === '/api/admin/documents/d1/revisions') {
+        revised = config.data as FormData
+        return ok({ path: 'a', documentId: 'd1', version: 2, outcome: 'UNCHANGED', reason: null })
+      }
+      return fail(404, 'NOT_FOUND')
+    })
+    renderAt()
+    await userEvent.click(await screen.findByRole('button', { name: '개정' }))
+    const dialog = screen.getByRole('dialog', { name: '개정 · 출장비' })
+    expect(within(dialog).getByLabelText('작성자')).toHaveValue('정서윤')
+    expect(within(dialog).getByText('권한은 그대로 유지됩니다.')).toBeInTheDocument()
+
+    const input = within(dialog).getByLabelText(/파일/)
+    await userEvent.upload(input, new File(['x'], '출장비.pdf'), { applyAccept: false })
+    expect(within(dialog).getByText('같은 형식의 파일만 개정할 수 있습니다')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: '새 버전 올리기' })).toBeDisabled()
+
+    await userEvent.upload(input, new File(['x'], '출장비 v2.md'))
+    await userEvent.click(within(dialog).getByRole('button', { name: '새 버전 올리기' }))
+
+    expect(await within(dialog).findByRole('status')).toHaveTextContent(
+      '내용이 같아 새 버전을 만들지 않았습니다',
+    )
+    expect(revised?.get('author')).toBe('정서윤')
+    expect(revised?.get('authoredAt')).toBe('2026-03-01')
+  })
+
+  it('삭제를 확인하면 목록으로 이동하고 알림을 넘긴다', async () => {
+    let deleted = false
+    serve(
+      () => (deleted ? fail(404, 'NOT_FOUND') : ok(makeDetail())),
+      (url, config) => {
+        if (url !== '/api/admin/documents/d1' || config.method !== 'delete') return undefined
+        deleted = true
+        return ok({ deleted: true })
+      },
+    )
+    const router = renderAt()
+
+    await userEvent.click(await screen.findByRole('button', { name: '삭제' }))
+    const dialog = screen.getByRole('dialog', { name: '문서 삭제' })
+    expect(dialog).toHaveTextContent(
+      '‘출장비’을 삭제합니다. 검색·그래프·근거에서 바로 빠집니다. 같은 경로로 다시 올리면 복구됩니다.',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }))
+
+    expect(await screen.findByText('목록 화면')).toBeInTheDocument()
+    expect(deleted).toBe(true)
+    expect(router.state.location.search).toBe('?status=FAILED')
+    expect(router.state.location.state).toEqual({ notice: '삭제했습니다' })
   })
 })

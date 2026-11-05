@@ -2,7 +2,7 @@ import type { Department } from '@/entities/department'
 import type { DocumentDetail } from '@/entities/document'
 import { sourceKindLabel, type Source } from '@/entities/source'
 import { formatDateTime } from '../lib/format'
-import { Card, InfoRow } from './Card'
+import { Card, InfoRow } from '@/shared/ui'
 
 /** 기본 정보. 상세 응답에 소스 이름이 없어 소스 목록에서 찾아 표시합니다. */
 export function DocumentInfoCard({

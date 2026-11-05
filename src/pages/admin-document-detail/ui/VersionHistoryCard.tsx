@@ -1,6 +1,6 @@
 import type { DocumentVersion } from '@/entities/document'
 import { formatDateTime, formatFileSize } from '../lib/format'
-import { Card } from './Card'
+import { Card } from '@/shared/ui'
 
 /** 버전 이력(최신이 위). 이전 버전 원문은 서버가 주지 않아 내려받기를 두지 않습니다. */
 export function VersionHistoryCard({ versions }: { versions: DocumentVersion[] }) {

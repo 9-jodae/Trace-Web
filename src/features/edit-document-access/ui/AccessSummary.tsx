@@ -1,6 +1,6 @@
 import type { Department } from '@/entities/department'
 import { clearanceLabel, positionLabel, type DocumentDetail } from '@/entities/document'
-import { InfoRow } from './Card'
+import { InfoRow } from '@/shared/ui'
 
 export function AccessSummary({
   detail,

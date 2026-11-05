@@ -1,6 +1,9 @@
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { DeleteDocumentButton } from '@/features/delete-document'
+import { DocumentAccessCard } from '@/features/edit-document-access'
+import { ReviseDocumentButton } from '@/features/revise-document'
 import { useDepartments } from '@/entities/department'
 import {
   adminDownloadUrl,
@@ -14,8 +17,6 @@ import {
 import { useSources } from '@/entities/source'
 import { buttonSecondary } from '@/shared/ui'
 import { Sidebar } from '@/widgets/sidebar'
-import { AccessSummary } from './AccessSummary'
-import { Card } from './Card'
 import { DocumentInfoCard } from './DocumentInfoCard'
 import { ProcessingStatusCard } from './ProcessingStatusCard'
 import { VersionHistoryCard } from './VersionHistoryCard'
@@ -94,14 +95,18 @@ function DetailContent({ detail, listPath }: { detail: DocumentDetail; listPath:
         </span>
         <div className="ml-auto flex items-center gap-2">
           <OpenOriginalButton documentId={document.id} />
+          <ReviseDocumentButton detail={detail} />
+          <DeleteDocumentButton
+            documentId={document.id}
+            title={document.title}
+            onDeleted={() => navigate(listPath, { state: { notice: '삭제했습니다' } })}
+          />
         </div>
       </header>
 
       <ProcessingStatusCard detail={detail} />
       <DocumentInfoCard detail={detail} sources={sources} departments={departments} />
-      <Card title="열람 권한">
-        <AccessSummary detail={detail} departments={departments} />
-      </Card>
+      <DocumentAccessCard detail={detail} />
       <VersionHistoryCard versions={detail.versions} />
     </div>
   )

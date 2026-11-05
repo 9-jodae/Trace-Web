@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import type { DocumentDetail } from '@/entities/document'
 import { formatDateTime } from '../lib/format'
-import { Card } from './Card'
+import { Card } from '@/shared/ui'
 
 /** 현재 버전의 처리(파싱·임베딩) 상태. 대기·처리 중이면 상세 쿼리가 5초마다 다시 불러옵니다. */
 export function ProcessingStatusCard({ detail }: { detail: DocumentDetail }) {

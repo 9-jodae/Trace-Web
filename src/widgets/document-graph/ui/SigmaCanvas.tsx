@@ -72,9 +72,32 @@ let hopTimers: ReturnType<typeof setTimeout>[] = []
 /** hop 사이에 애니메이션이 퍼지는 간격(ms). 0.3~0.5초 사이로 너무 빠르지도 느리지도 않게. */
 const HOP_REVEAL_INTERVAL_MS = 400
 
+// 가지(hop 1~2) 노드는 아예 없다가(visibility hidden) revealStep이 자기 hop에 닿는 순간
+// 작게 시작해 제 크기로 커지며 나타납니다. hopPopProgress는 "방금 등장한 노드들"에만
+// 적용되는 0~1 진행도로, 각 hop이 열릴 때마다 다시 0부터 재생합니다.
+let hopPopProgress = 1
+let hopPopFrame: number | null = null
+const HOP_POP_DURATION_MS = 300
+
+function playHopPop(sigma: Sigma) {
+  if (hopPopFrame !== null) cancelAnimationFrame(hopPopFrame)
+  const start = performance.now()
+  hopPopProgress = 0
+  const step = (now: number) => {
+    hopPopProgress = easeOutCubic(Math.min(1, (now - start) / HOP_POP_DURATION_MS))
+    sigma.refresh({ skipIndexation: true })
+    hopPopFrame = hopPopProgress < 1 ? requestAnimationFrame(step) : null
+  }
+  hopPopFrame = requestAnimationFrame(step)
+}
+
 function clearHopAnimation() {
   for (const timer of hopTimers) clearTimeout(timer)
   hopTimers = []
+  if (hopPopFrame !== null) {
+    cancelAnimationFrame(hopPopFrame)
+    hopPopFrame = null
+  }
 }
 
 /** 근거 문서가 바뀔 때마다(새 질문·근거 강조 토글) 한 번 재생합니다. */
@@ -88,12 +111,13 @@ function playHopAnimation(sigma: Sigma, graph: Graph<NodeAttributes>, evidenceId
   }
   hopByNode = computeHopMap(graph, evidenceIds, MAX_BRANCH_HOP)
   revealStep = 0
+  hopPopProgress = 1
   sigma.refresh({ skipIndexation: true })
   for (let hop = 1; hop <= MAX_BRANCH_HOP; hop++) {
     hopTimers.push(
       setTimeout(() => {
         revealStep = hop
-        sigma.refresh({ skipIndexation: true })
+        playHopPop(sigma)
       }, hop * HOP_REVEAL_INTERVAL_MS),
     )
   }
@@ -178,13 +202,22 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
   // 빌드는 통과하지만 런타임에 전혀 적용되지 않았습니다.
   nodeReducer: (_node: string, data: NodeDisplayData, attrs: NodeAttributes) => {
     let base = data
-    // 근거 노드는 buildGraph에서 이미 제 색 그대로이고, 근거가 아닌 노드는 흐린 색(DIMMED_COLOR)으로
-    // 깔려 있습니다(근거 강조 중일 때). hop이 지금까지 퍼진 단계(revealStep) 안이면 제 색으로
-    // 되돌려 "가지가 뻗어나가며 밝아지는" 것처럼 보이게 합니다.
+    // 근거 노드(hop 0)는 buildGraph에서 이미 제 색 그대로입니다. 가지 노드(hop 1~2)는
+    // revealStep이 닿기 전까지는 아예 안 보이게 숨겨 뒀다가, 자기 hop 차례가 되면 작게
+    // 나타나 제 크기·색으로 커집니다(hopPopProgress). 이미 몇 단계 전에 등장한 노드는
+    // 그냥 제 색 그대로 보여줍니다. hop 범위 밖(근거와 무관한) 노드는 건드리지 않고
+    // buildGraph가 깔아 둔 흐린 색(DIMMED_COLOR) 그대로 둡니다.
     if (hopByNode && !attrs.highlighted) {
       const hop = hopByNode.get(_node)
-      if (hop !== undefined && hop <= revealStep) {
-        base = { ...base, color: documentTypeColor(attrs.documentType) }
+      if (hop !== undefined) {
+        if (hop > revealStep) {
+          return { ...base, visibility: 'hidden' }
+        }
+        const trueColor = documentTypeColor(attrs.documentType)
+        base =
+          hop === revealStep && hop > 0
+            ? { ...base, color: trueColor, size: base.size * hopPopProgress }
+            : { ...base, color: trueColor }
       }
     }
     // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.

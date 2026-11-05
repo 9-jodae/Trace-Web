@@ -96,4 +96,20 @@ describe('HomeComposer', () => {
     renderHome()
     expect(screen.queryByRole('switch', { name: '관계 그래프' })).not.toBeInTheDocument()
   })
+
+  it('전체 문서함과 필터 드롭다운은 동시에 하나만 열린다', async () => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/documents') return page([doc('d1', 'REPORT')])
+      if (config.url === '/api/departments') return ok([])
+      return answer
+    })
+    renderHome()
+
+    await userEvent.click(screen.getByText('전체 문서함'))
+    expect(screen.getByText('로컬 드라이브')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('필터'))
+    expect(screen.queryByText('로컬 드라이브')).not.toBeInTheDocument()
+    expect(screen.getByText('보고서')).toBeInTheDocument()
+  })
 })

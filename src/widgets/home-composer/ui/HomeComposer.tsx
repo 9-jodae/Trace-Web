@@ -2,6 +2,7 @@ import { ArrowUp } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
 import { useAskQuestion } from '@/features/ask-question'
 import {
+  FilterDropdownGroup,
   FilterPanel,
   SourceKindDropdown,
   toQuestionFilters,
@@ -63,8 +64,10 @@ export function HomeComposer() {
           />
         </div>
         <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-3.5">
-          <SourceKindDropdown />
-          <FilterPanel />
+          <FilterDropdownGroup>
+            <SourceKindDropdown />
+            <FilterPanel />
+          </FilterDropdownGroup>
           <div className="h-px flex-1" />
           <button
             type="button"

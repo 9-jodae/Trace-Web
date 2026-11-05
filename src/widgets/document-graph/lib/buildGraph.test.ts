@@ -7,6 +7,7 @@ import {
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
   computeHoverRadialPositions,
+  EVIDENCE_EDGE_LABEL,
   separateEvidenceNodes,
   typeLegend,
   type NodeAttributes,
@@ -381,42 +382,6 @@ describe('separateEvidenceNodes', () => {
   })
 })
 
-describe('대표 선', () => {
-  const primaryPairs = (graph: ReturnType<typeof buildDocumentGraph>['graph']) =>
-    graph
-      .filterEdges((_edge, attributes) => attributes.primary === true)
-      .map((edge) => graph.extremities(edge).sort().join('-'))
-      .sort()
-
-  it('문서마다 가장 중요한 선 하나를 고른다', () => {
-    const { graph } = buildDocumentGraph({
-      documents: [doc('a', null), doc('b', null), doc('c', null), doc('d', null)],
-      links: [
-        { source: 'a', target: 'b', type: 'REFERENCES' },
-        { source: 'a', target: 'c', type: 'CONFLICTS', label: conflictWarning('연차') },
-        { source: 'a', target: 'd', type: 'TOPIC', label: '보안' },
-      ],
-    })
-    // a는 충돌, b는 하나뿐인 참조, d는 하나뿐인 주제를 고른다
-    expect(primaryPairs(graph)).toEqual(['a-b', 'a-c', 'a-d'])
-  })
-
-  it('경고가 붙은 선을 충돌보다 앞에 둔다', () => {
-    const { graph } = buildDocumentGraph({
-      documents: [doc('a', null), doc('b', null), doc('c', null), doc('d', null)],
-      links: [
-        { source: 'a', target: 'b', type: 'CONFLICTS', label: conflictWarning() },
-        { source: 'a', target: 'c', type: 'REFERENCES', securityRisk: true },
-        { source: 'b', target: 'd', type: 'CONFLICTS', label: conflictWarning() },
-        { source: 'c', target: 'd', type: 'TOPIC', label: '보안' },
-      ],
-    })
-    // a는 충돌보다 보안 경고를 고르고, c와 d는 주제보다 경고·충돌을 고른다
-    expect(graph.getEdgeAttribute(graph.edge('a', 'c') as string, 'primary')).toBe(true)
-    expect(graph.getEdgeAttribute(graph.edge('c', 'd') as string, 'primary')).toBeUndefined()
-  })
-})
-
 describe('computeHoverRadialPositions', () => {
   it('호버한 노드의 이웃을 둘레에 고르게 펼친다', () => {
     const graph = makeGraph(
@@ -444,5 +409,37 @@ describe('computeHoverRadialPositions', () => {
   it('그래프에 없는 노드를 호버하면 빈 맵을 돌려준다', () => {
     const graph = makeGraph(node('a', 0, 0))
     expect(computeHoverRadialPositions(graph, 'missing').size).toBe(0)
+  })
+})
+
+describe('답변 근거 잇기', () => {
+  const docs = [doc('a', null), doc('b', null), doc('c', null), doc('d', null)]
+
+  it('질문 전에는 선을 새로 만들지 않는다', () => {
+    const { graph } = buildDocumentGraph({ documents: docs })
+    expect(graph.size).toBe(0)
+  })
+
+  it('근거 문서를 순서대로 잇고 실제 관계가 있으면 그 선을 쓴다', () => {
+    const { graph, hasEvidenceLinks } = buildDocumentGraph({
+      documents: docs,
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
+        { source: 'c', target: 'd', type: 'TOPIC', label: '보안' },
+      ],
+      evidenceDocumentIds: ['a', 'b', 'c'],
+    })
+    expect(graph.getEdgeAttributes(graph.edge('a', 'b') as string)).toMatchObject({
+      type: 'REFERENCES',
+      answer: true,
+    })
+    expect(graph.getEdgeAttributes(graph.edge('b', 'c') as string)).toMatchObject({
+      type: 'EVIDENCE',
+      label: EVIDENCE_EDGE_LABEL,
+      answer: true,
+    })
+    // 근거와 근거 밖 문서 사이 선은 질문 선이 아니다
+    expect(graph.getEdgeAttribute(graph.edge('c', 'd') as string, 'answer')).toBeUndefined()
+    expect(hasEvidenceLinks).toBe(true)
   })
 })

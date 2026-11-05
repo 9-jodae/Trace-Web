@@ -267,6 +267,7 @@ export function DocumentGraph() {
               hasConflicts={built.hasConflicts}
               hasWarnings={built.hasWarnings}
               hasTopics={built.hasTopics}
+              hasEvidenceLinks={built.hasEvidenceLinks}
             />
             <ZoomControls sigma={sigma} />
             {rings.map((ring) => (
@@ -452,12 +453,14 @@ function Legend({
   hasConflicts,
   hasWarnings,
   hasTopics,
+  hasEvidenceLinks,
 }: {
   items: TypeLegendItem[]
   hasReferences: boolean
   hasConflicts: boolean
   hasWarnings: boolean
   hasTopics: boolean
+  hasEvidenceLinks: boolean
 }) {
   return (
     <ul
@@ -473,7 +476,7 @@ function Legend({
           {item.label} ({item.count})
         </li>
       ))}
-      {(hasReferences || hasConflicts || hasTopics || hasWarnings) && (
+      {(hasReferences || hasConflicts || hasTopics || hasWarnings || hasEvidenceLinks) && (
         <>
           <li aria-hidden className="my-0.5 border-t border-border-dark" />
           {hasReferences && (
@@ -492,6 +495,12 @@ function Legend({
             <li className="flex items-center gap-2 text-ink-dim">
               <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
               경고: 내용 충돌
+            </li>
+          )}
+          {hasEvidenceLinks && (
+            <li className="flex items-center gap-2 text-ink-dim">
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(186,230,253)]" />
+              답변 근거
             </li>
           )}
           {hasTopics && (

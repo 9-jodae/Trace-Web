@@ -7,7 +7,8 @@ import { documentTypeColor, documentTypeLabel } from '@/entities/document'
  * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=빨강, TOPIC=청록).
  * label은 선 위에 표시할 글자입니다.
  */
-type LinkType = 'REFERENCES' | 'CONFLICTS' | 'TOPIC'
+// EVIDENCE는 서버가 주지 않고, 질문 뒤 답변 근거 문서를 잇기 위해 화면에서만 만듭니다
+type LinkType = 'REFERENCES' | 'CONFLICTS' | 'TOPIC' | 'EVIDENCE'
 
 export interface DocumentLink {
   source: string
@@ -42,8 +43,8 @@ export interface EdgeAttributes {
   size: number
   color: string
   label?: string
-  /** 양 끝 문서 중 한쪽에서 가장 중요한 선. 노드를 고르지 않았을 때는 이 선만 그립니다. */
-  primary?: boolean
+  /** 양 끝이 모두 답변 근거 문서인 선. 노드를 고르지 않았을 때는 이 선만 그립니다. */
+  answer?: boolean
 }
 
 /** 호버하지 않은 간선을 흐리게 보일 때 쓰는 색. 거의 보이지 않을 만큼만 남겨 구조의 윤곽만 드러냅니다. */
@@ -229,7 +230,12 @@ const CONFLICT_EDGE_COLOR = 'rgba(248,113,113,0.95)'
 /** TOPIC 엣지 색(청록, 같은 주제로 묶인 문서). */
 const TOPIC_EDGE_COLOR = 'rgba(45, 212, 191, 0.75)'
 
+/** 답변 근거 문서를 잇는 선(하늘색). 실제 관계가 없는 쌍에만 그립니다. */
+const EVIDENCE_EDGE_COLOR = 'rgba(186,230,253,0.85)'
+export const EVIDENCE_EDGE_LABEL = '답변 근거'
+
 const EDGE_STYLE: Record<LinkType, { rank: number; size: number; color: string }> = {
+  EVIDENCE: { rank: -1, size: 2, color: EVIDENCE_EDGE_COLOR },
   REFERENCES: { rank: 0, size: 2, color: REFERENCE_EDGE_COLOR },
   TOPIC: { rank: 1, size: 2.2, color: TOPIC_EDGE_COLOR },
   CONFLICTS: { rank: 2, size: 2.5, color: CONFLICT_EDGE_COLOR },
@@ -372,6 +378,9 @@ export function buildDocumentGraph({
 
   // 교차 보정을 먼저 하고, 근거 노드 분리를 마지막에 해야 근거 노드끼리의 간격이 교차 보정으로
   // 다시 깨지지 않습니다(근거 강조가 더 중요한 규칙이라 마지막에 적용).
+  linkEvidenceDocuments(graph, evidenceDocumentIds)
+  markAnswerEdges(graph, evidence)
+
   avoidEdgeNodeCrossings(graph, pinned)
   separateEvidenceNodes(graph, evidence, pinned)
 
@@ -383,36 +392,40 @@ export function buildDocumentGraph({
   let hasReferences = false
   let hasConflicts = false
   let hasTopics = false
+  let hasEvidenceLinks = false
   graph.forEachEdge((_edge, attributes) => {
     if (attributes.type === 'CONFLICTS') hasConflicts = true
     else if (attributes.type === 'TOPIC') hasTopics = true
+    else if (attributes.type === 'EVIDENCE') hasEvidenceLinks = true
     else hasReferences = true
   })
 
   const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
-  markPrimaryEdges(graph)
 
-  return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings }
+  return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings, hasEvidenceLinks }
 }
 
-/** 경고, 충돌, 주제, 참조 순으로 중요합니다. */
-function edgePriority(attributes: EdgeAttributes) {
-  return attributes.warning ? 3 : EDGE_STYLE[attributes.type].rank
+/**
+ * 답변 근거 문서를 근거 순서대로 잇습니다. 실제 관계(참조, 충돌, 주제)가 있는 쌍은 그 선을 그대로 쓰고,
+ * 없는 쌍에만 "답변 근거" 선을 새로 그립니다.
+ */
+export function linkEvidenceDocuments(
+  graph: Graph<NodeAttributes, EdgeAttributes>,
+  evidenceDocumentIds: string[],
+) {
+  const ordered = [...new Set(evidenceDocumentIds)].filter((id) => graph.hasNode(id))
+  for (let index = 1; index < ordered.length; index += 1) {
+    const source = ordered[index - 1] as string
+    const target = ordered[index] as string
+    if (graph.hasEdge(source, target)) continue
+    graph.addEdge(source, target, { ...edgeStyle('EVIDENCE'), label: EVIDENCE_EDGE_LABEL })
+  }
 }
 
-/** 문서마다 가장 중요한 선 하나를 고릅니다. 같은 순위면 먼저 들어온 선을 씁니다. */
-export function markPrimaryEdges(graph: Graph<NodeAttributes, EdgeAttributes>) {
-  graph.forEachNode((node) => {
-    let best: string | null = null
-    let bestPriority = -1
-    graph.forEachEdge(node, (edge, attributes) => {
-      const priority = edgePriority(attributes)
-      if (priority > bestPriority) {
-        best = edge
-        bestPriority = priority
-      }
-    })
-    if (best !== null) graph.setEdgeAttribute(best, 'primary', true)
+/** 양 끝이 모두 답변 근거 문서인 선을 표시합니다. 질문 뒤에는 이 선만 보입니다. */
+function markAnswerEdges(graph: Graph<NodeAttributes, EdgeAttributes>, evidence: Set<string>) {
+  graph.forEachEdge((edge, _attributes, source, target) => {
+    if (evidence.has(source) && evidence.has(target)) graph.setEdgeAttribute(edge, 'answer', true)
   })
 }
 

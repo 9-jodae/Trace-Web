@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetChatStore, useChatStore } from '@/features/ask-question'
+import { useTokenStore } from '@/shared/api'
 import { mockServer, ok } from '@/shared/testing'
 import { Sidebar } from './Sidebar'
 
@@ -56,13 +58,21 @@ const DETAIL_C1 = {
   ],
 }
 
-function renderSidebar() {
+function renderSidebar(path = '/') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const router = createMemoryRouter(
+    [
+      { path: '/', element: <Sidebar /> },
+      { path: '/admin/documents', element: <Sidebar /> },
+    ],
+    { initialEntries: [path] },
+  )
   render(
     <QueryClientProvider client={client}>
-      <Sidebar />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+  return router
 }
 
 let restore: () => void = () => {}
@@ -118,5 +128,46 @@ describe('Sidebar 최근 질문', () => {
     await waitFor(() => expect(listed).toBe(true))
     expect(await screen.findByRole('button', { name: '새 질문' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '최근 질문' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Sidebar 문서 관리 버튼', () => {
+  beforeEach(() => {
+    resetChatStore()
+    useTokenStore.setState({ accessToken: 'token' })
+  })
+  afterEach(() => restore())
+
+  const serveAs = (role: string) => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok({ ...ME, role })
+      if (config.url === '/api/conversations') return ok([])
+      return ok(null)
+    })
+  }
+
+  it('직원 역할이면 문서 관리 버튼을 비활성으로 둔다', async () => {
+    serveAs('EMPLOYEE')
+    renderSidebar()
+    await screen.findByText('데모')
+    expect(screen.getByRole('button', { name: '문서 관리' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '질문하기' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('관리자 역할이면 문서 관리로 이동하고 선택 상태를 바꾼다', async () => {
+    serveAs('DOC_ADMIN')
+    const router = renderSidebar()
+    const admin = await screen.findByRole('button', { name: '문서 관리' })
+    await waitFor(() => expect(admin).toBeEnabled())
+
+    await userEvent.click(admin)
+
+    expect(router.state.location.pathname).toBe('/admin/documents')
+    expect(await screen.findByRole('button', { name: '문서 관리' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await userEvent.click(screen.getByRole('button', { name: '질문하기' }))
+    expect(router.state.location.pathname).toBe('/')
   })
 })

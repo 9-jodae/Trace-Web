@@ -30,6 +30,11 @@ http.interceptors.request.use((config) => {
 
 const NETWORK_ERROR: ApiError = { code: 'NETWORK_ERROR', message: '서버에 연결할 수 없습니다' }
 const TIMEOUT_ERROR: ApiError = { code: 'TIMEOUT', message: '응답 시간이 초과되었습니다' }
+// 요청 크기 초과는 서버 앞단(프록시·서블릿)이 응답 봉투 없이 413으로 끊을 수 있습니다.
+const PAYLOAD_TOO_LARGE: ApiError = {
+  code: 'PAYLOAD_TOO_LARGE',
+  message: '업로드 크기 한도를 넘었습니다',
+}
 
 /** 응답 봉투에서 data를 꺼내고, 실패는 ApiRequestError로 바꿉니다. */
 export function unwrap<T>(status: number, body: ApiResponse<T>): T {
@@ -42,6 +47,7 @@ export function unwrap<T>(status: number, body: ApiResponse<T>): T {
 function toApiRequestError(error: AxiosError): ApiRequestError {
   const body = error.response?.data as ApiResponse<unknown> | undefined
   if (body?.error) return new ApiRequestError(error.response?.status ?? 0, body.error)
+  if (error.response?.status === 413) return new ApiRequestError(413, PAYLOAD_TOO_LARGE)
   if (error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT) {
     return new ApiRequestError(0, TIMEOUT_ERROR)
   }

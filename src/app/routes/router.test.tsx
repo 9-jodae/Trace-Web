@@ -100,3 +100,33 @@ describe('인증 흐름', () => {
     expect(screen.getByText('인사팀')).toBeInTheDocument()
   })
 })
+
+describe('관리 화면 접근', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    useTokenStore.setState({ accessToken: 'valid' })
+  })
+  afterEach(() => restore())
+
+  const serveAs = (role: string) => {
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok({ ...me, role })
+      if (config.url === '/api/admin/sources') return ok([])
+      return serve(config.url)
+    })
+  }
+
+  it('직원 역할은 /admin/documents에 들어오면 /로 보낸다', async () => {
+    serveAs('EMPLOYEE')
+    const router = renderAt('/admin/documents')
+    expect(await screen.findByText('정서윤')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/')
+  })
+
+  it.each(['DOC_ADMIN', 'SYSTEM_ADMIN'])('%s는 문서 관리 화면을 본다', async (role) => {
+    serveAs(role)
+    const router = renderAt('/admin/documents')
+    expect(await screen.findByRole('heading', { name: '문서 관리' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/documents')
+  })
+})

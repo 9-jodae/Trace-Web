@@ -55,6 +55,9 @@ let appearAnimationFrame: number | null = null
 /** sigma 인스턴스가 새로 만들어질 때(그래프 탭을 열 때)마다 한 번 재생합니다. */
 function playAppearAnimation(sigma: Sigma) {
   if (appearAnimationFrame !== null) cancelAnimationFrame(appearAnimationFrame)
+  // 이전 그래프에서 멈춘 진행 값이 남아 노드가 크기 0으로 그려지지 않게 먼저 비웁니다
+  appearElapsed = null
+  appearAnimationFrame = null
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
   const start = performance.now()
   appearElapsed = 0
@@ -328,6 +331,9 @@ function GraphEvents({
         cancelAnimationFrame(appearAnimationFrame)
         appearAnimationFrame = null
       }
+      // 애니메이션 도중 그래프가 사라지면(문서 탭으로 이동 등) 진행 값을 끝난 상태로 돌려 둡니다.
+      // 남겨 두면 다음 그래프의 노드가 크기 0으로 그려질 수 있습니다
+      appearElapsed = null
     }
   }, [sigma, onReady])
 

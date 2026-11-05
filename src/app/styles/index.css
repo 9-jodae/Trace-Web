@@ -37,7 +37,17 @@ body,
 }
 
 .graph-ring-pulse {
+  /* 가운데 정렬은 애니메이션과 별개로 항상 적용해야, 애니메이션이 꺼져도(아래 reduced-motion)
+     링이 노드 중심에서 어긋나지 않습니다. */
+  transform: translate(-50%, -50%);
   animation: graph-ring-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-ring-pulse {
+    animation: none;
+    opacity: 0.8;
+  }
 }
 
 /* 문서 뷰어의 Markdown 원문(prose-invert)을 워크스페이스 다크 테마 토큰 색에 맞춥니다. */

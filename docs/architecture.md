@@ -6,14 +6,14 @@
 
 폴더는 [Feature-Sliced Design](https://feature-sliced.design/kr/)을 따릅니다. 위 레이어는 아래 레이어만 가져올 수 있고, 같은 레이어의 다른 슬라이스는 가져올 수 없습니다.
 
-| 레이어     | 역할                                    | 현재 슬라이스                                                             |
-| ---------- | --------------------------------------- | ------------------------------------------------------------------------- |
-| `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)                               |
-| `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`                                                      |
-| `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph`, `sidebar`, `home-composer` |
+| 레이어     | 역할                                    | 현재 슬라이스                                                                       |
+| ---------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)                                         |
+| `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`                                                                |
+| `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph`, `sidebar`, `home-composer`           |
 | `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`, `filter-documents`, `conversation-history` |
-| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`, `conversation`, `evidence`    |
-| `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `testing`)                                |
+| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`, `conversation`, `evidence`              |
+| `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `testing`)                                          |
 
 ```
 src/

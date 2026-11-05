@@ -33,6 +33,9 @@ let hoveredNodeId: string | null = null
 // 사용자가 누른 노드. 고르면 그 노드의 선만 모두 보입니다.
 let selectedNodeId: string | null = null
 
+// 답변 근거 선을 차례로 그리는 애니메이션 중인지. 그동안 실제 답변 선은 숨깁니다.
+let drawingAnswerEdges = false
+
 // 호버한 노드의 바로 이웃을 그 둘레에 임시로 모아 놓은 자리(그래프 좌표). 유형별 배치는 연결
 // 관계를 모르고 정해져서 이웃이 화면 반대편에 있을 수 있어, 그 상태로 선만 밝히면 길게
 // 가로지르며 다른 선과 교차해 보입니다. 호버가 끝나면(leaveNode) null로 돌려 원래 자리로
@@ -88,7 +91,10 @@ function visibleEdge(
 ): EdgeDisplayData {
   const selectedNode = selectedNodeId
   const hoveredNode = hoveredNodeId
-  if (isEdgeVisible({ attributes, source, target, selectedNode, hoveredNode })) return data
+  const drawingAnswer = drawingAnswerEdges
+  if (isEdgeVisible({ attributes, source, target, selectedNode, hoveredNode, drawingAnswer })) {
+    return data
+  }
   return { ...data, visibility: 'hidden', label: null }
 }
 
@@ -221,6 +227,7 @@ export default function SigmaCanvas({
   onReady,
   onStageClick,
   selectedNode = null,
+  drawingAnswer = false,
 }: {
   graph: Graph<NodeAttributes>
   onNodeClick: (documentId: string) => void
@@ -229,6 +236,7 @@ export default function SigmaCanvas({
   onReady: (sigma: Sigma) => void
   onStageClick?: () => void
   selectedNode?: string | null
+  drawingAnswer?: boolean
 }) {
   return (
     <SigmaContainer
@@ -247,6 +255,7 @@ export default function SigmaCanvas({
         onStageClick={onStageClick}
       />
       <SelectedNode node={selectedNode} />
+      <DrawingAnswer drawing={drawingAnswer} />
     </SigmaContainer>
   )
 }
@@ -269,6 +278,19 @@ function SelectedNode({ node }: { node: string | null }) {
       selectedNodeId = null
     }
   }, [sigma, node])
+  return null
+}
+
+/** 답변 선 애니메이션 여부를 edgeReducer가 읽는 모듈 변수에 옮기고 다시 그립니다. */
+function DrawingAnswer({ drawing }: { drawing: boolean }) {
+  const sigma = useSigma()
+  useEffect(() => {
+    drawingAnswerEdges = drawing
+    sigma.refresh({ skipIndexation: true })
+    return () => {
+      drawingAnswerEdges = false
+    }
+  }, [sigma, drawing])
   return null
 }
 

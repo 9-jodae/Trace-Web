@@ -29,17 +29,26 @@ export function FilterBar() {
           <ChevronDown className="size-2.5" aria-hidden />
         </button>
 
-        <FilterDropdown label="문서 유형" active={filter.documentTypes.length > 0}>
+        <FilterDropdown
+          label="문서 유형"
+          active={filter.documentTypes.length > 0}
+          count={filter.documentTypes.length}
+        >
           <DocumentTypeField />
         </FilterDropdown>
 
-        <FilterDropdown label="확장자" active={filter.extensions.length > 0}>
+        <FilterDropdown
+          label="확장자"
+          active={filter.extensions.length > 0}
+          count={filter.extensions.length}
+        >
           <ExtensionField />
         </FilterDropdown>
 
         <FilterDropdown
           label="작성 기간"
           active={Boolean(filter.authoredFrom || filter.authoredTo)}
+          count={Number(Boolean(filter.authoredFrom)) + Number(Boolean(filter.authoredTo))}
         >
           <PeriodField />
         </FilterDropdown>
@@ -47,6 +56,7 @@ export function FilterBar() {
         <FilterDropdown
           label="부서 · 작성자"
           active={filter.ownerDepartmentIds.length > 0 || filter.authorQuery.length > 0}
+          count={filter.ownerDepartmentIds.length + Number(filter.authorQuery.trim().length > 0)}
         >
           <DepartmentAuthorField />
         </FilterDropdown>

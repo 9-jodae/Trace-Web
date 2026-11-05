@@ -8,6 +8,7 @@ import { useAllDocuments, documentTypeLabel, useLocalEditStore } from '@/entitie
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
 import { describeEdge, focusConflictDocuments, type EdgeDetailItem } from '../lib/edgeDetail'
+import { ANSWER_SEGMENT_MS, answerPathDuration, answerPathSegments } from '../lib/answerPath'
 import {
   buildDocumentGraph,
   conflictWarning,
@@ -158,6 +159,28 @@ export function DocumentGraph() {
 
   const onReady = useCallback((instance: Sigma) => setSigma(instance), [])
 
+  // 그래프를 다시 그릴 때마다(새 답변, 필터 변경, 그래프 탭을 다시 열 때) 근거 1번 노드부터 다음 노드까지
+  // 선이 차례로 그어지는 애니메이션을 보여 줍니다. 움직임을 줄이도록 설정한 사용자에게는 건너뜁니다.
+  const answerKey = effectiveEvidenceIds.join(',')
+  const answerNodes = built
+    ? effectiveEvidenceIds.filter((id) => built.graph.hasNode(id)).length
+    : 0
+  const [drawn, setDrawn] = useState<{ graph: unknown; sigma: unknown } | null>(null)
+  const drawingAnswer =
+    sigma !== null &&
+    built !== null &&
+    answerNodes > 1 &&
+    (drawn?.graph !== built.graph || drawn?.sigma !== sigma) &&
+    !prefersReducedMotion()
+  useEffect(() => {
+    if (!drawingAnswer || !built) return
+    const timer = window.setTimeout(
+      () => setDrawn({ graph: built.graph, sigma }),
+      answerPathDuration(answerNodes - 1),
+    )
+    return () => window.clearTimeout(timer)
+  }, [drawingAnswer, built, sigma, answerNodes])
+
   // 근거 노드 배지·링 글로우는 카메라(줌·팬)가 바뀔 때마다 화면 좌표를 다시 계산해야 제자리에 붙어 있습니다.
   useEffect(() => {
     if (!sigma || effectiveEvidenceIds.length === 0) {
@@ -256,6 +279,7 @@ export function DocumentGraph() {
                   onReady={onReady}
                   onStageClick={closePreview}
                   selectedNode={shownNode}
+                  drawingAnswer={drawingAnswer}
                 />
               </Suspense>
             </div>
@@ -270,6 +294,10 @@ export function DocumentGraph() {
               hasEvidenceLinks={built.hasEvidenceLinks}
             />
             <ZoomControls sigma={sigma} />
+            {drawingAnswer && (
+              // 필터를 바꿔 그래프를 다시 그리면 애니메이션도 처음부터 다시 그립니다
+              <AnswerPath key={`${answerKey}|${filteredDocuments?.length ?? 0}`} points={badges} />
+            )}
             {rings.map((ring) => (
               <NodeRing key={ring.documentId} x={ring.x} y={ring.y} radius={ring.radius} />
             ))}
@@ -372,6 +400,32 @@ function EdgeDetailRow({ item }: { item: EdgeDetailItem }) {
         </p>
       )
   }
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+/** 근거 노드를 근거 순서대로 잇는 선이 차례로 그어지는 애니메이션. 끝나면 실제 답변 선으로 바뀝니다. */
+function AnswerPath({ points }: { points: { documentId: string; x: number; y: number }[] }) {
+  return (
+    <svg aria-hidden className="pointer-events-none absolute inset-0 size-full">
+      {answerPathSegments(points).map((segment) => (
+        <line
+          key={segment.key}
+          x1={segment.x1}
+          y1={segment.y1}
+          x2={segment.x2}
+          y2={segment.y2}
+          pathLength={1}
+          className="graph-answer-line"
+          style={{ animationDelay: `${segment.order * ANSWER_SEGMENT_MS}ms` }}
+        />
+      ))}
+    </svg>
+  )
 }
 
 /** 근거 노드를 감싸는 링 글로우. 노드 자체는 평범한 원이라 이 링으로 "타겟" 느낌을 더합니다. */

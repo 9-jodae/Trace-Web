@@ -55,7 +55,13 @@ export function FilterDropdownGroup({ children }: { children: ReactNode }) {
 }
 
 /** 필터 드롭다운. 그룹 밖에서 쓰면 혼자서 하나짜리 그룹이 됩니다. */
-export function FilterDropdown(props: { label: string; active: boolean; children: ReactNode }) {
+export function FilterDropdown(props: {
+  label: string
+  active: boolean
+  /** 고른 항목 수. 1 이상이면 이름 뒤에 "(2)"처럼 붙입니다. */
+  count?: number
+  children: ReactNode
+}) {
   const group = useContext(FilterDropdownGroupContext)
   if (!group) {
     return (
@@ -70,10 +76,12 @@ export function FilterDropdown(props: { label: string; active: boolean; children
 function GroupedFilterDropdown({
   label,
   active,
+  count = 0,
   children,
 }: {
   label: string
   active: boolean
+  count?: number
   children: ReactNode
 }) {
   const group = useContext(FilterDropdownGroupContext)
@@ -113,7 +121,7 @@ function GroupedFilterDropdown({
           active ? 'bg-white/10 text-ink' : 'text-ink-dim hover:bg-white/5'
         }`}
       >
-        {label}
+        {count > 0 ? `${label} (${count})` : label}
         <ChevronDown className="size-2.5" aria-hidden />
       </button>
       {isOpen && (

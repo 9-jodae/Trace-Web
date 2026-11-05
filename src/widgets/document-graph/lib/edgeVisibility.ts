@@ -11,15 +11,18 @@ export function isEdgeVisible({
   target,
   selectedNode,
   hoveredNode,
+  drawingAnswer = false,
 }: {
   attributes: Pick<EdgeAttributes, 'answer'>
   source: string
   target: string
   selectedNode: string | null
   hoveredNode: string | null
+  /** 답변 선을 차례로 그리는 애니메이션 중이면 실제 답변 선은 끝난 뒤에 보입니다. */
+  drawingAnswer?: boolean
 }) {
   const touches = (node: string | null) => node !== null && (source === node || target === node)
   if (selectedNode !== null) return touches(selectedNode)
   if (touches(hoveredNode)) return true
-  return attributes.answer === true
+  return attributes.answer === true && !drawingAnswer
 }

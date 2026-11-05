@@ -3,7 +3,6 @@ import type { AnswerSource, AskQuestionFilters } from '@/entities/answer'
 import type { EvidencePhrases } from '@/entities/evidence'
 import { useChatStore } from '../model/chatStore'
 import { useAskQuestion, usePendingQuestionSince } from '../model/useAskQuestion'
-import { TypingStatusBar } from './AssistantMessage'
 import { MessageList } from './MessageList'
 import { QuestionInput } from './QuestionInput'
 
@@ -45,7 +44,6 @@ export function ChatView({
           inputRef.current?.focus()
         }}
       />
-      {isPending && <TypingStatusBar />}
       <QuestionInput
         ref={inputRef}
         value={question}

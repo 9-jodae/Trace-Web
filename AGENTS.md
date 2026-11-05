@@ -22,4 +22,3 @@ This is the single source of repository rules. Keep AI harness files (`AGENTS.md
 - Never push directly to `main` or `develop`. Use a feature branch, focused commits, and a PR targeting `develop`. State dependencies on preceding PRs.
 - Never force push or rewrite published history: no `--force`, `--force-with-lease`, `-f`, `+refspec` pushes, and no rebase of pushed branches. Update stacked branches with `git merge`. If a push is rejected as non-fast-forward, fetch and merge; stop if that needs judgment.
 - Use `type(scope): Korean description`; allowed types are `feat`, `fix`, `docs`, `test`, `chore`, `refactor`. Write PR reasons, changes, verification, and related issues in Korean. Follow `docs/ai/workflows/commit-and-pr.md`.
-- A PR is not done until review-bot comments are handled per `docs/ai/workflows/review-response.md`.

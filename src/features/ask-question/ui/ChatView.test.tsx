@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NO_EVIDENCE_SENTENCE, type AnswerEvidence, type AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { resetChatStore, useChatStore } from '../model/chatStore'
 import { ChatView } from './ChatView'
@@ -33,10 +33,9 @@ const answer = (
   conversationId: string,
   sources: AnswerSource[],
   evidence: AnswerEvidence[] = [],
-  text = '최대 5일까지 이월할 수 있습니다.',
 ) => ({
   conversationId,
-  answer: text,
+  answer: '최대 5일까지 이월할 수 있습니다.',
   route: null,
   contextProbability: null,
   sources,
@@ -135,43 +134,17 @@ describe('ChatView', () => {
   })
 
   it('근거가 없으면 확인할 수 없다는 안내와 재시도 버튼을 보여준다', async () => {
-    restore = mockServer(() => ok(answer('c1', [], [], NO_EVIDENCE_SENTENCE)))
+    restore = mockServer(() => ok(answer('c1', [])))
     renderChat()
 
     await ask('환율 기준일은?')
 
     expect(await screen.findByText('사내 문서에서 확인할 수 없습니다')).toBeInTheDocument()
-    expect(screen.queryByText(NO_EVIDENCE_SENTENCE)).not.toBeInTheDocument()
-  })
-
-  // answerType이 CLARIFICATION/SMALL_TALK인 경우를 흉내 낸 것입니다(아직 answerType은 안 내려옴).
-  // sources가 비어 있어도 거절 문장이 아니면 거절 카드 대신 답변 문장을 그대로 보여줘야 합니다.
-  it('근거가 없어도 거절 문장이 아니면 거절 카드 대신 답변을 보여준다', async () => {
-    restore = mockServer(() =>
-      ok(
-        answer(
-          'c1',
-          [],
-          [],
-          'A에 관한 질문인가요, B에 관한 질문인가요? 좀 더 자세히 말씀해 주세요.',
-        ),
-      ),
-    )
-    renderChat()
-
-    await ask('연차는?')
-
-    expect(
-      await screen.findByText(
-        'A에 관한 질문인가요, B에 관한 질문인가요? 좀 더 자세히 말씀해 주세요.',
-      ),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('사내 문서에서 확인할 수 없습니다')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('근거')).not.toBeInTheDocument()
+    expect(screen.queryByText('최대 5일까지 이월할 수 있습니다.')).not.toBeInTheDocument()
   })
 
   it('"다른 표현으로 질문"을 누르면 원래 질문을 입력창에 채운다', async () => {
-    restore = mockServer(() => ok(answer('c1', [], [], NO_EVIDENCE_SENTENCE)))
+    restore = mockServer(() => ok(answer('c1', [])))
     renderChat()
 
     await ask('환율 기준일은?')
@@ -184,7 +157,7 @@ describe('ChatView', () => {
     const urls: string[] = []
     restore = mockServer((config) => {
       urls.push(config.url ?? '')
-      return ok(answer('c1', [], [], NO_EVIDENCE_SENTENCE))
+      return ok(answer('c1', []))
     })
     const onClearFilters = vi.fn<() => void>()
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })

@@ -1,6 +1,6 @@
 import { FileText, Quote, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { isNoEvidenceAnswer, type AnswerEvidence, type AnswerSource } from '@/entities/answer'
+import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
 
@@ -94,10 +94,11 @@ function AnswerBubble({
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
-  // answerType이 아직 안 내려오는 동안의 임시 판별입니다(entities/answer/model/answerType.ts 참고).
   // 과거 대화의 근거를 지금 볼 수 없게 된 경우(문서 삭제·개정·권한 변경)는 거절이 아니므로,
   // missingSourceCount가 있으면 저장된 답변을 그대로 보여주고 빠진 근거 수만 알립니다.
-  if (isNoEvidenceAnswer(sources, text) && missingSourceCount === 0) {
+  // (answerType 기반 판별은 #76 합의 전까지 보류 — 리뷰에서 지적된 노출 위험 때문에 되돌림.
+  // sources가 비면 무조건 거절 카드를 보여주는 기존 안전한 동작을 유지한다.)
+  if (sources.length === 0 && missingSourceCount === 0) {
     return (
       <NoEvidenceAnswer
         originalQuestion={originalQuestion}

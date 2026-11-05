@@ -1,5 +1,7 @@
 # 배포 (Vercel)
 
+문서 내용 편집은 저장소의 `.env.production`(`VITE_EDIT_PROPOSAL_SAVE=true`)으로 켭니다(2026-11-06). 이 파일에는 공개해도 되는 설정만 넣고, Vercel 환경 변수에 같은 키가 있으면 그 값이 우선합니다. 서버 저장에는 Spring의 `DOCUMENT_REVISION_ENABLED=true`와 AI 재적재가 함께 필요합니다.
+
 프로젝트 이름은 Trace입니다(2026-11-06). 웹 저장소 `9-jodae/docs199-Web`은 이름을 바꿀 권한이 없어 그대로이고, Vercel 프로젝트 이름도 그대로입니다. 로그인 저장 키를 `trace.auth`로 바꿔 배포 뒤 열려 있던 탭은 한 번 다시 로그인해야 합니다. 시험의 `@local.docs199` 계정은 Spring 시드 계정 형식을 따른 것이라 그대로 둡니다.
 
 웹 클라이언트는 Vercel에 정적 사이트(Vite 빌드 결과 `dist`)로 배포합니다. 설정은 루트의 `vercel.json`에 있습니다.

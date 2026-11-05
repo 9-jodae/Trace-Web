@@ -27,24 +27,26 @@ export function QuestionInput({
   }
 
   return (
-    <form onSubmit={submit} className="flex items-end gap-2 border-t border-slate-200 p-3">
-      <textarea
-        aria-label="질문"
-        rows={2}
-        value={question}
-        onChange={(event) => setQuestion(event.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder="사내 규정·매뉴얼에 대해 질문하세요"
-        className="min-h-10 flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm"
-      />
-      <button
-        type="submit"
-        aria-label="질문 보내기"
-        disabled={disabled || !question.trim()}
-        className="rounded-md bg-slate-900 p-2 text-white disabled:opacity-40"
-      >
-        <SendHorizontal className="size-4" aria-hidden />
-      </button>
+    <form onSubmit={submit} className="p-6 pt-0">
+      <div className="flex items-end gap-2 rounded-2xl border border-border-dark-strong bg-surface-raised py-2 pr-2 pl-[18px]">
+        <textarea
+          aria-label="질문"
+          rows={1}
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="질문 입력"
+          className="min-h-10 flex-1 resize-none bg-transparent py-3 text-[15px] text-ink placeholder:text-ink-muted focus:outline-none"
+        />
+        <button
+          type="submit"
+          aria-label="질문 보내기"
+          disabled={disabled || !question.trim()}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ink text-[#111110] disabled:opacity-40"
+        >
+          <SendHorizontal className="size-[18px]" aria-hidden />
+        </button>
+      </div>
     </form>
   )
 }

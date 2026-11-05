@@ -7,10 +7,11 @@ export function LogoutButton() {
     <button
       type="button"
       onClick={logout}
-      className="flex items-center gap-1 rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
+      aria-label="로그아웃"
+      title="로그아웃"
+      className="flex size-8 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-white/10 hover:text-ink"
     >
       <LogOut className="size-4" aria-hidden />
-      로그아웃
     </button>
   )
 }

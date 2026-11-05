@@ -1,33 +1,20 @@
 import { Group, Panel, Separator } from 'react-resizable-panels'
-import { LogoutButton } from '@/features/auth'
-import { useMe } from '@/entities/user'
 import { ChatPanel } from '@/widgets/chat-panel'
 import { DocumentGraph } from '@/widgets/document-graph'
 import { EditorArea } from '@/widgets/editor-area'
+import { Sidebar } from '@/widgets/sidebar'
 
-// 기획서의 메인 화면: 왼쪽은 그래프·문서 탭 영역, 오른쪽은 채팅 패널입니다.
+// 기획서의 메인 화면: 왼쪽 네비게이션, 가운데 그래프·문서 탭, 오른쪽 채팅 패널입니다.
 export function WorkspacePage() {
-  const { data: me } = useMe()
-
   return (
-    <div className="flex h-full flex-col bg-slate-50 text-slate-900">
-      <header className="flex h-12 items-center justify-between border-b border-slate-200 bg-white px-4">
-        <h1 className="text-base font-semibold">docs199</h1>
-        <div className="flex items-center gap-3 text-sm">
-          {me && (
-            <span className="text-slate-600">
-              {me.department} · {me.name}
-            </span>
-          )}
-          <LogoutButton />
-        </div>
-      </header>
+    <div className="flex h-full bg-canvas text-ink">
+      <Sidebar />
       <Group orientation="horizontal" className="min-h-0 flex-1">
-        <Panel defaultSize="70" minSize="40" className="bg-white">
+        <Panel defaultSize="63" minSize="30">
           <EditorArea graph={<DocumentGraph />} />
         </Panel>
-        <Separator className="w-px bg-slate-200 hover:bg-slate-400" />
-        <Panel defaultSize="30" minSize="20" className="bg-white">
+        <Separator className="w-px bg-border-dark hover:bg-white/20" />
+        <Panel defaultSize="37" minSize="24">
           <ChatPanel />
         </Panel>
       </Group>

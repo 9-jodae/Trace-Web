@@ -9,13 +9,13 @@ export function EditorArea({ graph }: { graph: ReactNode }) {
   const activeTabId = useTabStore((state) => state.activeTabId)
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       <TabBar />
       <section className="min-h-0 flex-1">
         {activeTabId === GRAPH_TAB_ID ? (
           graph
         ) : (
-          <p className="flex h-full items-center justify-center text-sm text-slate-400">
+          <p className="flex h-full items-center justify-center text-sm text-ink-muted">
             원문 보기와 근거 하이라이트는 표시 방식이 정해진 뒤 구현합니다.
           </p>
         )}

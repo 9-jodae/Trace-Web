@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnswerSource } from '@/entities/answer'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { resetChatStore, useChatStore } from '../model/chatStore'
-import { ChatView, NewConversationButton } from './ChatView'
+import { ChatView } from './ChatView'
 
 const source = (id: string, documentId: string): AnswerSource => ({
   id,
@@ -32,7 +33,6 @@ function renderChat(onOpenSource = vi.fn<(source: AnswerSource) => void>()) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <NewConversationButton />
       <ChatView onOpenSource={onOpenSource} />
     </QueryClientProvider>,
   )
@@ -71,7 +71,7 @@ describe('ChatView', () => {
     const onOpen = renderChat()
 
     await ask('연차 이월은?')
-    await userEvent.click(await screen.findByRole('button', { name: '[1] 문서 d1' }))
+    await userEvent.click(await screen.findByRole('button', { name: /문서 d1/ }))
 
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }))
   })
@@ -95,13 +95,14 @@ describe('ChatView', () => {
     expect(useChatStore.getState().evidenceDocumentIds).toEqual([])
   })
 
+  // "새 대화" 버튼은 widgets/sidebar로 옮겨졌으므로 여기서는 스토어 동작만 확인합니다.
   it('새 대화를 시작하면 대화 내용과 대화 ID를 지운다', async () => {
     restore = mockServer(() => ok(answer('c1', [])))
     renderChat()
 
     await ask('질문')
     await screen.findByText('최대 5일까지 이월할 수 있습니다.')
-    await userEvent.click(screen.getByRole('button', { name: '새 대화' }))
+    act(() => useChatStore.getState().startNewConversation())
 
     expect(screen.queryByText('최대 5일까지 이월할 수 있습니다.')).not.toBeInTheDocument()
     expect(useChatStore.getState().conversationId).toBeNull()

@@ -167,13 +167,14 @@ export function DocumentGraph() {
               패널은 이 바깥에 둬서 또렷하게 유지합니다.
               drop-shadow는 캔버스의 투명 배경 위에서 각 원의 알파 윤곽을 따라가므로,
               블러를 아주 작게 주면 원마다 테두리처럼 보이는 효과를 낼 수 있습니다.
-              - 1px 밝은 림(테두리 강조) + 4px 블루 글로우(은은한 색 강조), 두 겹을 쌓았습니다.
+              - 1px 밝은 림(테두리 강조) + 4px 블루 글로우(은은한 색 강조) + 아래로 치우친 어두운
+              그림자(왼쪽 위에서 빛이 오는 것처럼 보이게 해 입체감을 더함), 세 겹을 쌓았습니다.
             */}
             <div
               className="size-full"
               style={{
                 filter:
-                  'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4))',
+                  'drop-shadow(0 0 1px rgba(226,232,240,0.85)) drop-shadow(0 0 4px rgba(96,165,250,0.4)) drop-shadow(1px 2px 2px rgba(0,0,0,0.5))',
               }}
             >
               <Suspense fallback={<Message>그래프를 준비하는 중…</Message>}>

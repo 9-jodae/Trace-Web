@@ -2,8 +2,9 @@ import '@react-sigma/core/lib/style.css'
 import { SigmaContainer, useLoadGraph, useRegisterEvents, useSigma } from '@react-sigma/core'
 import type Graph from 'graphology'
 import { DEFAULT_STYLES, type Sigma } from 'sigma'
+import type { EdgeDisplayData, NodeDisplayData } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
-import type { NodeAttributes } from '../lib/buildGraph'
+import type { EdgeAttributes, NodeAttributes } from '../lib/buildGraph'
 
 export interface NodeHover {
   nodeId: string
@@ -19,20 +20,75 @@ export interface NodeHover {
 // sigma.getGraph()입니다).
 let liveGraph: Graph<NodeAttributes> | null = null
 
+// edgeReducer가 읽을 "지금 마우스가 올라가 있는 노드". 같은 이유로 SIGMA_OPTIONS 밖의
+// 모듈 변수로 두고, GraphEvents의 enterNode/leaveNode에서 갱신한 뒤 sigma.refresh()로
+// 다시 그리게 합니다.
+let hoveredNodeId: string | null = null
+
 /** 1보다 작을수록 마우스를 움직인 거리보다 노드가 덜 움직입니다(끌기 민감도). */
 const DRAG_DAMPING = 0.35
+
+/** 간선이 너무 많이 겹쳐 엉켜 보이는 걸 줄이려고, 기본은 모두 흐리게 두고 호버한 노드의
+ * 간선만 원래 색으로 복원합니다. */
+const DIMMED_EDGE_COLOR = 'rgba(148, 163, 184, 0.08)'
+
+// 그래프 탭을 열 때 한 번, 노드·간선이 작고 투명하게 시작해 제 크기·색으로 커지는 등장
+// 애니메이션에 쓰는 진행도(0~1). nodeReducer/edgeReducer가 매 프레임 이 값을 읽으므로
+// SIGMA_OPTIONS 밖의 모듈 변수로 둡니다(liveGraph·hoveredNodeId와 같은 이유).
+let appearProgress = 1
+let appearAnimationFrame: number | null = null
+
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3
+}
+
+/** sigma 인스턴스가 새로 만들어질 때(그래프 탭을 열 때)마다 한 번 재생합니다. */
+function playAppearAnimation(sigma: Sigma) {
+  if (appearAnimationFrame !== null) cancelAnimationFrame(appearAnimationFrame)
+  const duration = 500
+  const start = performance.now()
+  appearProgress = 0
+  const step = (now: number) => {
+    appearProgress = easeOutCubic(Math.min(1, (now - start) / duration))
+    sigma.refresh({ skipIndexation: true })
+    appearAnimationFrame = appearProgress < 1 ? requestAnimationFrame(step) : null
+  }
+  appearAnimationFrame = requestAnimationFrame(step)
+}
+
+/** CSS 색(hex 또는 rgb/rgba) 문자열에 알파를 곱합니다. 등장 애니메이션의 페이드인에 씁니다. */
+function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith('#')) {
+    const hex = color.length === 4 ? [...color.slice(1)].map((c) => c + c).join('') : color.slice(1)
+    const value = Number.parseInt(hex, 16)
+    return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`
+  }
+  const match = /rgba?\(([^)]+)\)/.exec(color)
+  const components = match?.[1]
+  if (!components) return color
+  const [r, g, b, a] = components.split(',').map((part) => Number.parseFloat(part))
+  return `rgba(${r}, ${g}, ${b}, ${(a ?? 1) * alpha})`
+}
 
 // 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.
 const SIGMA_OPTIONS = {
   // 라벨 글자색 기본값(검정)이 다크 배경에서 안 보여서 밝은 색으로 바꿉니다.
-  // backdrop(호버 시 뜨는 흰 알약 배경)도 꺼서 우리가 직접 그리는 HoverTooltip과 안 겹치게 합니다.
   // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
   styles: {
     nodes: {
       ...DEFAULT_STYLES.nodes,
       labelColor: '#e8edf5',
       labelVisibility: 'auto',
-      backdropVisibility: 'hidden',
+      // backdrop은 원래 호버 시 뜨는 흰 알약(라벨 배경)이라 꺼 뒀는데(HoverTooltip과 겹침),
+      // 여기서는 라벨이 아니라 노드 모양 자체(backdropArea: 'node')에 두는 용도로 켭니다.
+      // 노드보다 살짝 크게(padding) 자기 색 그대로(attribute: 'color') 흐리게 번지게 해서
+      // 그림자·글로우로 입체감을 줍니다. HoverTooltip의 흰 배경과는 무관합니다.
+      backdropVisibility: 'visible',
+      backdropArea: 'node',
+      backdropColor: { attribute: 'color' },
+      backdropShadowColor: 'rgba(2, 6, 23, 0.55)',
+      backdropShadowBlur: 10,
+      backdropPadding: 5,
     },
     // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
     edges: [
@@ -69,6 +125,32 @@ const SIGMA_OPTIONS = {
         x: current.x + (position.x - current.x) * DRAG_DAMPING,
         y: current.y + (position.y - current.y) * DRAG_DAMPING,
       }
+    },
+    // 등장 애니메이션 중에는 작고 투명하게 시작해 제 크기·색으로 커집니다.
+    nodeReducer: (_node: string, data: NodeDisplayData) => {
+      if (appearProgress >= 1) return data
+      return {
+        ...data,
+        size: data.size * appearProgress,
+        color: withAlpha(data.color, appearProgress),
+      }
+    },
+    // 호버 중인 노드가 없으면 모든 간선을 흐리게, 있으면 그 노드에 붙은 간선만 원래 색·두께로
+    // 보여줍니다. 라벨도 흐려진 간선에서는 숨겨서 뒤엉켜 보이는 걸 줄입니다. 등장 애니메이션
+    // 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
+    edgeReducer: (
+      edge: string,
+      data: EdgeDisplayData,
+      _attrs: EdgeAttributes,
+      _state: unknown,
+      _graphState: unknown,
+      graph: Graph<NodeAttributes, EdgeAttributes>,
+    ) => {
+      const [source, target] = graph.extremities(edge)
+      const isHighlighted = !hoveredNodeId || source === hoveredNodeId || target === hoveredNodeId
+      const base = isHighlighted ? data : { ...data, color: DIMMED_EDGE_COLOR, label: undefined }
+      if (appearProgress >= 1) return base
+      return { ...base, color: withAlpha(base.color, appearProgress) }
     },
   },
 }
@@ -121,7 +203,15 @@ function GraphEvents({
 
   useEffect(() => {
     liveGraph = sigma.getGraph() as unknown as Graph<NodeAttributes>
+    hoveredNodeId = null
+    playAppearAnimation(sigma)
     onReady(sigma)
+    return () => {
+      if (appearAnimationFrame !== null) {
+        cancelAnimationFrame(appearAnimationFrame)
+        appearAnimationFrame = null
+      }
+    }
   }, [sigma, onReady])
 
   useEffect(() => {
@@ -131,10 +221,14 @@ function GraphEvents({
         // 'grab'으로 눌러서 끌 수 있다는 걸 알려줍니다.
         sigma.getContainer().style.setProperty('cursor', 'grab')
         onNodeHover({ nodeId: node, x: event.x, y: event.y })
+        hoveredNodeId = node
+        sigma.refresh({ skipIndexation: true })
       },
       leaveNode: () => {
         sigma.getContainer().style.removeProperty('cursor')
         onNodeHover(null)
+        hoveredNodeId = null
+        sigma.refresh({ skipIndexation: true })
       },
       downNode: () => {
         sigma.getContainer().style.setProperty('cursor', 'grabbing')

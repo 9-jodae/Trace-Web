@@ -98,7 +98,10 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await userEvent.click(await screen.findByRole('button', { name: /문서 d1/ }))
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), [])
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), {
+      quotes: [],
+      keywords: [],
+    })
   })
 
   it('핵심 인용을 보여주고 누르면 그 문서를 넘긴다', async () => {
@@ -108,9 +111,10 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await userEvent.click(await screen.findByText(/연차는 최대 5일까지 이월할 수 있다/))
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }), [
-      evidenceItem('e1', 'd1').quote,
-    ])
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }), {
+      quotes: [evidenceItem('e1', 'd1').quote],
+      keywords: [],
+    })
   })
 
   it('새 질문을 하면 이전 답변의 근거 강조를 지운다', async () => {
@@ -156,10 +160,18 @@ describe('ChatView', () => {
     expect(screen.getByRole('button', { name: '다른 표현으로 질문' })).toBeInTheDocument()
   })
 
-  it('근거를 누르면 그 청크의 핵심 문장과 키워드를 함께 넘긴다', async () => {
+  it('근거를 누르면 같은 문서에서 나온 인용과 키워드를 함께 넘긴다', async () => {
     restore = mockServer(() =>
       ok({
-        ...answer('c1', [source('k1', 'd1')], [evidenceItem('k1', 'd1')]),
+        ...answer(
+          'c1',
+          [source('k1', 'd1')],
+          [
+            evidenceItem('k1', 'd1'),
+            { ...evidenceItem('k3', 'd1'), quote: '같은 문서 다른 청크의 인용' },
+            { ...evidenceItem('x1', 'd2'), quote: '다른 문서의 인용' },
+          ],
+        ),
         keywords: [
           { text: '최대 5일', chunkId: 'k1' },
           { text: '다른 청크', chunkId: 'k2' },
@@ -172,10 +184,10 @@ describe('ChatView', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^1\s*문서 d1/ }))
 
     const quote = evidenceItem('k1', 'd1').quote
-    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1' }), [
-      quote,
-      '최대 5일',
-    ])
+    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1' }), {
+      quotes: [quote, '같은 문서 다른 청크의 인용'],
+      keywords: ['최대 5일'],
+    })
   })
 
   it('근거가 없어도 거절 문장이 아니면 답변 문장을 그대로 보여준다', async () => {

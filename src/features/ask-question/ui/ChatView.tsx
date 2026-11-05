@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { AnswerSource, AskQuestionFilters } from '@/entities/answer'
+import type { EvidencePhrases } from '@/entities/evidence'
 import { useChatStore } from '../model/chatStore'
 import { useAskQuestion, usePendingQuestionSince } from '../model/useAskQuestion'
 import { TypingStatusBar } from './AssistantMessage'
@@ -16,7 +17,7 @@ export function ChatView({
   filters,
   onClearFilters,
 }: {
-  onOpenSource: (source: AnswerSource, highlights?: string[]) => void
+  onOpenSource: (source: AnswerSource, highlights?: EvidencePhrases) => void
   filters?: AskQuestionFilters
   onClearFilters?: () => void
 }) {

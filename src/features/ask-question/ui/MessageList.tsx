@@ -7,6 +7,7 @@ import {
   type AnswerKeyword,
   type AnswerSource,
 } from '@/entities/answer'
+import type { EvidencePhrases } from '@/entities/evidence'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
 import { AssistantRow, MessageTime, TypingIndicator, assistantBubble } from './AssistantMessage'
@@ -24,7 +25,7 @@ export function MessageList({
   messages: ChatMessage[]
   /** 답변을 기다리는 중이면 질문을 보낸 시각(ms), 아니면 null */
   pendingSince: number | null
-  onOpenSource: (source: AnswerSource, highlights?: string[]) => void
+  onOpenSource: (source: AnswerSource, highlights?: EvidencePhrases) => void
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
@@ -122,17 +123,29 @@ function AnswerBubble({
   evidence: AnswerEvidence[]
   missingSourceCount: number
   keywords?: AnswerKeyword[]
-  onOpen: (source: AnswerSource, highlights?: string[]) => void
+  onOpen: (source: AnswerSource, highlights?: EvidencePhrases) => void
   originalQuestion: string
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
-  // 문서를 열 때 이 청크의 핵심 문장과 키워드만 표시합니다.
-  const open = (source: AnswerSource) =>
-    onOpen(source, [
-      ...evidence.filter((item) => item.chunkId === source.id).map((item) => item.quote),
-      ...keywords.filter((item) => item.chunkId === source.id).map((item) => item.text),
+  // 문서를 열 때 그 문서에서 나온 인용과 키워드를 함께 넘깁니다. 인용은 누른 청크가 아니라 같은 문서의
+  // 다른 청크에서 뽑혔을 수 있으므로 문서 단위로 모읍니다.
+  const open = (source: AnswerSource) => {
+    const documentChunkIds = new Set([
+      ...sources.filter((item) => item.documentId === source.documentId).map((item) => item.id),
+      ...evidence
+        .filter((item) => item.documentId === source.documentId)
+        .map((item) => item.chunkId),
     ])
+    onOpen(source, {
+      quotes: evidence
+        .filter((item) => item.documentId === source.documentId)
+        .map((item) => item.quote),
+      keywords: keywords
+        .filter((item) => documentChunkIds.has(item.chunkId))
+        .map((item) => item.text),
+    })
+  }
 
   return (
     <>

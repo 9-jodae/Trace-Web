@@ -11,8 +11,8 @@
 | `app`      | 진입점, 라우터, 전역 스타일             | 슬라이스 없음 (`routes`, `model`, `styles`)                               |
 | `pages`    | 라우트 하나당 화면 하나                 | `login`, `workspace`                                                      |
 | `widgets`  | 독립적인 큰 화면 블록                   | `editor-area`, `chat-panel`, `document-graph`, `sidebar`, `home-composer` |
-| `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`, `filter-documents`               |
-| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`                                |
+| `features` | 사용자 동작 단위 기능                   | `auth`, `ask-question`, `document-tabs`, `filter-documents`, `conversation-history` |
+| `entities` | 문서, 청크, 사용자 같은 업무 개념과 API | `user`, `document`, `department`, `answer`, `conversation`, `evidence`    |
 | `shared`   | 업무 지식 없는 공통 코드                | 슬라이스 없음 (`api`, `config`, `testing`)                                |
 
 ```
@@ -37,11 +37,14 @@ src/
     ask-question/           질문 보내기, 대화 상태, 근거 강조 대상
     document-tabs/          탭 열기·전환·닫기
     filter-documents/       문서 유형·확장자·기간·부서·작성자·소스 종류 필터 상태
+    conversation-history/   과거 대화를 메시지 목록으로 재구성해서 열기
   entities/
     user/                   사용자 타입과 GET /api/users/me
     document/               문서 타입과 GET /api/documents
     department/             부서 타입과 GET /api/departments
     answer/                 질문 API(POST /api/conversations/messages)와 답변 타입
+    conversation/           대화 목록·상세 API (GET /api/conversations[/{id}])
+    evidence/               근거 조회 API (GET /api/evidence/{chunkId})
   shared/
     api/                    HTTP 클라이언트, 응답 봉투, 토큰, 오류 문구, queryClient
     config/                 환경 변수
@@ -73,6 +76,7 @@ src/
 - **그래프 탭 필터**: 문서 유형/확장자/작성 기간/부서·작성자 필터를 그래프 표시 범위에 적용합니다(`features/filter-documents`). 작성자는 서버에 필터 파라미터가 없어 클라이언트에서 부분 일치로만 거릅니다.
 - **질문 검색 필터 연동**: 서버에 생긴 질문 API `filters`(`docs199-Server` PR #48)를 홈 화면·채팅 질문 전송에 그대로 실어 보냅니다(`features/filter-documents`의 `toQuestionFilters`). `sourceKinds`는 그래프 표시에는 못 쓰지만(문서 목록에 소스 종류가 없음) 질문 검색에는 보낼 수 있어 홈 화면의 "전체 문서함" 버튼에만 둡니다. AI 서버가 실제로 필터를 적용하는지는 서버 문서(`ai-server-contract.md`)에도 아직 미확정이라고 적혀 있습니다.
 - **홈 화면("01 홈")**: 대화가 없을 때 보여주는 화면을 추가했습니다(`widgets/home-composer`). 가운데 입력창 + 추천 질문 3개로 구성되고, 질문을 보내면 "답변" 레이아웃으로 바뀝니다.
+- **대화 기록 화면**: 채팅 패널 헤더의 "대화 기록" 버튼으로 과거 대화 목록(오늘/지난 7일/이전)을 보여주고, 고르면 다시 불러옵니다(`entities/conversation`, `entities/evidence`, `features/conversation-history`). 메시지의 `evidenceChunkIds`는 근거 조회 API(`GET /api/evidence/{chunkId}`)로 하나씩 조회해 문서 제목 등을 채웁니다. 목록 API에 근거 개수가 없어 와이어프레임의 "근거 N" 표시는 뺐습니다. 사이드바의 "최근 질문"은 세션 내 질문만 보여주는 임시 버전으로 남아 있습니다(대화 기록 화면과 중복이라 정리가 필요할 수 있음).
 
 ### 보류
 
@@ -84,7 +88,6 @@ src/
 - **그래프의 소스(문서함)별 필터**: `sourceKind`는 질문 검색 필터로는 쓸 수 있지만, `GET /api/documents` 응답에는 문서별 소스 종류가 없어(소스 ID만 있음) 그래프 표시를 소스별로 거르지는 못합니다. 문서 목록에 `sourceKind`(또는 소스 종류를 바로 알 수 있는 값)가 추가되면 그래프 필터 바의 "소스" 버튼도 켤 수 있습니다. 연결된 소스 이름(어떤 Notion/Obsidian인지)까지 보여주려면 일반 사용자가 쓸 수 있는 소스 조회 API(지금은 `GET /api/admin/sources`만 있어 관리자 전용)가 따로 필요합니다.
 - **관리자 기능**(문서 업로드·권한 변경, 사용자 관리, 소스 연결, `DOC_ADMIN`/`SYSTEM_ADMIN` 화면 구분): 기획이 정해지지 않아 화면을 만들지 않았습니다.
 - **알림**(문서 변경 시 위험도): 서버 API(#25)와 위험도 기준이 없습니다.
-- **대화 기록 화면**: 서버에는 대화 목록·상세 API가 있지만 메시지에 근거 청크 ID만 저장되어, 지난 답변의 근거를 다시 보여주는 방식을 정해야 합니다. 사이드바의 "최근 질문"은 그래서 서버 기록이 아니라 이번 세션에서 주고받은 질문만 보여줍니다.
 - **최대 문서 탭 수**: 임시로 10개입니다. 넘치면 가장 오래 안 본 탭을 닫습니다.
 - **미리보기 탭 방식**, **새 질문 시 열린 문서 탭 처리**: 기획서에서 미결정입니다.
 - **배포 방식**: 정적 파일을 서버 레포의 nginx에서 제공할지, 별도로 배포할지 미정입니다.

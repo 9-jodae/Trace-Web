@@ -1,42 +1,44 @@
 import { ExternalLink, X } from 'lucide-react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
-import { useChatStore } from '@/features/ask-question'
 import { useTabStore, type DocumentPreview } from '@/features/document-tabs'
 import { ChatPanel } from '@/widgets/chat-panel'
 import { DocumentGraph } from '@/widgets/document-graph'
 import { DocumentViewer } from '@/widgets/document-viewer'
 import { EditorArea } from '@/widgets/editor-area'
-import { HomeComposer } from '@/widgets/home-composer'
 import { Sidebar } from '@/widgets/sidebar'
 
+// 패널을 줄여도 글자가 잘리지 않을 최소 크기(px). 숫자는 픽셀, 문자열은 퍼센트입니다
+const GRAPH_MIN_WIDTH = 360
+const CHAT_MIN_WIDTH = 340
+const PREVIEW_MIN_HEIGHT = 180
+const CHAT_MIN_HEIGHT = 240
+
+// 끌 수 있다는 걸 알 수 있게 잡는 영역을 넓히고, 마우스를 올리면 색을 바꿉니다
+const verticalHandle =
+  'w-1.5 cursor-col-resize bg-border-dark transition-colors hover:bg-blue-400/50 data-[separator=active]:bg-blue-400/70'
+const horizontalHandle =
+  'h-1.5 cursor-row-resize bg-border-dark transition-colors hover:bg-blue-400/50 data-[separator=active]:bg-blue-400/70'
+
 /**
- * 기획서의 메인 화면. 첫 질문 전에는 "01 홈"(가운데 큰 입력창), 질문을 보내면
- * "02 답변"(그래프·문서 탭 + 채팅)으로 바뀝니다. 둘 다 왼쪽 네비게이션은 공통입니다.
+ * 메인 화면. 첫 질문 전에도 빈 화면 대신 노드만 있는 그래프와 채팅을 바로 보여 줍니다.
+ * 질문하면 그래프에 답변 근거 문서를 잇는 선이 그려집니다.
  */
 export function WorkspacePage() {
-  const hasConversation = useChatStore((state) => state.messages.length > 0)
-
   return (
     <div className="flex h-full bg-canvas text-ink">
       <Sidebar />
-      {hasConversation ? (
-        <Group orientation="horizontal" className="min-h-0 flex-1">
-          <Panel defaultSize="63" minSize="30">
-            <EditorArea
-              graph={<DocumentGraph />}
-              renderDocument={(id) => <DocumentViewer key={id} documentId={id} />}
-            />
-          </Panel>
-          <Separator className="w-px bg-border-dark hover:bg-white/20" />
-          <Panel defaultSize="37" minSize="24">
-            <RightPanel />
-          </Panel>
-        </Group>
-      ) : (
-        <div className="min-h-0 flex-1">
-          <HomeComposer />
-        </div>
-      )}
+      <Group orientation="horizontal" className="min-h-0 flex-1">
+        <Panel defaultSize="63" minSize={GRAPH_MIN_WIDTH}>
+          <EditorArea
+            graph={<DocumentGraph />}
+            renderDocument={(id) => <DocumentViewer key={id} documentId={id} />}
+          />
+        </Panel>
+        <Separator className={verticalHandle} />
+        <Panel defaultSize="37" minSize={CHAT_MIN_WIDTH}>
+          <RightPanel />
+        </Panel>
+      </Group>
     </div>
   )
 }
@@ -47,11 +49,11 @@ function RightPanel() {
   if (!preview) return <ChatPanel />
   return (
     <Group orientation="vertical" className="h-full">
-      <Panel defaultSize="55" minSize="20">
+      <Panel defaultSize="55" minSize={PREVIEW_MIN_HEIGHT}>
         <PreviewPanel preview={preview} />
       </Panel>
-      <Separator className="h-px bg-border-dark hover:bg-white/20" />
-      <Panel defaultSize="45" minSize="20">
+      <Separator className={horizontalHandle} />
+      <Panel defaultSize="45" minSize={CHAT_MIN_HEIGHT}>
         <ChatPanel />
       </Panel>
     </Group>

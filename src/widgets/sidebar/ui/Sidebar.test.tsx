@@ -233,7 +233,7 @@ describe('Sidebar 최근 질문', () => {
     renderSidebar()
 
     await waitFor(() => expect(listed).toBe(true))
-    expect(await screen.findByRole('button', { name: '새 질문' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'New Chat' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '최근 질문' })).not.toBeInTheDocument()
   })
 })
@@ -258,7 +258,8 @@ describe('Sidebar 문서 관리 버튼', () => {
     renderSidebar()
     await screen.findByText('데모')
     expect(screen.queryByRole('button', { name: '문서 관리' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '질문하기' })).toHaveAttribute('aria-current', 'page')
+    // 질문하기 메뉴는 없앴고 New Chat과 로고로 채팅 화면에 갑니다
+    expect(screen.queryByRole('button', { name: '질문하기' })).not.toBeInTheDocument()
   })
 
   it('관리자 역할이면 문서 관리로 이동하고 선택 상태를 바꾼다', async () => {
@@ -273,7 +274,7 @@ describe('Sidebar 문서 관리 버튼', () => {
       'aria-current',
       'page',
     )
-    await userEvent.click(screen.getByRole('button', { name: '질문하기' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Trace 채팅 화면으로' }))
     expect(router.state.location.pathname).toBe('/')
   })
 })

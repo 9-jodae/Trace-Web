@@ -2,7 +2,7 @@ import '@react-sigma/core/lib/style.css'
 import { SigmaContainer, useLoadGraph, useRegisterEvents, useSigma } from '@react-sigma/core'
 import type Graph from 'graphology'
 import { DEFAULT_STYLES, type Sigma } from 'sigma'
-import type { EdgeDisplayData, NodeDisplayData } from 'sigma/types'
+import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
 import type { EdgeAttributes, NodeAttributes } from '../lib/buildGraph'
 
@@ -71,7 +71,9 @@ function withAlpha(color: string, alpha: number): string {
 }
 
 // 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.
-const SIGMA_OPTIONS = {
+// 명시적으로 SigmaOptions 타입을 붙여서, nodeReducer/edgeReducer를 settings 안에 잘못 넣는
+// 것 같은 실수를 타입 체커가 잡게 합니다(실제로 그런 실수가 있었습니다).
+const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
   // 라벨 글자색 기본값(검정)이 다크 배경에서 안 보여서 밝은 색으로 바꿉니다.
   // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
   styles: {
@@ -126,32 +128,37 @@ const SIGMA_OPTIONS = {
         y: current.y + (position.y - current.y) * DRAG_DAMPING,
       }
     },
-    // 등장 애니메이션 중에는 작고 투명하게 시작해 제 크기·색으로 커집니다.
-    nodeReducer: (_node: string, data: NodeDisplayData) => {
-      if (appearProgress >= 1) return data
-      return {
-        ...data,
-        size: data.size * appearProgress,
-        color: withAlpha(data.color, appearProgress),
-      }
-    },
-    // 호버 중인 노드가 없으면 모든 간선을 흐리게, 있으면 그 노드에 붙은 간선만 원래 색·두께로
-    // 보여줍니다. 라벨도 흐려진 간선에서는 숨겨서 뒤엉켜 보이는 걸 줄입니다. 등장 애니메이션
-    // 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
-    edgeReducer: (
-      edge: string,
-      data: EdgeDisplayData,
-      _attrs: EdgeAttributes,
-      _state: unknown,
-      _graphState: unknown,
-      graph: Graph<NodeAttributes, EdgeAttributes>,
-    ) => {
-      const [source, target] = graph.extremities(edge)
-      const isHighlighted = !hoveredNodeId || source === hoveredNodeId || target === hoveredNodeId
-      const base = isHighlighted ? data : { ...data, color: DIMMED_EDGE_COLOR, label: undefined }
-      if (appearProgress >= 1) return base
-      return { ...base, color: withAlpha(base.color, appearProgress) }
-    },
+  },
+  // nodeReducer/edgeReducer는 settings가 아니라 SigmaOptions의 최상위 속성입니다(sigma/types의
+  // SigmaOptions 참고). settings 안에 넣으면 Settings 타입에 없는 키라 조용히 무시됩니다 —
+  // 전체 옵션 객체를 SigmaContainer에 넘길 때 `as never`로 캐스팅해 타입 체크가 꺼져 있어서
+  // 빌드는 통과하지만 런타임에 전혀 적용되지 않았습니다.
+  // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
+  nodeReducer: (_node: string, data: NodeDisplayData) => {
+    if (appearProgress >= 1) return data
+    return {
+      ...data,
+      size: data.size * appearProgress,
+      color: withAlpha(data.color, appearProgress),
+    }
+  },
+  // 호버 중인 노드가 없으면 모든 간선을 흐리게, 있으면 그 노드에 붙은 간선만 원래 색·두께로
+  // 보여줍니다. 라벨도 흐려진 간선에서는 숨겨서 뒤엉켜 보이는 걸 줄입니다. 등장 애니메이션
+  // 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
+  edgeReducer: (
+    edge: string,
+    data: EdgeDisplayData,
+    _attrs: EdgeAttributes,
+    _state: unknown,
+    _graphState: unknown,
+    graph: Graph<NodeAttributes, EdgeAttributes>,
+  ) => {
+    const [source, target] = graph.extremities(edge)
+    const isHighlighted =
+      hoveredNodeId !== null && (source === hoveredNodeId || target === hoveredNodeId)
+    const base = isHighlighted ? data : { ...data, color: DIMMED_EDGE_COLOR, label: undefined }
+    if (appearProgress >= 1) return base
+    return { ...base, color: withAlpha(base.color, appearProgress) }
   },
 }
 
@@ -173,7 +180,7 @@ export default function SigmaCanvas({
       // @react-sigma/core의 기본 CSS가 --sigma-background-color를 흰색(#fff)으로 깔아버려서
       // 우리 다크 배경·글로우가 다 가려졌습니다. 투명하게 덮어써서 뒤 배경이 보이게 합니다.
       style={{ '--sigma-background-color': 'transparent' } as CSSProperties}
-      options={SIGMA_OPTIONS as never}
+      options={SIGMA_OPTIONS}
     >
       <GraphLoader graph={graph} />
       <GraphEvents onNodeClick={onNodeClick} onNodeHover={onNodeHover} onReady={onReady} />

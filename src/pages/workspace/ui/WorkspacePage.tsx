@@ -2,6 +2,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { LogoutButton } from '@/features/auth'
 import { useMe } from '@/entities/user'
 import { ChatPanel } from '@/widgets/chat-panel'
+import { DocumentGraph } from '@/widgets/document-graph'
 import { EditorArea } from '@/widgets/editor-area'
 
 // 기획서의 메인 화면: 왼쪽은 그래프·문서 탭 영역, 오른쪽은 채팅 패널입니다.
@@ -23,7 +24,7 @@ export function WorkspacePage() {
       </header>
       <Group orientation="horizontal" className="min-h-0 flex-1">
         <Panel defaultSize="70" minSize="40" className="bg-white">
-          <EditorArea />
+          <EditorArea graph={<DocumentGraph />} />
         </Panel>
         <Separator className="w-px bg-slate-200 hover:bg-slate-400" />
         <Panel defaultSize="30" minSize="20" className="bg-white">

@@ -18,6 +18,9 @@ const me = {
   clearance: 'INTERNAL',
 }
 
+const emptyPage = { items: [], page: 0, size: 100, totalElements: 0, totalPages: 0 }
+const serve = (url?: string) => (url === '/api/documents' ? ok(emptyPage) : ok(me))
+
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -48,7 +51,7 @@ describe('인증 흐름', () => {
     restore = mockServer((config) =>
       config.url === '/api/auth/login'
         ? ok({ accessToken: 'new-token', tokenType: 'Bearer' })
-        : ok(me),
+        : serve(config.url),
     )
     const router = renderAt('/login')
 
@@ -86,7 +89,7 @@ describe('인증 흐름', () => {
 
   it('저장된 토큰이 유효하면 새로고침 후에도 메인 화면을 보여준다', async () => {
     useTokenStore.setState({ accessToken: 'valid' })
-    restore = mockServer(() => ok(me))
+    restore = mockServer((config) => serve(config.url))
     renderAt('/')
     expect(await screen.findByText('인사팀 · 정서윤')).toBeInTheDocument()
   })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GraphEdge } from '@/entities/graph'
-import { describeEdge } from './edgeDetail'
+import { describeEdge, focusConflictDocuments } from './edgeDetail'
 
 const edge = (values: Partial<GraphEdge>): GraphEdge => ({
   id: 'e',
@@ -81,5 +81,18 @@ describe('describeEdge', () => {
       edges: [edge({ type: 'TOPIC', label: '보안', detail: { topics: ['보안', '인사'] } })],
     })
     expect(items).toEqual([{ kind: 'TOPIC', topics: ['보안', '인사'] }])
+  })
+})
+
+describe('focusConflictDocuments', () => {
+  const conflict = edge({ type: 'CONFLICTS' })
+
+  it('인용 문서에 충돌 쌍이 있으면 그 두 문서만 남긴다', () => {
+    expect(focusConflictDocuments(['c', 'b', 'a'], [conflict])).toEqual(['b', 'a'])
+  })
+
+  it('충돌 쌍이 다 인용되지 않았으면 그대로 둔다', () => {
+    expect(focusConflictDocuments(['a', 'c'], [conflict])).toEqual(['a', 'c'])
+    expect(focusConflictDocuments(['a', 'b'], [edge({})])).toEqual(['a', 'b'])
   })
 })

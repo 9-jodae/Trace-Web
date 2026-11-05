@@ -7,7 +7,7 @@ import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/f
 import { useAllDocuments, documentTypeLabel, useLocalEditStore } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
-import { describeEdge, type EdgeDetailItem } from '../lib/edgeDetail'
+import { describeEdge, focusConflictDocuments, type EdgeDetailItem } from '../lib/edgeDetail'
 import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
 import type { NodeHover } from './SigmaCanvas'
 
@@ -51,7 +51,13 @@ export function DocumentGraph() {
     [documents, filter],
   )
   const noEvidence = useMemo(() => [] as string[], [])
-  const effectiveEvidenceIds = graphHighlightEnabled ? evidenceDocumentIds : noEvidence
+  const effectiveEvidenceIds = useMemo(
+    () =>
+      graphHighlightEnabled
+        ? focusConflictDocuments(evidenceDocumentIds, graphData?.edges ?? [])
+        : noEvidence,
+    [graphHighlightEnabled, evidenceDocumentIds, graphData, noEvidence],
+  )
   const links = useMemo<DocumentLink[]>(
     () =>
       (graphData?.edges ?? []).map((edge) => ({

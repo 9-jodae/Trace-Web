@@ -71,3 +71,16 @@ export function describeEdge({
   }
   return items
 }
+
+/** 인용 문서 중 서로 충돌하는 쌍이 있으면 그 문서만 강조합니다. 없으면 인용 문서를 그대로 둡니다. */
+export function focusConflictDocuments(documentIds: string[], edges: GraphEdge[]): string[] {
+  const cited = new Set(documentIds)
+  const conflicting = new Set(
+    edges
+      .filter(
+        (edge) => edge.type === 'CONFLICTS' && cited.has(edge.source) && cited.has(edge.target),
+      )
+      .flatMap((edge) => [edge.source, edge.target]),
+  )
+  return conflicting.size > 0 ? documentIds.filter((id) => conflicting.has(id)) : documentIds
+}

@@ -87,7 +87,10 @@ export const useChatStore = create<ChatState>()((set) => ({
     set((state) => ({
       conversationId,
       sequence: state.sequence + 1,
-      evidenceDocumentIds: [...new Set(sources.map((source) => source.documentId))],
+      // 답변이 실제로 인용한 문서만 강조합니다. 검색에 걸렸을 뿐인 문서까지 키우면 관련 없어 보입니다.
+      evidenceDocumentIds: [
+        ...new Set((evidence.length > 0 ? evidence : sources).map((item) => item.documentId)),
+      ],
       messages: [
         ...state.messages,
         {

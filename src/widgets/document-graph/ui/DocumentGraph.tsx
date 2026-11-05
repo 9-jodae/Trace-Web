@@ -180,6 +180,7 @@ export function DocumentGraph() {
               <Suspense fallback={<Message>그래프를 준비하는 중…</Message>}>
                 <SigmaCanvas
                   graph={built.graph}
+                  evidenceDocumentIds={effectiveEvidenceIds}
                   onNodeClick={onNodeClick}
                   onNodeHover={setHover}
                   onReady={onReady}

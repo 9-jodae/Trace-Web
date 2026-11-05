@@ -4,7 +4,13 @@ import type Graph from 'graphology'
 import { DEFAULT_STYLES, type Sigma } from 'sigma'
 import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
-import type { EdgeAttributes, NodeAttributes } from '../lib/buildGraph'
+import { documentTypeColor } from '@/entities/document'
+import {
+  computeHopMap,
+  MAX_BRANCH_HOP,
+  type EdgeAttributes,
+  type NodeAttributes,
+} from '../lib/buildGraph'
 
 export interface NodeHover {
   nodeId: string
@@ -54,6 +60,43 @@ function playAppearAnimation(sigma: Sigma) {
     appearAnimationFrame = appearProgress < 1 ? requestAnimationFrame(step) : null
   }
   appearAnimationFrame = requestAnimationFrame(step)
+}
+
+// 근거 문서(질문에 답한 출처)에서 연결선을 따라 몇 단계(hop) 떨어져 있는지. null이면 "가지 뻗기"
+// 애니메이션이 꺼진 상태(근거 없음)로, 평소처럼 호버한 노드의 간선만 보여줍니다. 값이 있으면
+// hop이 revealStep 이하인 노드·간선만 밝게 보이다가, revealStep이 하나씩 늘면서 점점 퍼집니다.
+let hopByNode: Map<string, number> | null = null
+let revealStep = -1
+let hopTimers: ReturnType<typeof setTimeout>[] = []
+
+/** hop 사이에 애니메이션이 퍼지는 간격(ms). 0.3~0.5초 사이로 너무 빠르지도 느리지도 않게. */
+const HOP_REVEAL_INTERVAL_MS = 400
+
+function clearHopAnimation() {
+  for (const timer of hopTimers) clearTimeout(timer)
+  hopTimers = []
+}
+
+/** 근거 문서가 바뀔 때마다(새 질문·근거 강조 토글) 한 번 재생합니다. */
+function playHopAnimation(sigma: Sigma, graph: Graph<NodeAttributes>, evidenceIds: string[]) {
+  clearHopAnimation()
+  if (evidenceIds.length === 0) {
+    hopByNode = null
+    revealStep = -1
+    sigma.refresh({ skipIndexation: true })
+    return
+  }
+  hopByNode = computeHopMap(graph, evidenceIds, MAX_BRANCH_HOP)
+  revealStep = 0
+  sigma.refresh({ skipIndexation: true })
+  for (let hop = 1; hop <= MAX_BRANCH_HOP; hop++) {
+    hopTimers.push(
+      setTimeout(() => {
+        revealStep = hop
+        sigma.refresh({ skipIndexation: true })
+      }, hop * HOP_REVEAL_INTERVAL_MS),
+    )
+  }
 }
 
 /** CSS 색(hex 또는 rgb/rgba) 문자열에 알파를 곱합니다. 등장 애니메이션의 페이드인에 씁니다. */
@@ -133,18 +176,30 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
   // SigmaOptions 참고). settings 안에 넣으면 Settings 타입에 없는 키라 조용히 무시됩니다 —
   // 전체 옵션 객체를 SigmaContainer에 넘길 때 `as never`로 캐스팅해 타입 체크가 꺼져 있어서
   // 빌드는 통과하지만 런타임에 전혀 적용되지 않았습니다.
-  // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
-  nodeReducer: (_node: string, data: NodeDisplayData) => {
-    if (appearProgress >= 1) return data
+  nodeReducer: (_node: string, data: NodeDisplayData, attrs: NodeAttributes) => {
+    let base = data
+    // 근거 노드는 buildGraph에서 이미 제 색 그대로이고, 근거가 아닌 노드는 흐린 색(DIMMED_COLOR)으로
+    // 깔려 있습니다(근거 강조 중일 때). hop이 지금까지 퍼진 단계(revealStep) 안이면 제 색으로
+    // 되돌려 "가지가 뻗어나가며 밝아지는" 것처럼 보이게 합니다.
+    if (hopByNode && !attrs.highlighted) {
+      const hop = hopByNode.get(_node)
+      if (hop !== undefined && hop <= revealStep) {
+        base = { ...base, color: documentTypeColor(attrs.documentType) }
+      }
+    }
+    // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
+    if (appearProgress >= 1) return base
     return {
-      ...data,
-      size: data.size * appearProgress,
-      color: withAlpha(data.color, appearProgress),
+      ...base,
+      size: base.size * appearProgress,
+      color: withAlpha(base.color, appearProgress),
     }
   },
-  // 호버 중인 노드가 없으면 모든 간선을 흐리게, 있으면 그 노드에 붙은 간선만 원래 색·두께로
-  // 보여줍니다. 라벨도 흐려진 간선에서는 숨겨서 뒤엉켜 보이는 걸 줄입니다. 등장 애니메이션
-  // 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
+  // 평소(근거 없음)에는 호버한 노드에 붙은 간선만 원래 색으로 보여주고 나머지는 흐립니다.
+  // 근거가 있으면(질문에 답했을 때) hop이 revealStep 이하인, 즉 지금까지 "가지 뻗기" 애니메이션이
+  // 퍼진 범위의 간선만 보여줍니다 — 호버는 이 범위와 별개로 항상 추가로 동작합니다.
+  // 라벨도 흐려진 간선에서는 숨겨서 뒤엉켜 보이는 걸 줄입니다. 등장 애니메이션 중에는 이 결과
+  // 위에 다시 페이드인 알파를 곱합니다.
   edgeReducer: (
     edge: string,
     data: EdgeDisplayData,
@@ -154,8 +209,20 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
     graph: Graph<NodeAttributes, EdgeAttributes>,
   ) => {
     const [source, target] = graph.extremities(edge)
-    const isHighlighted =
+    const isHovered =
       hoveredNodeId !== null && (source === hoveredNodeId || target === hoveredNodeId)
+    const isRevealed =
+      hopByNode !== null &&
+      (() => {
+        const sourceHop = hopByNode.get(source)
+        const targetHop = hopByNode.get(target)
+        return (
+          sourceHop !== undefined &&
+          targetHop !== undefined &&
+          Math.max(sourceHop, targetHop) <= revealStep
+        )
+      })()
+    const isHighlighted = isHovered || isRevealed
     const base = isHighlighted ? data : { ...data, color: DIMMED_EDGE_COLOR, label: undefined }
     if (appearProgress >= 1) return base
     return { ...base, color: withAlpha(base.color, appearProgress) }
@@ -165,11 +232,14 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
 // WebGL로 그리는 부분만 따로 두어 필요할 때 불러옵니다(sigma는 WebGL이 없으면 불러올 때 실패합니다).
 export default function SigmaCanvas({
   graph,
+  evidenceDocumentIds,
   onNodeClick,
   onNodeHover,
   onReady,
 }: {
   graph: Graph<NodeAttributes>
+  /** 가장 최근 답변의 근거 문서. 바뀔 때마다 여기서부터 가지가 뻗어나가는 애니메이션을 다시 재생합니다. */
+  evidenceDocumentIds: string[]
   onNodeClick: (documentId: string) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
@@ -184,6 +254,7 @@ export default function SigmaCanvas({
     >
       <GraphLoader graph={graph} />
       <GraphEvents onNodeClick={onNodeClick} onNodeHover={onNodeHover} onReady={onReady} />
+      <HopReveal evidenceDocumentIds={evidenceDocumentIds} />
     </SigmaContainer>
   )
 }
@@ -248,5 +319,21 @@ function GraphEvents({
       },
     })
   }, [registerEvents, sigma, onNodeClick, onNodeHover])
+  return null
+}
+
+/** GraphLoader 다음에 렌더돼야, 이 effect가 돌 때 sigma.getGraph()가 이미 새 그래프를 갖고 있습니다. */
+function HopReveal({ evidenceDocumentIds }: { evidenceDocumentIds: string[] }) {
+  const sigma = useSigma()
+
+  useEffect(() => {
+    playHopAnimation(
+      sigma,
+      sigma.getGraph() as unknown as Graph<NodeAttributes>,
+      evidenceDocumentIds,
+    )
+    return () => clearHopAnimation()
+  }, [sigma, evidenceDocumentIds])
+
   return null
 }

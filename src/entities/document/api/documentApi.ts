@@ -1,13 +1,28 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { request, type PageResponse } from '@/shared/api'
-import type { Document, DocumentListParams } from '../model/types'
+import type {
+  Document,
+  DocumentDetail,
+  DocumentListParams,
+  DownloadUrl,
+  IngestionJob,
+} from '../model/types'
 
 /** 서버가 허용하는 목록 크기의 최댓값 */
 const MAX_PAGE_SIZE = 100
 
+/** presigned URL(15분 유효)이 만료되기 전에 새로 받기 위한 신선도 유지 시간(10분) */
+const DOWNLOAD_URL_STALE_TIME = 10 * 60 * 1000
+
+/** 처리 중 문서의 상태를 다시 확인하는 주기(5초) */
+const STATUS_POLL_INTERVAL = 5_000
+
 export const documentKeys = {
   all: ['document'] as const,
   everyAccessible: ['document', 'list', 'all'] as const,
+  detail: (id: string) => ['document', 'detail', id] as const,
+  downloadUrl: (id: string) => ['document', 'downloadUrl', id] as const,
+  status: (id: string) => ['document', 'status', id] as const,
 }
 
 /** 본인 권한 범위 안의 문서 목록. 권한 필터는 서버가 적용합니다. */
@@ -27,4 +42,66 @@ export async function fetchAllDocuments(): Promise<Document[]> {
 
 export function useAllDocuments() {
   return useQuery({ queryKey: documentKeys.everyAccessible, queryFn: fetchAllDocuments })
+}
+
+/** 문서 상세 정보와 버전 이력, 처리 작업 상태를 가져옵니다. */
+export function getDocument(id: string) {
+  return request<DocumentDetail>({
+    method: 'GET',
+    url: `/api/documents/${encodeURIComponent(id)}`,
+  })
+}
+
+/** 원문 파일의 15분 유효 presigned URL을 발급받습니다. */
+export function getDownloadUrl(id: string) {
+  return request<DownloadUrl>({
+    method: 'GET',
+    url: `/api/documents/${encodeURIComponent(id)}/download-url`,
+  })
+}
+
+/** 문서의 파싱·임베딩 처리 상태를 확인합니다. */
+export function getDocumentStatus(id: string) {
+  return request<IngestionJob | null>({
+    method: 'GET',
+    url: `/api/documents/${encodeURIComponent(id)}/status`,
+  })
+}
+
+export function useDocument(id: string) {
+  return useQuery({
+    queryKey: documentKeys.detail(id),
+    queryFn: () => getDocument(id),
+  })
+}
+
+export function useDownloadUrl(id: string, enabled = true) {
+  return useQuery({
+    queryKey: documentKeys.downloadUrl(id),
+    queryFn: () => getDownloadUrl(id),
+    enabled,
+    staleTime: DOWNLOAD_URL_STALE_TIME,
+    refetchOnWindowFocus: true,
+  })
+}
+
+export function useDocumentStatus(id: string, enabled: boolean) {
+  const queryClient = useQueryClient()
+  return useQuery({
+    queryKey: documentKeys.status(id),
+    queryFn: async () => {
+      const job = await getDocumentStatus(id)
+      if (job?.status === 'DONE' || job?.status === 'FAILED') {
+        await queryClient.invalidateQueries({ queryKey: documentKeys.detail(id) })
+      }
+      return job
+    },
+    enabled,
+    staleTime: 0,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      if (status === 'DONE' || status === 'FAILED') return false
+      return STATUS_POLL_INTERVAL
+    },
+  })
 }

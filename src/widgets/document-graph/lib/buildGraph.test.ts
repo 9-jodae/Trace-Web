@@ -111,6 +111,30 @@ describe('buildDocumentGraph', () => {
     expect(noLinks.hasConflicts).toBe(false)
   })
 
+  it('연결선이 관계없는 다른 노드를 그대로 지나가면 그 노드를 옆으로 밀어낸다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'APPROVAL')],
+      links: [{ source: 'a', target: 'b', type: 'REFERENCES' }],
+      // c를 a-b 연결선의 정중앙에 정확히 둬서 "선이 관계없는 노드를 지나가는" 상황을 재현합니다.
+      positionOverrides: new Map([
+        ['a', { x: 0, y: 0 }],
+        ['b', { x: 100, y: 0 }],
+        ['c', { x: 50, y: 0 }],
+      ]),
+    })
+    const a = graph.getNodeAttributes('a')
+    const b = graph.getNodeAttributes('b')
+    const c = graph.getNodeAttributes('c')
+    // a-b 직선(y=0)에서 c가 충분히 벗어났는지 확인합니다.
+    const abx = b.x - a.x
+    const aby = b.y - a.y
+    const t = ((c.x - a.x) * abx + (c.y - a.y) * aby) / (abx * abx + aby * aby)
+    const closestX = a.x + t * abx
+    const closestY = a.y + t * aby
+    const distanceFromLine = Math.hypot(c.x - closestX, c.y - closestY)
+    expect(distanceFromLine).toBeGreaterThan(c.size / 2)
+  })
+
   it('근거로 커진 노드끼리 겹치면 서로 떨어뜨린다', () => {
     const { graph } = buildDocumentGraph({
       documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'APPROVAL')],

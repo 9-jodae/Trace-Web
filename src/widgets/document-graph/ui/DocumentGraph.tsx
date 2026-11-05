@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type Graph from 'graphology'
 import { Minus, Plus } from 'lucide-react'
 import type { Sigma } from 'sigma'
 import { useChatStore } from '@/features/ask-question'
@@ -7,7 +8,12 @@ import { useDocumentFilterStore, filterDocuments, FilterBar } from '@/features/f
 import { useAllDocuments, documentTypeLabel } from '@/entities/document'
 import { useGraph } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
-import { buildDocumentGraph, type DocumentLink, type TypeLegendItem } from '../lib/buildGraph'
+import {
+  buildDocumentGraph,
+  type DocumentLink,
+  type NodeAttributes,
+  type TypeLegendItem,
+} from '../lib/buildGraph'
 import type { NodeHover } from './SigmaCanvas'
 
 const SigmaCanvas = lazy(() => import('./SigmaCanvas'))
@@ -46,17 +52,28 @@ export function DocumentGraph() {
     [graphData],
   )
 
-  const built = useMemo(
-    () =>
-      filteredDocuments
-        ? buildDocumentGraph({
-            documents: filteredDocuments,
-            links,
-            evidenceDocumentIds: effectiveEvidenceIds,
-          })
-        : null,
-    [filteredDocuments, links, effectiveEvidenceIds],
-  )
+  // 이전에 그렸던 그래프의 노드 위치(드래그로 옮긴 것 포함)를 기억해 둡니다. 새 답변·필터
+  // 변경으로 그래프를 다시 만들 때 이 위치를 그대로 넘겨야, 끌어서 옮긴 노드가 원래 계산된
+  // 자리로 돌아가지 않습니다.
+  const previousGraphRef = useRef<Graph<NodeAttributes> | null>(null)
+
+  const built = useMemo(() => {
+    if (!filteredDocuments) return null
+    const positionOverrides = new Map<string, { x: number; y: number }>()
+    previousGraphRef.current?.forEachNode((documentId, attributes) => {
+      positionOverrides.set(documentId, { x: attributes.x, y: attributes.y })
+    })
+    return buildDocumentGraph({
+      documents: filteredDocuments,
+      links,
+      evidenceDocumentIds: effectiveEvidenceIds,
+      positionOverrides,
+    })
+  }, [filteredDocuments, links, effectiveEvidenceIds])
+
+  useEffect(() => {
+    previousGraphRef.current = built?.graph ?? null
+  }, [built])
 
   const [sigma, setSigma] = useState<Sigma | null>(null)
   const [hover, setHover] = useState<NodeHover | null>(null)

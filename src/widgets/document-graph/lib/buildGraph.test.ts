@@ -111,6 +111,17 @@ describe('buildDocumentGraph', () => {
     expect(noLinks.hasConflicts).toBe(false)
   })
 
+  it('위치를 넘기면 계산된 배치 대신 그 위치를 그대로 쓴다(끌어서 옮긴 자리 유지)', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      positionOverrides: new Map([['a', { x: 999, y: -999 }]]),
+    })
+    expect(graph.getNodeAttribute('a', 'x')).toBe(999)
+    expect(graph.getNodeAttribute('a', 'y')).toBe(-999)
+    // 넘기지 않은 문서(b)는 평소처럼 계산된 배치를 받는다.
+    expect(graph.getNodeAttribute('b', 'x')).not.toBe(999)
+  })
+
   it('같은 유형끼리 뭉치지 않도록 유형을 돌아가며 섞어 배치한다', () => {
     const { graph } = buildDocumentGraph({
       documents: [doc('a1', 'A'), doc('a2', 'A'), doc('b1', 'B')],

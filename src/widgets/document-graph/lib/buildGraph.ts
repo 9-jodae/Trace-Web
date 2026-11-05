@@ -115,10 +115,17 @@ export function buildDocumentGraph({
   documents,
   links = [],
   evidenceDocumentIds = [],
+  positionOverrides,
 }: {
   documents: Document[]
   links?: DocumentLink[]
   evidenceDocumentIds?: string[]
+  /**
+   * 이전에 그렸던(끌어서 옮긴 것 포함) 노드 위치. 문서가 그대로면 계산된 배치 대신 이 위치를
+   * 그대로 써서, 새 답변·필터 변경으로 그래프를 다시 만들어도 사용자가 옮긴 위치가 유지됩니다.
+   * 처음 보는 문서(새로 추가됨)만 해바라기 배치로 새 위치를 받습니다.
+   */
+  positionOverrides?: Map<string, { x: number; y: number }>
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -130,7 +137,8 @@ export function buildDocumentGraph({
   const graph = new Graph<NodeAttributes, EdgeAttributes>({ type: 'undirected', multi: false })
   for (const document of visible) {
     const isEvidence = evidence.has(document.id)
-    const position = positions.get(document.id) ?? { x: 0, y: 0 }
+    const position = positionOverrides?.get(document.id) ??
+      positions.get(document.id) ?? { x: 0, y: 0 }
     graph.addNode(document.id, {
       ...position,
       label: document.title,

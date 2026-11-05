@@ -133,14 +133,15 @@ describe('ChatView', () => {
     expect(useChatStore.getState().conversationId).toBeNull()
   })
 
-  it('근거가 없으면 확인할 수 없다는 안내와 재시도 버튼을 보여준다', async () => {
+  it('근거가 없어도 답변 문장을 그대로 보여주고 재시도 버튼을 함께 보여준다', async () => {
     restore = mockServer(() => ok(answer('c1', [])))
     renderChat()
 
     await ask('환율 기준일은?')
 
-    expect(await screen.findByText('사내 문서에서 확인할 수 없습니다')).toBeInTheDocument()
-    expect(screen.queryByText('최대 5일까지 이월할 수 있습니다.')).not.toBeInTheDocument()
+    expect(await screen.findByText('최대 5일까지 이월할 수 있습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '필터 해제하고 다시 찾기' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다른 표현으로 질문' })).toBeInTheDocument()
   })
 
   it('"다른 표현으로 질문"을 누르면 원래 질문을 입력창에 채운다', async () => {
@@ -171,10 +172,9 @@ describe('ChatView', () => {
     )
 
     await ask('환율 기준일은?')
-    await screen.findByText('사내 문서에서 확인할 수 없습니다')
-    await userEvent.click(screen.getByRole('button', { name: '필터 해제하고 다시 찾기' }))
+    await userEvent.click(await screen.findByRole('button', { name: '필터 해제하고 다시 찾기' }))
 
-    await screen.findAllByText('사내 문서에서 확인할 수 없습니다')
+    await screen.findAllByText('최대 5일까지 이월할 수 있습니다.')
     expect(onClearFilters).toHaveBeenCalledTimes(1)
     expect(urls).toEqual(['/api/conversations/messages', '/api/conversations/c1/messages'])
   })

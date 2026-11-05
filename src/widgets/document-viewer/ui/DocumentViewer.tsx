@@ -69,16 +69,15 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     refetch: refetchFile,
   } = useDocumentFile(documentId, version, Boolean(data) && isPreviewable)
 
-  const [contentError, setContentError] = useState(false)
+  // 그리기에 실패한 파일의 수신 시각. 다시 받거나 새 버전을 받으면 값이 달라져 오류 표시가 저절로 풀립니다.
+  const [failedFileAt, setFailedFileAt] = useState<number | null>(null)
+  const contentError = file !== undefined && failedFileAt === fileUpdatedAt
   const [downloading, setDownloading] = useState(false)
   const [downloadActionError, setDownloadActionError] = useState<string | null>(null)
 
-  const handleContentError = useCallback(() => setContentError(true), [])
+  const handleContentError = useCallback(() => setFailedFileAt(fileUpdatedAt), [fileUpdatedAt])
 
-  const handleRetryContent = useCallback(() => {
-    setContentError(false)
-    void refetchFile()
-  }, [refetchFile])
+  const handleRetryContent = useCallback(() => void refetchFile(), [refetchFile])
 
   // 미리보기로 이미 받은 파일이 있으면 그대로 저장하고, 없으면(미리보기 미지원 형식) 이때 받습니다.
   const handleDownload = useCallback(async () => {
@@ -186,7 +185,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           <CenteredMessage>
             <p>미리보기를 지원하지 않는 형식입니다</p>
           </CenteredMessage>
-        ) : !file && isFileFetching ? (
+        ) : (!file || contentError) && isFileFetching ? (
           <CenteredMessage>원문을 불러오는 중…</CenteredMessage>
         ) : fileError || contentError || !file ? (
           <CenteredMessage>
@@ -211,8 +210,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           </Suspense>
         ) : (
           <MarkdownContent
-            documentId={documentId}
-            version={version}
+            key={`${documentId}-${fileUpdatedAt}`}
             file={file}
             onError={handleContentError}
           />

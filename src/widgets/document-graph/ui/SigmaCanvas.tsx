@@ -5,6 +5,7 @@ import { DEFAULT_STYLES, type Sigma } from 'sigma'
 import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
 import { isEdgeVisible } from '../lib/edgeVisibility'
+import { POP_TOTAL_MS, popDelay, popScale } from '../lib/nodePop'
 import {
   computeHoverRadialPositions,
   type EdgeAttributes,
@@ -45,28 +46,30 @@ let hoverRadialPositions: Map<string, { x: number; y: number }> | null = null
 /** 1보다 작을수록 마우스를 움직인 거리보다 노드가 덜 움직입니다(끌기 민감도). */
 const DRAG_DAMPING = 0.35
 
-// 그래프 탭을 열 때 한 번, 노드·간선이 작고 투명하게 시작해 제 크기·색으로 커지는 등장
-// 애니메이션에 쓰는 진행도(0~1). nodeReducer/edgeReducer가 매 프레임 이 값을 읽으므로
-// SIGMA_OPTIONS 밖의 모듈 변수로 둡니다(liveGraph·hoveredNodeId와 같은 이유).
-let appearProgress = 1
+// 그래프 탭을 열 때 한 번, 노드가 하나씩 톡톡 튀어나오는 등장 애니메이션에 쓰는 경과 시간(ms).
+// nodeReducer/edgeReducer가 매 프레임 이 값을 읽으므로 SIGMA_OPTIONS 밖의 모듈 변수로 둡니다
+// (liveGraph·hoveredNodeId와 같은 이유). null이면 애니메이션이 끝난 상태입니다.
+let appearElapsed: number | null = null
 let appearAnimationFrame: number | null = null
-
-function easeOutCubic(t: number) {
-  return 1 - (1 - t) ** 3
-}
 
 /** sigma 인스턴스가 새로 만들어질 때(그래프 탭을 열 때)마다 한 번 재생합니다. */
 function playAppearAnimation(sigma: Sigma) {
   if (appearAnimationFrame !== null) cancelAnimationFrame(appearAnimationFrame)
-  const duration = 500
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
   const start = performance.now()
-  appearProgress = 0
+  appearElapsed = 0
   const step = (now: number) => {
-    appearProgress = easeOutCubic(Math.min(1, (now - start) / duration))
+    const elapsed = now - start
+    appearElapsed = elapsed < POP_TOTAL_MS ? elapsed : null
     sigma.refresh({ skipIndexation: true })
-    appearAnimationFrame = appearProgress < 1 ? requestAnimationFrame(step) : null
+    appearAnimationFrame = appearElapsed !== null ? requestAnimationFrame(step) : null
   }
   appearAnimationFrame = requestAnimationFrame(step)
+}
+
+/** 등장 애니메이션 중 노드 크기 배율. 끝났으면 1입니다. */
+function appearScale(node: string) {
+  return appearElapsed === null ? 1 : popScale(appearElapsed, popDelay(node))
 }
 
 /** CSS 색(hex 또는 rgb/rgba) 문자열에 알파를 곱합니다. 등장 애니메이션의 페이드인에 씁니다. */
@@ -183,14 +186,16 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
   },
   // nodeReducer/edgeReducer는 settings가 아니라 SigmaOptions의 최상위 속성입니다(sigma/types의
   // SigmaOptions 참고). settings 안에 넣으면 Settings 타입에 없는 키라 조용히 무시됩니다.
-  // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
+  // 등장 애니메이션 중에는 노드마다 차례로 작게 나타나 살짝 튀었다가 제 크기로 돌아옵니다.
   nodeReducer: (_node: string, data: NodeDisplayData) => {
     let base = data
-    if (appearProgress < 1) {
+    const scale = appearScale(_node)
+    if (scale < 1 || appearElapsed !== null) {
       base = {
         ...base,
-        size: base.size * appearProgress,
-        color: withAlpha(base.color, appearProgress),
+        size: base.size * scale,
+        color: withAlpha(base.color, Math.min(1, scale)),
+        label: scale >= 1 ? base.label : null,
       }
     }
     // 호버한 노드의 이웃은 그 둘레에 바퀴살처럼 임시로 모아서, 유형별 배치가 연결 관계를 몰라
@@ -213,8 +218,10 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
   ) => {
     const [source, target] = graph.extremities(edge)
     const base = visibleEdge(data, attributes, source, target)
-    if (appearProgress >= 1) return base
-    return { ...base, color: withAlpha(base.color, appearProgress) }
+    if (appearElapsed === null) return base
+    // 양 끝 노드가 모두 나온 뒤에 선이 보이게 합니다
+    const alpha = Math.min(1, appearScale(source), appearScale(target))
+    return { ...base, color: withAlpha(base.color, alpha) }
   },
 }
 

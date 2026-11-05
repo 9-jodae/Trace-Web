@@ -19,17 +19,17 @@ export function EvidencePanel({ documentId, chunkId }: { documentId: string; chu
   return (
     <section
       aria-label="답변 근거"
-      className="flex max-h-[40%] shrink-0 flex-col border-b border-amber-200 bg-amber-50/50"
+      className="flex max-h-[40%] shrink-0 flex-col border-b border-amber-500/30 bg-amber-500/[0.06]"
     >
       <div className="flex items-center justify-between gap-2 px-4 py-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-amber-900">답변 근거</span>
+          <span className="font-semibold text-amber-400">답변 근거</span>
           {evidence && (
             <>
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
+              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-400">
                 v{evidence.versionNumber}
               </span>
-              {evidence.page !== null && <span className="text-amber-800">{evidence.page}쪽</span>}
+              {evidence.page !== null && <span className="text-ink-dim">{evidence.page}쪽</span>}
             </>
           )}
         </div>
@@ -38,7 +38,7 @@ export function EvidencePanel({ documentId, chunkId }: { documentId: string; chu
             type="button"
             aria-expanded={!collapsed}
             onClick={() => setCollapsed((prev) => !prev)}
-            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-slate-600 hover:bg-amber-100 hover:text-slate-900"
+            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-ink-dim hover:bg-white/5 hover:text-ink"
           >
             {collapsed ? (
               <>
@@ -56,7 +56,7 @@ export function EvidencePanel({ documentId, chunkId }: { documentId: string; chu
             type="button"
             aria-label="답변 근거 닫기"
             onClick={() => closeEvidence(documentId)}
-            className="rounded p-1 text-slate-500 hover:bg-amber-100 hover:text-slate-800"
+            className="rounded p-1 text-ink-muted hover:bg-white/5 hover:text-ink"
           >
             <X className="size-3.5" aria-hidden />
           </button>
@@ -64,23 +64,23 @@ export function EvidencePanel({ documentId, chunkId }: { documentId: string; chu
       </div>
 
       {!collapsed && (
-        <div className="min-h-0 flex-1 overflow-y-auto border-t border-amber-200/60 px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-amber-500/20 px-4 py-3">
           {isPending ? (
-            <p className="text-sm text-slate-500">근거를 불러오는 중…</p>
+            <p className="text-sm text-ink-muted">근거를 불러오는 중…</p>
           ) : error ? (
             isNotFound ? (
-              <p role="alert" className="text-sm text-slate-600">
+              <p role="alert" className="text-sm text-ink-dim">
                 이 근거는 문서가 개정·삭제되었거나 볼 권한이 없어 표시할 수 없습니다
               </p>
             ) : (
               <div className="flex items-center gap-3 text-sm">
-                <p role="alert" className="text-red-700">
+                <p role="alert" className="text-red-300">
                   {toErrorMessage(error)}
                 </p>
                 <button
                   type="button"
                   onClick={() => void refetch()}
-                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                  className="rounded-md border border-border-dark-strong bg-surface-raised px-2.5 py-1 text-xs text-ink-dim hover:text-ink"
                 >
                   다시 시도
                 </button>

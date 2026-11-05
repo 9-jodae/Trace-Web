@@ -28,17 +28,17 @@ export function EvidencePassage({
   return (
     <div className="flex flex-col gap-2 text-sm leading-relaxed">
       {evidence.previousChunk && (
-        <p className="whitespace-pre-wrap text-slate-400">{evidence.previousChunk}</p>
+        <p className="whitespace-pre-wrap text-ink-muted">{evidence.previousChunk}</p>
       )}
-      <p className="whitespace-pre-wrap text-slate-800">
+      <p className="whitespace-pre-wrap text-ink">
         {before}
-        <mark ref={markRef} className="rounded bg-amber-200 px-0.5 text-slate-900">
+        <mark ref={markRef} className="rounded bg-amber-400/80 px-0.5 text-canvas">
           {mark}
         </mark>
         {after}
       </p>
       {evidence.nextChunk && (
-        <p className="whitespace-pre-wrap text-slate-400">{evidence.nextChunk}</p>
+        <p className="whitespace-pre-wrap text-ink-muted">{evidence.nextChunk}</p>
       )}
     </div>
   )

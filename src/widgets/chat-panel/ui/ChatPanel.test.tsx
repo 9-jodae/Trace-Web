@@ -6,6 +6,21 @@ import { resetChatStore, useChatStore } from '@/features/ask-question'
 import { resetTabStore, useTabStore } from '@/features/document-tabs'
 import { ChatPanel } from './ChatPanel'
 
+describe('ChatPanel 헤더', () => {
+  beforeEach(() => resetChatStore())
+
+  it('대화 기록 버튼 없이 채팅 제목만 보여준다(대화 기록은 사이드바에서만 봅니다)', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatPanel />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('채팅')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '대화 기록' })).not.toBeInTheDocument()
+  })
+})
+
 describe('ChatPanel 답변 인용', () => {
   beforeEach(() => {
     resetChatStore()

@@ -1,5 +1,6 @@
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { remarkKoreanStrong } from '../lib/remarkKoreanStrong'
 
 // 답변 링크는 새 탭으로 열고, 열린 페이지가 이 창에 접근하지 못하게 합니다.
 const components: Components = {
@@ -14,7 +15,11 @@ const components: Components = {
 export function AnswerMarkdown({ text }: { text: string }) {
   return (
     <div className="prose prose-sm prose-invert max-w-none text-[15px] leading-relaxed text-[#e8e6e1] prose-headings:mt-3 prose-headings:mb-1.5 prose-p:my-1.5 prose-pre:my-2 prose-ol:my-1.5 prose-ul:my-1.5 prose-li:my-0.5">
-      <Markdown remarkPlugins={[remarkGfm]} disallowedElements={['img']} components={components}>
+      <Markdown
+        remarkPlugins={[remarkGfm, remarkKoreanStrong]}
+        disallowedElements={['img']}
+        components={components}
+      >
         {text}
       </Markdown>
     </div>

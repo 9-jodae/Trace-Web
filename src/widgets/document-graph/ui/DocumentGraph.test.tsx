@@ -1,8 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useChatStore } from '@/features/ask-question'
 import { fail, mockServer, ok } from '@/shared/testing'
 import { DocumentGraph } from './DocumentGraph'
+
+// jsdom에는 WebGL이 없어 sigma를 그릴 수 없습니다. 캔버스는 비워 두고 그 위의 패널만 확인합니다.
+vi.mock('./SigmaCanvas', () => ({ default: () => null }))
 
 function renderGraph() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -55,5 +60,45 @@ describe('DocumentGraph', () => {
     expect(
       await screen.findByText('이 브라우저에서는 그래프를 표시할 수 없습니다.'),
     ).toBeInTheDocument()
+  })
+
+  it('근거가 있으면 근거 포커스 토글과 단계 범례를 보이고, 끄면 전체 보기로 바뀐다', async () => {
+    vi.stubGlobal('WebGL2RenderingContext', class {})
+    useChatStore.setState({ evidenceDocumentIds: ['d1'], graphHighlightEnabled: true })
+    restore = mockServer((config) => {
+      if (config.url === '/api/departments') return ok([])
+      if (config.url === '/api/graph') {
+        return ok({
+          nodes: [],
+          edges: [
+            {
+              id: 'e1',
+              source: 'd1',
+              target: 'd2',
+              type: 'REFERENCES',
+              label: '참조',
+              detail: null,
+            },
+          ],
+        })
+      }
+      return page([
+        { id: 'd1', title: '출장비 규정', documentType: 'ETC', deletedAt: null },
+        { id: 'd2', title: '경비 결재 절차', documentType: 'APPROVAL', deletedAt: null },
+        { id: 'd3', title: '연차 규정', documentType: 'ETC', deletedAt: null },
+      ])
+    })
+    renderGraph()
+
+    const toggle = await screen.findByRole('switch', { name: '근거 포커스' })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(await screen.findByText('근거 1 · 직접 연결 1')).toBeInTheDocument()
+
+    await userEvent.click(toggle)
+    expect(useChatStore.getState().graphHighlightEnabled).toBe(false)
+    expect(await screen.findByText('전체 보기 중')).toBeInTheDocument()
+
+    useChatStore.setState({ evidenceDocumentIds: [], graphHighlightEnabled: true })
+    vi.unstubAllGlobals()
   })
 })

@@ -1,6 +1,8 @@
 import { useIsMutating, useMutation, useMutationState } from '@tanstack/react-query'
 import { askQuestion, type AskQuestionFilters } from '@/entities/answer'
+import { isLocalEditMode } from '@/entities/document'
 import { toErrorMessage } from '@/shared/api'
+import { isSampleEditRequest, sampleEditProposals } from '../lib/sampleEditProposals'
 import { useChatStore } from './chatStore'
 
 const ASK_MUTATION_KEY = ['answer', 'ask'] as const
@@ -27,7 +29,13 @@ export function useAskQuestion() {
     mutationKey: ASK_MUTATION_KEY,
     mutationFn: ({ conversationId, message, filters }: AskVariables) =>
       askQuestion({ conversationId, message, filters }),
-    onSuccess: (answer, { contextId }) => {
+    onSuccess: async (answer, { contextId, message }) => {
+      if (useChatStore.getState().contextId !== contextId) return
+      // 샘플을 못 불러와도 답변은 그대로 보여 줍니다.
+      const samples =
+        !answer.editProposals && isLocalEditMode() && isSampleEditRequest(message)
+          ? await sampleEditProposals(answer.sources).catch(() => [])
+          : []
       const chat = useChatStore.getState()
       if (chat.contextId !== contextId) return
       // evidence는 "임시 계약" 필드라 아직 안 주는 경로(AI_MODE=mock 등)가 있을 수 있어 기본값을 둡니다.
@@ -37,6 +45,7 @@ export function useAskQuestion() {
         answer.sources,
         answer.evidence ?? [],
         answer.keywords ?? [],
+        answer.editProposals ?? samples,
       )
     },
     onError: (error, { contextId }) => {

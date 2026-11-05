@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -98,19 +98,43 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await userEvent.click(await screen.findByRole('button', { name: /문서 d1/ }))
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), [])
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), {
+      quotes: [],
+      keywords: [],
+    })
   })
 
-  it('핵심 인용을 보여주고 누르면 그 문서를 넘긴다', async () => {
-    restore = mockServer(() => ok(answer('c1', [source('k1', 'd1')], [evidenceItem('e1', 'd1')])))
+  it('인용을 같은 문서의 근거 카드 안에 보여주고, 카드를 누르면 그 근거를 넘긴다', async () => {
+    restore = mockServer(() =>
+      ok(
+        answer(
+          'c1',
+          [source('k1', 'd1')],
+          [
+            evidenceItem('e1', 'd1'),
+            { ...evidenceItem('e2', 'd2'), quote: '목록에 없는 문서의 인용' },
+          ],
+        ),
+      ),
+    )
     const onOpen = renderChat()
 
     await ask('연차 이월은?')
-    await userEvent.click(await screen.findByText(/연차는 최대 5일까지 이월할 수 있다/))
+    const cards = await screen.findByRole('list', { name: '근거' })
+    const first = within(cards).getByRole('button', { name: /^1\s*문서 d1/ })
+    expect(first).toHaveTextContent(evidenceItem('e1', 'd1').quote)
+    // 근거 목록에 없는 문서의 인용은 따로 카드를 만듭니다.
+    expect(within(cards).getByRole('button', { name: /^2\s*문서 d2/ })).toHaveTextContent(
+      '목록에 없는 문서의 인용',
+    )
+    expect(screen.queryByRole('list', { name: '핵심 인용' })).not.toBeInTheDocument()
 
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', documentId: 'd1' }), [
-      evidenceItem('e1', 'd1').quote,
-    ])
+    await userEvent.click(within(cards).getByText(/연차는 최대 5일까지 이월할 수 있다/))
+
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1', documentId: 'd1' }), {
+      quotes: [evidenceItem('e1', 'd1').quote],
+      keywords: [],
+    })
   })
 
   it('새 질문을 하면 이전 답변의 근거 강조를 지운다', async () => {
@@ -156,10 +180,18 @@ describe('ChatView', () => {
     expect(screen.getByRole('button', { name: '다른 표현으로 질문' })).toBeInTheDocument()
   })
 
-  it('근거를 누르면 그 청크의 핵심 문장과 키워드를 함께 넘긴다', async () => {
+  it('근거를 누르면 같은 문서에서 나온 인용과 키워드를 함께 넘긴다', async () => {
     restore = mockServer(() =>
       ok({
-        ...answer('c1', [source('k1', 'd1')], [evidenceItem('k1', 'd1')]),
+        ...answer(
+          'c1',
+          [source('k1', 'd1')],
+          [
+            evidenceItem('k1', 'd1'),
+            { ...evidenceItem('k3', 'd1'), quote: '같은 문서 다른 청크의 인용' },
+            { ...evidenceItem('x1', 'd2'), quote: '다른 문서의 인용' },
+          ],
+        ),
         keywords: [
           { text: '최대 5일', chunkId: 'k1' },
           { text: '다른 청크', chunkId: 'k2' },
@@ -172,10 +204,10 @@ describe('ChatView', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^1\s*문서 d1/ }))
 
     const quote = evidenceItem('k1', 'd1').quote
-    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1' }), [
-      quote,
-      '최대 5일',
-    ])
+    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'k1' }), {
+      quotes: [quote, '같은 문서 다른 청크의 인용'],
+      keywords: ['최대 5일'],
+    })
   })
 
   it('근거가 없어도 거절 문장이 아니면 답변 문장을 그대로 보여준다', async () => {
@@ -254,7 +286,7 @@ describe('ChatView', () => {
     await ask('연차 이월은?')
     await screen.findByText('최대 5일까지 이월할 수 있습니다.')
 
-    expect(screen.getByText('문서119')).toBeInTheDocument()
+    expect(screen.getByText('Trace')).toBeInTheDocument()
     expect(container.querySelectorAll('time')).toHaveLength(2)
   })
 
@@ -268,7 +300,7 @@ describe('ChatView', () => {
     )
     renderChat()
 
-    expect(screen.getAllByText('문서119')).toHaveLength(1)
+    expect(screen.getAllByText('Trace')).toHaveLength(1)
     // 시각이 없는 옛 메시지에는 시각을 그리지 않습니다.
     expect(screen.queryByRole('time')).not.toBeInTheDocument()
   })

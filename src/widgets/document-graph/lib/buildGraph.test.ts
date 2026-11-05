@@ -5,8 +5,8 @@ import { documentTypeColor } from '@/entities/document'
 import {
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
-  computeHopMap,
   DIMMED_COLOR,
+  DIMMED_EDGE_COLOR,
   separateEvidenceNodes,
   typeLegend,
   type NodeAttributes,
@@ -21,8 +21,10 @@ function node(id: string, x: number, y: number, size = 6): [string, NodeAttribut
       y,
       size,
       color: '#fff',
+      baseColor: '#fff',
       label: id,
       highlighted: false,
+      focus: 'none',
       documentType: null,
       extension: 'md',
       authoredAt: null,
@@ -92,6 +94,62 @@ describe('buildDocumentGraph', () => {
     expect(graph.getNodeAttribute('a', 'color')).toBe(documentTypeColor('REPORT'))
     expect(graph.getNodeAttribute('a', 'size')).toBeGreaterThan(graph.getNodeAttribute('b', 'size'))
     expect(graph.getNodeAttribute('b', 'color')).toBe(DIMMED_COLOR)
+  })
+
+  it('근거와 직접 연결된 노드·선만 또렷하게 두고 나머지는 흐리게 한다', () => {
+    // a(근거) - b(직접 연결) - c(2-hop), a - e(근거), b - d(직접 연결끼리 아님: d는 근거와 안 닿음)
+    const { graph, focus } = buildDocumentGraph({
+      documents: [
+        doc('a', 'REPORT'),
+        doc('b', 'APPROVAL'),
+        doc('c', 'ETC'),
+        doc('d', 'ETC'),
+        doc('e', 'REPORT'),
+        doc('f', 'APPROVAL'),
+      ],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
+        { source: 'b', target: 'c', type: 'REFERENCES', label: '참조' },
+        { source: 'a', target: 'e', type: 'TOPIC', label: '출장' },
+        { source: 'e', target: 'f', type: 'REFERENCES', label: '참조' },
+        { source: 'b', target: 'f', type: 'REFERENCES', label: '참조' },
+      ],
+      evidenceDocumentIds: ['a', 'e'],
+    })
+
+    expect(focus).toEqual({ evidence: 2, neighbors: 2 })
+    expect(graph.getNodeAttribute('a', 'focus')).toBe('evidence')
+    expect(graph.getNodeAttribute('b', 'focus')).toBe('neighbor')
+    expect(graph.getNodeAttribute('b', 'color')).toBe(documentTypeColor('APPROVAL'))
+    expect(graph.getNodeAttribute('b', 'size')).toBeGreaterThan(graph.getNodeAttribute('c', 'size'))
+    expect(graph.getNodeAttribute('c', 'focus')).toBe('dimmed')
+    expect(graph.getNodeAttribute('c', 'color')).toBe(DIMMED_COLOR)
+    // 흐려도 원래 색은 남겨 둔다(마우스를 올리면 되살림)
+    expect(graph.getNodeAttribute('c', 'baseColor')).toBe(documentTypeColor('ETC'))
+    expect(graph.getNodeAttribute('d', 'focus')).toBe('dimmed')
+
+    expect(graph.getEdgeAttribute(graph.edge('a', 'e'), 'focus')).toBe('evidence')
+    expect(graph.getEdgeAttribute(graph.edge('a', 'b'), 'focus')).toBe('neighbor')
+    expect(graph.getEdgeAttribute(graph.edge('a', 'b'), 'color')).not.toBe(DIMMED_EDGE_COLOR)
+    // 2-hop 선과 직접 연결 노드끼리의 선은 근거에 닿지 않으므로 흐리게 둔다
+    for (const [source, target] of [
+      ['b', 'c'],
+      ['b', 'f'],
+    ] as const) {
+      const edge = graph.edge(source, target)
+      expect(graph.getEdgeAttribute(edge, 'focus')).toBe('dimmed')
+      expect(graph.getEdgeAttribute(edge, 'color')).toBe(DIMMED_EDGE_COLOR)
+    }
+  })
+
+  it('근거가 없으면 포커스를 적용하지 않는다', () => {
+    const { graph, focus } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [{ source: 'a', target: 'b', type: 'REFERENCES' }],
+    })
+    expect(focus).toEqual({ evidence: 0, neighbors: 0 })
+    expect(graph.getNodeAttribute('a', 'focus')).toBe('none')
+    expect(graph.getEdgeAttribute(graph.edge('a', 'b'), 'focus')).toBe('none')
   })
 
   it('근거 문서가 그래프에 없으면 흐리게 하지 않는다', () => {
@@ -227,6 +285,80 @@ describe('간선 종류와 글자', () => {
     expect(hasReferences).toBe(false)
   })
 
+  it('수정된 문서를 참조하는 선만 빨갛게 경고한다', () => {
+    const links = [
+      { source: 'a', target: 'b', type: 'REFERENCES' as const, label: '참조' },
+      { source: 'b', target: 'c', type: 'REFERENCES' as const, label: '참조' },
+      topic('a', 'c', '보안'),
+    ]
+    const { graph, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links,
+      modifiedDocuments: [{ id: 'b', title: '연차 규정' }],
+    })
+    const warned = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(warned.warning).toBe(true)
+    expect(warned.label).toBe('경고! 내용 확인 필요 · 연차 규정 수정됨 · 참조')
+    expect(graph.getEdgeAttribute(graph.edge('b', 'c'), 'warning')).toBeUndefined()
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'warning')).toBeUndefined()
+    expect(hasWarnings).toBe(true)
+  })
+
+  it('수정 제안으로 해소한 문서는 충돌을 지우고 참조와 주제만 남긴다', () => {
+    const { graph, hasConflicts, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
+      ],
+      resolvedPairs: [['a', 'b']],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.type).toBe('REFERENCES')
+    expect(attributes.label).toBe('참조')
+    expect(attributes.warning).toBeUndefined()
+    expect(hasConflicts).toBe(false)
+    expect(hasWarnings).toBe(false)
+  })
+
+  it('다른 문서와의 충돌은 해소 처리와 무관하게 남긴다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
+        { source: 'a', target: 'c', type: 'CONFLICTS', label: '충돌' },
+      ],
+      resolvedPairs: [['a', 'b']],
+    })
+    expect(graph.hasEdge('a', 'b')).toBe(false)
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'type')).toBe('CONFLICTS')
+  })
+
+  it('보안 위험 참조는 빨간 경고로 표시하고 범례에 알린다', () => {
+    const { graph, hasWarnings } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'REFERENCES', label: '참조', securityRisk: true },
+        { source: 'b', target: 'a', type: 'REFERENCES', label: '참조', securityRisk: true },
+      ],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.warning).toBe(true)
+    expect(attributes.label).toBe('경고! 보안 위험 · 열람 등급 불일치 · 참조')
+    expect(hasWarnings).toBe(true)
+  })
+
+  it('근거 포커스로 가라앉은 선도 경고는 색과 글자를 유지한다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links: [{ source: 'a', target: 'b', type: 'REFERENCES', label: '참조', securityRisk: true }],
+      evidenceDocumentIds: ['c'],
+    })
+    const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
+    expect(attributes.color).toBe('rgba(248,113,113,0.95)')
+    expect(attributes.focus).toBe('neighbor')
+  })
+
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {
     const links = [
       topic('a', 'b', '연차'),
@@ -300,35 +432,5 @@ describe('separateEvidenceNodes', () => {
     separateEvidenceNodes(graph, new Set(['a', 'b']), new Set(['a', 'b']))
     expect(graph.getNodeAttributes('a')).toMatchObject({ x: 0, y: 0 })
     expect(graph.getNodeAttributes('b')).toMatchObject({ x: 0, y: 0 })
-  })
-})
-
-describe('computeHopMap', () => {
-  it('근거 노드는 hop 0, 연결선을 따라 한 단계씩 hop이 늘어난다', () => {
-    const graph = makeGraph(node('a', 0, 0), node('b', 1, 0), node('c', 2, 0), node('d', 3, 0))
-    graph.addEdge('a', 'b')
-    graph.addEdge('b', 'c')
-    graph.addEdge('c', 'd')
-    const hops = computeHopMap(graph, ['a'], 2)
-    expect(hops.get('a')).toBe(0)
-    expect(hops.get('b')).toBe(1)
-    expect(hops.get('c')).toBe(2)
-    expect(hops.has('d')).toBe(false)
-  })
-
-  it('근거가 여러 개면 더 가까운 쪽의 hop이 남는다', () => {
-    const graph = makeGraph(node('a', 0, 0), node('b', 1, 0), node('c', 2, 0))
-    graph.addEdge('a', 'b')
-    graph.addEdge('b', 'c')
-    const hops = computeHopMap(graph, ['a', 'c'], 2)
-    expect(hops.get('a')).toBe(0)
-    expect(hops.get('c')).toBe(0)
-    expect(hops.get('b')).toBe(1)
-  })
-
-  it('그래프에 없는 근거 id는 무시한다', () => {
-    const graph = makeGraph(node('a', 0, 0))
-    const hops = computeHopMap(graph, ['missing'], 2)
-    expect(hops.size).toBe(0)
   })
 })

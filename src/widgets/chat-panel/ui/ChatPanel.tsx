@@ -2,7 +2,10 @@ import { ChatView, GraphHighlightToggle } from '@/features/ask-question'
 import { useTabStore } from '@/features/document-tabs'
 import { toQuestionFilters, useDocumentFilterStore } from '@/features/filter-documents'
 
-/** 오른쪽 채팅 패널: 질문 입력과 근거가 달린 답변을 보여줍니다. */
+/**
+ * 오른쪽 채팅 패널: 질문 입력과 근거가 달린 답변을 보여줍니다.
+ * 지난 대화 목록은 사이드바의 "최근 질문"에서만 보여줍니다.
+ */
 export function ChatPanel() {
   const openDocument = useTabStore((state) => state.openDocument)
   const filter = useDocumentFilterStore((state) => state.filter)

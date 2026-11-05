@@ -4,13 +4,7 @@ import type Graph from 'graphology'
 import { DEFAULT_STYLES, type Sigma } from 'sigma'
 import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types'
 import { useEffect, type CSSProperties } from 'react'
-import { documentTypeColor } from '@/entities/document'
-import {
-  computeHopMap,
-  MAX_BRANCH_HOP,
-  type EdgeAttributes,
-  type NodeAttributes,
-} from '../lib/buildGraph'
+import { DIMMED_EDGE_COLOR, type EdgeAttributes, type NodeAttributes } from '../lib/buildGraph'
 
 export interface NodeHover {
   nodeId: string
@@ -33,10 +27,6 @@ let hoveredNodeId: string | null = null
 
 /** 1보다 작을수록 마우스를 움직인 거리보다 노드가 덜 움직입니다(끌기 민감도). */
 const DRAG_DAMPING = 0.35
-
-/** 간선이 너무 많이 겹쳐 엉켜 보이는 걸 줄이려고, 기본은 모두 흐리게 두고 호버한 노드의
- * 간선만 원래 색으로 복원합니다. */
-const DIMMED_EDGE_COLOR = 'rgba(148, 163, 184, 0.08)'
 
 // 그래프 탭을 열 때 한 번, 노드·간선이 작고 투명하게 시작해 제 크기·색으로 커지는 등장
 // 애니메이션에 쓰는 진행도(0~1). nodeReducer/edgeReducer가 매 프레임 이 값을 읽으므로
@@ -62,67 +52,6 @@ function playAppearAnimation(sigma: Sigma) {
   appearAnimationFrame = requestAnimationFrame(step)
 }
 
-// 근거 문서(질문에 답한 출처)에서 연결선을 따라 몇 단계(hop) 떨어져 있는지. null이면 "가지 뻗기"
-// 애니메이션이 꺼진 상태(근거 없음)로, 평소처럼 호버한 노드의 간선만 보여줍니다. 값이 있으면
-// hop이 revealStep 이하인 노드·간선만 밝게 보이다가, revealStep이 하나씩 늘면서 점점 퍼집니다.
-let hopByNode: Map<string, number> | null = null
-let revealStep = -1
-let hopTimers: ReturnType<typeof setTimeout>[] = []
-
-/** hop 사이에 애니메이션이 퍼지는 간격(ms). 0.3~0.5초 사이로 너무 빠르지도 느리지도 않게. */
-const HOP_REVEAL_INTERVAL_MS = 400
-
-// 가지(hop 1~2) 노드는 아예 없다가(visibility hidden) revealStep이 자기 hop에 닿는 순간
-// 작게 시작해 제 크기로 커지며 나타납니다. hopPopProgress는 "방금 등장한 노드들"에만
-// 적용되는 0~1 진행도로, 각 hop이 열릴 때마다 다시 0부터 재생합니다.
-let hopPopProgress = 1
-let hopPopFrame: number | null = null
-const HOP_POP_DURATION_MS = 300
-
-function playHopPop(sigma: Sigma) {
-  if (hopPopFrame !== null) cancelAnimationFrame(hopPopFrame)
-  const start = performance.now()
-  hopPopProgress = 0
-  const step = (now: number) => {
-    hopPopProgress = easeOutCubic(Math.min(1, (now - start) / HOP_POP_DURATION_MS))
-    sigma.refresh({ skipIndexation: true })
-    hopPopFrame = hopPopProgress < 1 ? requestAnimationFrame(step) : null
-  }
-  hopPopFrame = requestAnimationFrame(step)
-}
-
-function clearHopAnimation() {
-  for (const timer of hopTimers) clearTimeout(timer)
-  hopTimers = []
-  if (hopPopFrame !== null) {
-    cancelAnimationFrame(hopPopFrame)
-    hopPopFrame = null
-  }
-}
-
-/** 근거 문서가 바뀔 때마다(새 질문·근거 강조 토글) 한 번 재생합니다. */
-function playHopAnimation(sigma: Sigma, graph: Graph<NodeAttributes>, evidenceIds: string[]) {
-  clearHopAnimation()
-  if (evidenceIds.length === 0) {
-    hopByNode = null
-    revealStep = -1
-    sigma.refresh({ skipIndexation: true })
-    return
-  }
-  hopByNode = computeHopMap(graph, evidenceIds, MAX_BRANCH_HOP)
-  revealStep = 0
-  hopPopProgress = 1
-  sigma.refresh({ skipIndexation: true })
-  for (let hop = 1; hop <= MAX_BRANCH_HOP; hop++) {
-    hopTimers.push(
-      setTimeout(() => {
-        revealStep = hop
-        playHopPop(sigma)
-      }, hop * HOP_REVEAL_INTERVAL_MS),
-    )
-  }
-}
-
 /** CSS 색(hex 또는 rgb/rgba) 문자열에 알파를 곱합니다. 등장 애니메이션의 페이드인에 씁니다. */
 function withAlpha(color: string, alpha: number): string {
   if (color.startsWith('#')) {
@@ -137,6 +66,14 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${(a ?? 1) * alpha})`
 }
 
+/**
+ * 근거가 없을 때(포커스 'none') 호버하지 않아도 항상 보여 줄 선. 충돌·경고는 사용자가 찾아다니지
+ * 않아도 바로 보여야 하므로 호버 강조로 흐리지 않습니다.
+ */
+function alwaysVisible(attributes: EdgeAttributes) {
+  return attributes.warning === true || attributes.type === 'CONFLICTS'
+}
+
 // 렌더마다 새 객체를 넘기면 sigma를 다시 만들어 그리는 중에 오류가 납니다. 한 번만 만듭니다.
 // 명시적으로 SigmaOptions 타입을 붙여서, nodeReducer/edgeReducer를 settings 안에 잘못 넣는
 // 것 같은 실수를 타입 체커가 잡게 합니다(실제로 그런 실수가 있었습니다).
@@ -144,21 +81,40 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
   // 라벨 글자색 기본값(검정)이 다크 배경에서 안 보여서 밝은 색으로 바꿉니다.
   // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
   styles: {
-    nodes: {
-      ...DEFAULT_STYLES.nodes,
-      labelColor: '#e8edf5',
-      labelVisibility: 'auto',
-      // backdrop은 원래 호버 시 뜨는 흰 알약(라벨 배경)이라 꺼 뒀는데(HoverTooltip과 겹침),
-      // 여기서는 라벨이 아니라 노드 모양 자체(backdropArea: 'node')에 두는 용도로 켭니다.
-      // 노드보다 살짝 크게(padding) 자기 색 그대로(attribute: 'color') 흐리게 번지게 해서
-      // 그림자·글로우로 입체감을 줍니다. HoverTooltip의 흰 배경과는 무관합니다.
-      backdropVisibility: 'visible',
-      backdropArea: 'node',
-      backdropColor: { attribute: 'color' },
-      backdropShadowColor: 'rgba(2, 6, 23, 0.55)',
-      backdropShadowBlur: 10,
-      backdropPadding: 5,
-    },
+    nodes: [
+      {
+        ...DEFAULT_STYLES.nodes,
+        labelColor: '#e8edf5',
+        labelVisibility: 'auto',
+        // backdrop은 원래 호버 시 뜨는 흰 알약(라벨 배경)이라 꺼 뒀는데(HoverTooltip과 겹침),
+        // 여기서는 라벨이 아니라 노드 모양 자체(backdropArea: 'node')에 두는 용도로 켭니다.
+        // 노드보다 살짝 크게(padding) 자기 색 그대로(attribute: 'color') 흐리게 번지게 해서
+        // 그림자·글로우로 입체감을 줍니다. HoverTooltip의 흰 배경과는 무관합니다.
+        backdropVisibility: 'visible',
+        backdropArea: 'node',
+        backdropColor: { attribute: 'color' },
+        backdropShadowColor: 'rgba(2, 6, 23, 0.55)',
+        backdropShadowBlur: 10,
+        backdropPadding: 5,
+      },
+      // 근거 포커스(buildGraph의 applyEvidenceFocus): 근거와 직접 연결 노드는 라벨을 항상 보이고,
+      // 흐린 노드는 라벨을 숨겨 화면에 남는 글자를 근거 주변으로 좁힙니다.
+      {
+        whenData: { focus: 'evidence' },
+        then: { labelVisibility: 'visible', labelColor: '#ffffff' },
+      },
+      {
+        whenData: { focus: 'neighbor' },
+        then: { labelVisibility: 'visible', labelColor: '#cbd5e1' },
+      },
+      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
+      // 흐린 노드에 마우스를 올리면 원래 유형 색을 반쯤 되살려 어떤 문서인지 가늠하게 합니다.
+      {
+        when: (attributes: { focus?: string }, state: { isHovered: boolean }) =>
+          attributes.focus === 'dimmed' && state.isHovered,
+        then: { color: { attribute: 'baseColor' }, opacity: 0.6 },
+      },
+    ],
     // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
     edges: [
       DEFAULT_STYLES.edges,
@@ -173,9 +129,15 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
         then: { labelColor: '#fb923c' },
       },
       {
+        when: (attributes: { warning?: boolean }) => attributes.warning === true,
+        then: { labelColor: '#fca5a5' },
+      },
+      {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },
+      // 근거에 닿지 않는 선은 관계 글자를 숨깁니다(색·굵기는 buildGraph가 이미 흐리게 정함).
+      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
     ],
   },
   settings: {
@@ -184,6 +146,15 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
     // 노드를 누른 채로 끌면 위치가 바뀌게 합니다(x/y 속성에 직접 반영됨).
     enableNodeDrag: true,
     renderEdgeLabels: true,
+    // 선을 눌러 관계 내용을 봅니다.
+    enableEdgeEvents: true,
+    // 기본값(true)은 그릴 때마다 전체 노드 범위에 화면을 다시 맞춥니다. 노드 하나를 멀리 끌면
+    // 범위가 넓어져 그래프 전체가 갑자기 확 작아졌습니다. 그래프를 새로 불러올 때(새 답변·필터 변경)
+    // 한 번만 맞추고, 끄는 동안에는 배율을 그대로 둡니다.
+    autoRescale: 'once',
+    // 확대·축소 한도. 비율이 작을수록 확대입니다(0.1 = 10배 확대, 3 = 3배 축소).
+    minCameraRatio: 0.1,
+    maxCameraRatio: 3,
     // 기본값대로면 마우스 이동량이 그대로(화면 배율만큼) 좌표 변화로 들어가, 그래프가 넓어질수록
     // 같은 마우스 움직임이 더 크게 반영돼 "조금만 움직여도 훅 튄다"는 느낌을 줍니다. 목표 위치로
     // 매 프레임 일부만 다가가게 해서 체감 민감도를 낮춥니다.
@@ -197,66 +168,35 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
     },
   },
   // nodeReducer/edgeReducer는 settings가 아니라 SigmaOptions의 최상위 속성입니다(sigma/types의
-  // SigmaOptions 참고). settings 안에 넣으면 Settings 타입에 없는 키라 조용히 무시됩니다 —
-  // 전체 옵션 객체를 SigmaContainer에 넘길 때 `as never`로 캐스팅해 타입 체크가 꺼져 있어서
-  // 빌드는 통과하지만 런타임에 전혀 적용되지 않았습니다.
-  nodeReducer: (_node: string, data: NodeDisplayData, attrs: NodeAttributes) => {
-    let base = data
-    // 근거 노드(hop 0)는 buildGraph에서 이미 제 색 그대로입니다. 가지 노드(hop 1~2)는
-    // revealStep이 닿기 전까지는 아예 안 보이게 숨겨 뒀다가, 자기 hop 차례가 되면 작게
-    // 나타나 제 크기·색으로 커집니다(hopPopProgress). 이미 몇 단계 전에 등장한 노드는
-    // 그냥 제 색 그대로 보여줍니다. hop 범위 밖(근거와 무관한) 노드는 건드리지 않고
-    // buildGraph가 깔아 둔 흐린 색(DIMMED_COLOR) 그대로 둡니다.
-    if (hopByNode && !attrs.highlighted) {
-      const hop = hopByNode.get(_node)
-      if (hop !== undefined) {
-        if (hop > revealStep) {
-          return { ...base, visibility: 'hidden' }
-        }
-        const trueColor = documentTypeColor(attrs.documentType)
-        base =
-          hop === revealStep && hop > 0
-            ? { ...base, color: trueColor, size: base.size * hopPopProgress }
-            : { ...base, color: trueColor }
-      }
-    }
-    // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
-    if (appearProgress >= 1) return base
+  // SigmaOptions 참고). settings 안에 넣으면 Settings 타입에 없는 키라 조용히 무시됩니다.
+  // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
+  nodeReducer: (_node: string, data: NodeDisplayData) => {
+    if (appearProgress >= 1) return data
     return {
-      ...base,
-      size: base.size * appearProgress,
-      color: withAlpha(base.color, appearProgress),
+      ...data,
+      size: data.size * appearProgress,
+      color: withAlpha(data.color, appearProgress),
     }
   },
-  // 평소(근거 없음)에는 호버한 노드에 붙은 간선만 원래 색으로 보여주고 나머지는 흐립니다.
-  // 근거가 있으면(질문에 답했을 때) hop이 revealStep 이하인, 즉 지금까지 "가지 뻗기" 애니메이션이
-  // 퍼진 범위의 간선만 보여줍니다 — 호버는 이 범위와 별개로 항상 추가로 동작합니다.
-  // 라벨도 흐려진 간선에서는 숨겨서 뒤엉켜 보이는 걸 줄입니다. 등장 애니메이션 중에는 이 결과
-  // 위에 다시 페이드인 알파를 곱합니다.
+  // 근거가 없을 때(포커스 'none')는 호버한 노드에 붙은 간선만 원래 색으로 보여 주고 나머지는
+  // 흐려서 엉켜 보이는 걸 줄입니다(충돌·경고 선은 항상 보임). 근거가 있으면 근거 포커스
+  // (buildGraph의 applyEvidenceFocus)가 이미 선을 나눠 두었으므로 여기서는 손대지 않습니다.
+  // 등장 애니메이션 중에는 이 결과 위에 다시 페이드인 알파를 곱합니다.
   edgeReducer: (
     edge: string,
     data: EdgeDisplayData,
-    _attrs: EdgeAttributes,
+    attributes: EdgeAttributes,
     _state: unknown,
     _graphState: unknown,
     graph: Graph<NodeAttributes, EdgeAttributes>,
   ) => {
-    const [source, target] = graph.extremities(edge)
-    const isHovered =
-      hoveredNodeId !== null && (source === hoveredNodeId || target === hoveredNodeId)
-    const isRevealed =
-      hopByNode !== null &&
-      (() => {
-        const sourceHop = hopByNode.get(source)
-        const targetHop = hopByNode.get(target)
-        return (
-          sourceHop !== undefined &&
-          targetHop !== undefined &&
-          Math.max(sourceHop, targetHop) <= revealStep
-        )
-      })()
-    const isHighlighted = isHovered || isRevealed
-    const base = isHighlighted ? data : { ...data, color: DIMMED_EDGE_COLOR, label: undefined }
+    let base = data
+    if (attributes.focus === 'none' && !alwaysVisible(attributes)) {
+      const [source, target] = graph.extremities(edge)
+      const isHovered =
+        hoveredNodeId !== null && (source === hoveredNodeId || target === hoveredNodeId)
+      if (!isHovered) base = { ...data, color: DIMMED_EDGE_COLOR, label: null }
+    }
     if (appearProgress >= 1) return base
     return { ...base, color: withAlpha(base.color, appearProgress) }
   },
@@ -265,15 +205,14 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
 // WebGL로 그리는 부분만 따로 두어 필요할 때 불러옵니다(sigma는 WebGL이 없으면 불러올 때 실패합니다).
 export default function SigmaCanvas({
   graph,
-  evidenceDocumentIds,
   onNodeClick,
+  onEdgeClick,
   onNodeHover,
   onReady,
 }: {
   graph: Graph<NodeAttributes>
-  /** 가장 최근 답변의 근거 문서. 바뀔 때마다 여기서부터 가지가 뻗어나가는 애니메이션을 다시 재생합니다. */
-  evidenceDocumentIds: string[]
   onNodeClick: (documentId: string) => void
+  onEdgeClick?: (edge: string | null) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
 }) {
@@ -286,8 +225,12 @@ export default function SigmaCanvas({
       options={SIGMA_OPTIONS}
     >
       <GraphLoader graph={graph} />
-      <GraphEvents onNodeClick={onNodeClick} onNodeHover={onNodeHover} onReady={onReady} />
-      <HopReveal evidenceDocumentIds={evidenceDocumentIds} />
+      <GraphEvents
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onNodeHover={onNodeHover}
+        onReady={onReady}
+      />
     </SigmaContainer>
   )
 }
@@ -302,10 +245,12 @@ function GraphLoader({ graph }: { graph: Graph<NodeAttributes> }) {
 
 function GraphEvents({
   onNodeClick,
+  onEdgeClick,
   onNodeHover,
   onReady,
 }: {
   onNodeClick: (documentId: string) => void
+  onEdgeClick?: (edge: string | null) => void
   onNodeHover: (hover: NodeHover | null) => void
   onReady: (sigma: Sigma) => void
 }) {
@@ -328,6 +273,10 @@ function GraphEvents({
   useEffect(() => {
     registerEvents({
       clickNode: ({ node }) => onNodeClick(node),
+      clickEdge: ({ edge }) => onEdgeClick?.(edge),
+      clickStage: () => onEdgeClick?.(null),
+      enterEdge: () => sigma.getContainer().style.setProperty('cursor', 'pointer'),
+      leaveEdge: () => sigma.getContainer().style.removeProperty('cursor'),
       enterNode: ({ node, event }) => {
         // 'grab'으로 눌러서 끌 수 있다는 걸 알려줍니다.
         sigma.getContainer().style.setProperty('cursor', 'grab')
@@ -351,22 +300,6 @@ function GraphEvents({
         sigma.getContainer().style.setProperty('cursor', 'grab')
       },
     })
-  }, [registerEvents, sigma, onNodeClick, onNodeHover])
-  return null
-}
-
-/** GraphLoader 다음에 렌더돼야, 이 effect가 돌 때 sigma.getGraph()가 이미 새 그래프를 갖고 있습니다. */
-function HopReveal({ evidenceDocumentIds }: { evidenceDocumentIds: string[] }) {
-  const sigma = useSigma()
-
-  useEffect(() => {
-    playHopAnimation(
-      sigma,
-      sigma.getGraph() as unknown as Graph<NodeAttributes>,
-      evidenceDocumentIds,
-    )
-    return () => clearHopAnimation()
-  }, [sigma, evidenceDocumentIds])
-
+  }, [registerEvents, sigma, onNodeClick, onEdgeClick, onNodeHover])
   return null
 }

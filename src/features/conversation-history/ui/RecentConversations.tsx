@@ -1,12 +1,10 @@
 import { useConversations } from '@/entities/conversation'
 import { DeleteConversationButton } from './DeleteConversationButton'
 
-/** 사이드바에 보여줄 최근 대화 수. 전체 목록은 채팅 패널의 "대화 기록"에서 봅니다. */
-const RECENT_LIMIT = 10
-
 /**
  * 사이드바의 "최근 질문": 서버에 저장된 내 대화를 최근 갱신순으로 보여주고, 고르면 다시 불러옵니다.
- * 목록은 서버가 이미 최근 갱신순으로 줍니다.
+ * 목록은 서버가 이미 최근 갱신순으로 줍니다. 대화 기록을 보는 곳이 여기뿐이라 개수를 자르지 않고
+ * 전부 보여주며, 길어지면 목록 안에서 스크롤합니다.
  */
 export function RecentConversations({
   activeConversationId,
@@ -36,7 +34,7 @@ export function RecentConversations({
     <nav aria-label="최근 질문" className="flex min-h-0 flex-col gap-0.5">
       <p className="px-3 pb-1.5 text-xs font-medium text-ink-muted">최근 질문</p>
       <ul className="flex min-h-0 flex-col gap-0.5 overflow-y-auto">
-        {conversations.slice(0, RECENT_LIMIT).map((conversation) => {
+        {conversations.map((conversation) => {
           const active = conversation.id === activeConversationId
           return (
             <li

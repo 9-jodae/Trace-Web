@@ -16,6 +16,13 @@ describe('AnswerMarkdown', () => {
     expect(screen.queryByText(/##|\*\*/)).not.toBeInTheDocument()
   })
 
+  it('문장 부호 뒤에 한글이 붙은 굵은 글씨도 별표 없이 보여 준다', () => {
+    render(<AnswerMarkdown text={'한도 **12%**를 **5%**로 바꾸고 `**코드**`는 둔다'} />)
+    expect(screen.getByText('12%').tagName).toBe('STRONG')
+    expect(screen.getByText('5%').tagName).toBe('STRONG')
+    expect(screen.getByText('**코드**').tagName).toBe('CODE')
+  })
+
   it('링크는 새 탭으로 안전하게 열고, 원시 HTML과 이미지는 렌더링하지 않는다', () => {
     const { container } = render(
       <AnswerMarkdown

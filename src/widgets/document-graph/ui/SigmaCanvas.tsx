@@ -18,12 +18,31 @@ const SIGMA_OPTIONS = {
   // backdrop(호버 시 뜨는 흰 알약 배경)도 꺼서 우리가 직접 그리는 HoverTooltip과 안 겹치게 합니다.
   // labelVisibility를 'auto' 고정해 호버 시에만 강제로 뜨는 기본 라벨도 없앱니다.
   styles: {
-    nodes: {
-      ...DEFAULT_STYLES.nodes,
-      labelColor: '#e8edf5',
-      labelVisibility: 'auto',
-      backdropVisibility: 'hidden',
-    },
+    nodes: [
+      {
+        ...DEFAULT_STYLES.nodes,
+        labelColor: '#e8edf5',
+        labelVisibility: 'auto',
+        backdropVisibility: 'hidden',
+      },
+      // 근거 포커스(buildGraph의 applyEvidenceFocus): 근거와 직접 연결 노드는 라벨을 항상 보이고,
+      // 흐린 노드는 라벨을 숨겨 화면에 남는 글자를 근거 주변으로 좁힙니다.
+      {
+        whenData: { focus: 'evidence' },
+        then: { labelVisibility: 'visible', labelColor: '#ffffff' },
+      },
+      {
+        whenData: { focus: 'neighbor' },
+        then: { labelVisibility: 'visible', labelColor: '#cbd5e1' },
+      },
+      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
+      // 흐린 노드에 마우스를 올리면 원래 유형 색을 반쯤 되살려 어떤 문서인지 가늠하게 합니다.
+      {
+        when: (attributes: { focus?: string }, state: { isHovered: boolean }) =>
+          attributes.focus === 'dimmed' && state.isHovered,
+        then: { color: { attribute: 'baseColor' }, opacity: 0.6 },
+      },
+    ],
     // 관계 종류를 선 위 글자로 보여 줍니다. 글자색은 선 색과 맞춥니다.
     edges: [
       DEFAULT_STYLES.edges,
@@ -41,6 +60,8 @@ const SIGMA_OPTIONS = {
         when: (attributes: { type?: string }) => attributes.type === 'REFERENCES',
         then: { labelColor: '#93c5fd' },
       },
+      // 근거에 닿지 않는 선은 관계 글자를 숨깁니다(색·굵기는 buildGraph가 이미 흐리게 정함).
+      { whenData: { focus: 'dimmed' }, then: { labelVisibility: 'hidden' } },
     ],
   },
   settings: {

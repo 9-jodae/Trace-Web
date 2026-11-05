@@ -6,6 +6,9 @@ import {
   avoidEdgeNodeCrossings,
   buildDocumentGraph,
   computeHopMap,
+  computeHopTree,
+  computeHoverRadialPositions,
+  computeRadialPositions,
   DIMMED_COLOR,
   separateEvidenceNodes,
   typeLegend,
@@ -330,5 +333,56 @@ describe('computeHopMap', () => {
     const graph = makeGraph(node('a', 0, 0))
     const hops = computeHopMap(graph, ['missing'], 2)
     expect(hops.size).toBe(0)
+  })
+})
+
+describe('computeRadialPositions', () => {
+  it('부모(근거) 둘레에 자식을 HOP_RADIAL_SPREAD만큼 떨어뜨려 놓는다', () => {
+    const graph = makeGraph(node('a', 0, 0), node('b', 500, 500), node('c', -500, -500))
+    graph.addEdge('a', 'b')
+    graph.addEdge('a', 'c')
+    const tree = computeHopTree(graph, ['a'], 1)
+    const positions = computeRadialPositions(graph, tree)
+    expect(positions.has('a')).toBe(false) // 근거 자신은 원래 자리 그대로
+    for (const id of ['b', 'c']) {
+      const pos = positions.get(id)!
+      expect(Math.hypot(pos.x - 0, pos.y - 0)).toBeCloseTo(45, 5)
+    }
+  })
+
+  it('hop 2 노드는 원래 유형별 자리가 아니라 재배치된 hop 1 부모를 기준으로 펼쳐진다', () => {
+    const graph = makeGraph(node('a', 0, 0), node('b', 500, 500), node('c', -500, -500))
+    graph.addEdge('a', 'b')
+    graph.addEdge('b', 'c')
+    const tree = computeHopTree(graph, ['a'], 2)
+    const positions = computeRadialPositions(graph, tree)
+    const bPos = positions.get('b')!
+    const cPos = positions.get('c')!
+    expect(Math.hypot(cPos.x - bPos.x, cPos.y - bPos.y)).toBeCloseTo(45, 5)
+  })
+})
+
+describe('computeHoverRadialPositions', () => {
+  it('호버한 노드의 이웃을 둘레에 고르게 펼친다', () => {
+    const graph = makeGraph(
+      node('center', 0, 0),
+      node('n1', 500, 0),
+      node('n2', -500, 0),
+      node('n3', 0, 500),
+    )
+    graph.addEdge('center', 'n1')
+    graph.addEdge('center', 'n2')
+    graph.addEdge('center', 'n3')
+    const positions = computeHoverRadialPositions(graph, 'center')
+    expect(positions.size).toBe(3)
+    for (const id of ['n1', 'n2', 'n3']) {
+      const pos = positions.get(id)!
+      expect(Math.hypot(pos.x, pos.y)).toBeCloseTo(45, 5)
+    }
+  })
+
+  it('그래프에 없는 노드를 호버하면 빈 맵을 돌려준다', () => {
+    const graph = makeGraph(node('a', 0, 0))
+    expect(computeHoverRadialPositions(graph, 'missing').size).toBe(0)
   })
 })

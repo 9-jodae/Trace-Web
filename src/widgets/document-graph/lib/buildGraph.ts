@@ -331,6 +331,38 @@ export function buildDocumentGraph({
 /** 근거 문서(hop 0)에서 몇 단계(hop) 떨어져 있는지. 이 거리까지만 "가지 뻗기" 애니메이션으로 보여줍니다. */
 export const MAX_BRANCH_HOP = 2
 
+/** BFS로 한 번 퍼뜨릴 때 나오는 hop 거리와, 그 노드를 처음 발견한 이웃(부모). 근거(hop 0)는
+ * parent가 없습니다. computeRadialPositions가 이 parent 체인을 따라 "바퀴살" 위치를 만듭니다. */
+export interface HopNode {
+  hop: number
+  parent: string | null
+}
+
+/** computeHopMap과 같은 다중 시작점 BFS지만, hop 거리와 함께 부모(`computeRadialPositions`용)도
+ * 돌려줍니다. computeHopMap은 이 결과에서 hop만 뽑아 쓰는 얇은 래퍼입니다. */
+export function computeHopTree(
+  graph: Graph<NodeAttributes>,
+  roots: string[],
+  maxHop: number = MAX_BRANCH_HOP,
+): Map<string, HopNode> {
+  const result = new Map<string, HopNode>()
+  let frontier = roots.filter((id) => graph.hasNode(id))
+  for (const id of frontier) result.set(id, { hop: 0, parent: null })
+
+  for (let hop = 1; hop <= maxHop && frontier.length > 0; hop++) {
+    const next: string[] = []
+    for (const nodeId of frontier) {
+      graph.forEachNeighbor(nodeId, (neighbor) => {
+        if (result.has(neighbor)) return
+        result.set(neighbor, { hop, parent: nodeId })
+        next.push(neighbor)
+      })
+    }
+    frontier = next
+  }
+  return result
+}
+
 /**
  * 근거 문서들(`roots`, hop 0)에서 연결선을 따라 최대 `maxHop` 단계까지 너비 우선으로 퍼뜨려,
  * 문서마다 근거로부터 몇 단계 떨어져 있는지 구합니다. 여러 근거에서 동시에 퍼뜨리므로(다중 시작점
@@ -341,20 +373,67 @@ export function computeHopMap(
   roots: string[],
   maxHop: number = MAX_BRANCH_HOP,
 ): Map<string, number> {
-  const hops = new Map<string, number>()
-  let frontier = roots.filter((id) => graph.hasNode(id))
-  for (const id of frontier) hops.set(id, 0)
+  const tree = computeHopTree(graph, roots, maxHop)
+  return new Map([...tree].map(([id, { hop }]) => [id, hop]))
+}
 
-  for (let hop = 1; hop <= maxHop && frontier.length > 0; hop++) {
-    const next: string[] = []
-    for (const nodeId of frontier) {
-      graph.forEachNeighbor(nodeId, (neighbor) => {
-        if (hops.has(neighbor)) return
-        hops.set(neighbor, hop)
-        next.push(neighbor)
-      })
-    }
-    frontier = next
+/** 근거에서 뻗어나간 노드(hop)가 부모 둘레로부터 떨어질 거리(그래프 좌표 단위). */
+const HOP_RADIAL_SPREAD = 45
+
+/**
+ * 가지 뻗기 애니메이션으로 나타나는 노드들을, 유형별 배치 자리 대신 부모(자신을 발견한 노드)
+ * 둘레에 바퀴살처럼 임시로 펼쳐 놓습니다. 유형별 해바라기 배치는 연결 관계를 모르고 정해지므로,
+ * 근거에서 먼 이웃이 화면 반대편에 있을 수 있어 간선이 길게 가로지르며 서로 교차해 보이는
+ * 문제를 줄입니다. hop이 작은 노드부터 순서대로 계산해야, hop 2 노드가 이미 재배치된 hop 1
+ * 부모의 위치를 기준으로 펼쳐집니다. 근거(hop 0) 자체는 포함하지 않습니다(원래 자리 그대로).
+ */
+export function computeRadialPositions(
+  graph: Graph<NodeAttributes>,
+  tree: Map<string, HopNode>,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>()
+  const branchNodes = [...tree.entries()]
+    .filter(([, info]) => info.hop > 0)
+    .sort((a, b) => a[1].hop - b[1].hop)
+
+  const childrenByParent = new Map<string, string[]>()
+  for (const [id, info] of branchNodes) {
+    if (!info.parent) continue
+    const siblings = childrenByParent.get(info.parent) ?? []
+    siblings.push(id)
+    childrenByParent.set(info.parent, siblings)
   }
-  return hops
+
+  for (const [id, info] of branchNodes) {
+    const parent = info.parent
+    if (!parent) continue
+    const siblings = childrenByParent.get(parent) ?? [id]
+    const angle = (siblings.indexOf(id) / siblings.length) * Math.PI * 2
+    const parentPosition = positions.get(parent) ?? graph.getNodeAttributes(parent)
+    positions.set(id, {
+      x: parentPosition.x + HOP_RADIAL_SPREAD * Math.cos(angle),
+      y: parentPosition.y + HOP_RADIAL_SPREAD * Math.sin(angle),
+    })
+  }
+  return positions
+}
+
+/** 호버한 노드의 바로 이웃만 그 주변에 바퀴살처럼 임시로 펼쳐 놓습니다(하나의 둘레, hop 트리와
+ * 같은 간격 상수를 씁니다). 호버가 끝나면 호출한 쪽에서 이 맵을 비워 원래 자리로 되돌립니다. */
+export function computeHoverRadialPositions(
+  graph: Graph<NodeAttributes>,
+  center: string,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>()
+  if (!graph.hasNode(center)) return positions
+  const centerPosition = graph.getNodeAttributes(center)
+  const neighbors = graph.neighbors(center)
+  neighbors.forEach((neighbor, index) => {
+    const angle = (index / neighbors.length) * Math.PI * 2
+    positions.set(neighbor, {
+      x: centerPosition.x + HOP_RADIAL_SPREAD * Math.cos(angle),
+      y: centerPosition.y + HOP_RADIAL_SPREAD * Math.sin(angle),
+    })
+  })
+  return positions
 }

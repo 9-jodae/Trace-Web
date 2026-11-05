@@ -6,9 +6,12 @@ import type { EdgeDisplayData, NodeDisplayData, SigmaOptions } from 'sigma/types
 import { useEffect, type CSSProperties } from 'react'
 import { documentTypeColor } from '@/entities/document'
 import {
-  computeHopMap,
+  computeHopTree,
+  computeHoverRadialPositions,
+  computeRadialPositions,
   MAX_BRANCH_HOP,
   type EdgeAttributes,
+  type HopNode,
   type NodeAttributes,
 } from '../lib/buildGraph'
 
@@ -39,6 +42,11 @@ let liveGraph: Graph<NodeAttributes> | null = null
 // 모듈 변수로 두고, GraphEvents의 enterNode/leaveNode에서 갱신한 뒤 sigma.refresh()로
 // 다시 그리게 합니다.
 let hoveredNodeId: string | null = null
+
+// 호버한 노드의 바로 이웃을 그 둘레에 임시로 모아 놓은 자리(그래프 좌표). 유형별 배치는 연결
+// 관계를 모르고 정해져서 이웃이 화면 반대편에 있을 수 있어, 그 상태로 간선만 밝히면 길게
+// 가로지르며 서로 교차해 보입니다. 호버가 끝나면(leaveNode) null로 돌려 원래 자리로 되돌립니다.
+let hoverRadialPositions: Map<string, { x: number; y: number }> | null = null
 
 /** 1보다 작을수록 마우스를 움직인 거리보다 노드가 덜 움직입니다(끌기 민감도). */
 const DRAG_DAMPING = 0.35
@@ -82,6 +90,10 @@ function playAppearAnimation(sigma: Sigma) {
 let hopByNode: Map<string, number> | null = null
 let revealStep = -1
 let hopTimers: ReturnType<typeof setTimeout>[] = []
+
+// 가지 노드(hop 1~2)를 부모 둘레에 바퀴살처럼 펼쳐 놓은 자리. hoverRadialPositions와 같은
+// 이유(유형별 배치가 연결 관계를 모름)로 두고, 호버가 없을 때는 이 자리가 적용됩니다.
+let hopPositions: Map<string, { x: number; y: number }> | null = null
 
 /** hop 사이에 애니메이션이 퍼지는 간격(ms). 0.3~0.5초 사이로 너무 빠르지도 느리지도 않게. */
 const HOP_REVEAL_INTERVAL_MS = 400
@@ -144,11 +156,14 @@ function playHopAnimation(
   clearHopAnimation()
   if (evidenceIds.length === 0) {
     hopByNode = null
+    hopPositions = null
     revealStep = -1
     sigma.refresh({ skipIndexation: true })
     return
   }
-  hopByNode = computeHopMap(graph, evidenceIds, MAX_BRANCH_HOP)
+  const tree: Map<string, HopNode> = computeHopTree(graph, evidenceIds, MAX_BRANCH_HOP)
+  hopByNode = new Map([...tree].map(([id, { hop }]) => [id, hop]))
+  hopPositions = computeRadialPositions(graph, tree)
   revealStep = 0
   hopPopProgress = 1
   sigma.refresh({ skipIndexation: true })
@@ -266,12 +281,22 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
       }
     }
     // 등장 애니메이션 중에는 노드가 작고 투명하게 시작해 제 크기·색으로 커집니다.
-    if (appearProgress >= 1) return base
-    return {
-      ...base,
-      size: base.size * appearProgress,
-      color: withAlpha(base.color, appearProgress),
+    if (appearProgress < 1) {
+      base = {
+        ...base,
+        size: base.size * appearProgress,
+        color: withAlpha(base.color, appearProgress),
+      }
     }
+    // 호버한 노드의 이웃(hoverRadialPositions), 또는 가지 뻗기 중인 노드(hopPositions)를
+    // 부모·호버 노드 둘레에 임시로 모아서, 유형별 배치가 연결 관계를 몰라 이웃이 화면
+    // 반대편에 있는 바람에 간선이 길게 가로지르며 서로 교차해 보이는 걸 줄입니다. 둘 다
+    // 해당하면 지금 상호작용 중인 호버가 우선합니다.
+    const radialPosition = hoverRadialPositions?.get(_node) ?? hopPositions?.get(_node)
+    if (radialPosition) {
+      base = { ...base, x: radialPosition.x, y: radialPosition.y }
+    }
+    return base
   },
   // 평소(근거 없음)에는 호버한 노드에 붙은 간선만 원래 색으로 보여주고 나머지는 흐립니다.
   // 근거가 있으면(질문에 답했을 때) hop이 revealStep 이하인, 즉 지금까지 "가지 뻗기" 애니메이션이
@@ -366,6 +391,7 @@ function GraphEvents({
   useEffect(() => {
     liveGraph = sigma.getGraph() as unknown as Graph<NodeAttributes>
     hoveredNodeId = null
+    hoverRadialPositions = null
     playAppearAnimation(sigma)
     onReady(sigma)
     return () => {
@@ -384,12 +410,17 @@ function GraphEvents({
         sigma.getContainer().style.setProperty('cursor', 'grab')
         onNodeHover({ nodeId: node, x: event.x, y: event.y })
         hoveredNodeId = node
+        hoverRadialPositions = computeHoverRadialPositions(
+          sigma.getGraph() as unknown as Graph<NodeAttributes>,
+          node,
+        )
         sigma.refresh({ skipIndexation: true })
       },
       leaveNode: () => {
         sigma.getContainer().style.removeProperty('cursor')
         onNodeHover(null)
         hoveredNodeId = null
+        hoverRadialPositions = null
         sigma.refresh({ skipIndexation: true })
       },
       downNode: () => {

@@ -98,6 +98,26 @@ describe('Sidebar 최근 질문', () => {
     expect(within(recent).queryByText('지금 세션에서 보낸 질문')).not.toBeInTheDocument()
   })
 
+  it('대화가 10개를 넘어도 자르지 않고 전부 보여준다', async () => {
+    const many = Array.from({ length: 15 }, (_, index) => ({
+      id: `c${index}`,
+      userId: 'u1',
+      title: `질문 ${index}`,
+      createdAt: '2026-11-05T01:00:00Z',
+      updatedAt: '2026-11-05T01:00:00Z',
+    }))
+    restore = mockServer((config) => {
+      if (config.url === '/api/users/me') return ok(ME)
+      if (config.url === '/api/conversations') return ok(many)
+      return ok(null)
+    })
+    renderSidebar()
+
+    const recent = await screen.findByRole('navigation', { name: '최근 질문' })
+    expect(within(recent).getAllByRole('listitem')).toHaveLength(15)
+    expect(within(recent).getByRole('button', { name: '질문 14' })).toBeInTheDocument()
+  })
+
   it('최근 대화를 누르면 그 대화를 채팅으로 다시 불러온다', async () => {
     restore = mockServer((config) => {
       if (config.url === '/api/users/me') return ok(ME)

@@ -68,9 +68,24 @@ describe('describeEdge', () => {
         }),
       ],
       modifiedDocuments: [{ id: 'a', title: '문서 a' }],
-      resolvedDocumentIds: ['b'],
+      resolvedPairs: [['b', 'a']],
     })
     expect(items.map((item) => item.kind)).toEqual(['REFERENCE'])
+  })
+
+  it('해소한 쌍이 아닌 다른 충돌은 그대로 보여 준다', () => {
+    const conflict = edge({
+      type: 'CONFLICTS',
+      detail: { item: '이월', thisValue: '5일', otherValue: '7일' },
+    })
+    const items = describeEdge({
+      source: 'a',
+      target: 'b',
+      titleOf,
+      edges: [conflict],
+      resolvedPairs: [['b', 'c']],
+    })
+    expect(items.map((item) => item.kind)).toEqual(['CONFLICT'])
   })
 
   it('주제를 보여 준다', () => {

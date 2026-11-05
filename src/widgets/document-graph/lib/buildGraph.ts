@@ -235,6 +235,10 @@ function edgeStyle(type: LinkType) {
   return { type, size: EDGE_STYLE[type].size, color: EDGE_STYLE[type].color }
 }
 
+export function isResolvedPair(pairs: [string, string][], first: string, second: string) {
+  return pairs.some(([a, b]) => (a === first && b === second) || (a === second && b === first))
+}
+
 const WARNING_EDGE_COLOR = 'rgba(248,113,113,0.95)'
 
 /** 수정된 문서를 참조하는 문서는 내용을 다시 확인해야 하므로 선을 빨갛게 하고 경고를 앞에 둡니다. */
@@ -279,7 +283,7 @@ export function buildDocumentGraph({
   evidenceDocumentIds = [],
   positionOverrides,
   modifiedDocuments = [],
-  resolvedDocumentIds = [],
+  resolvedPairs = [],
 }: {
   documents: Document[]
   links?: DocumentLink[]
@@ -291,8 +295,8 @@ export function buildDocumentGraph({
    */
   positionOverrides?: Map<string, { x: number; y: number }>
   modifiedDocuments?: ModifiedDocument[]
-  /** 수정 제안을 적용해 충돌을 해소한 문서. 이 문서의 충돌 관계는 그리지 않습니다. */
-  resolvedDocumentIds?: string[]
+  /** 수정 제안으로 해소한 문서 쌍. 이 쌍의 충돌만 그리지 않습니다. */
+  resolvedPairs?: [string, string][]
 }) {
   const visible = documents.filter((document) => document.deletedAt === null)
   const legend = typeLegend(visible)
@@ -324,11 +328,11 @@ export function buildDocumentGraph({
   // 위치가 그대로 유지됩니다")을 지키려면, 자동 보정이 그 자리를 다시 밀면 안 됩니다.
   const pinned = new Set(positionOverrides?.keys() ?? [])
   const labelParts = new Map<string, Map<LinkType, string>>()
-  const resolved = new Set(resolvedDocumentIds)
   for (const link of links) {
     if (link.source === link.target) continue
-    if (link.type === 'CONFLICTS' && (resolved.has(link.source) || resolved.has(link.target)))
+    if (link.type === 'CONFLICTS' && isResolvedPair(resolvedPairs, link.source, link.target)) {
       continue
+    }
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue
     const type = link.type ?? 'REFERENCES'
     if (graph.hasEdge(link.source, link.target)) {

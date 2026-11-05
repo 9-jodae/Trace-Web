@@ -34,15 +34,15 @@ export function DocumentGraph() {
   const modifiedDocuments = useMemo(
     () =>
       Object.entries(localEdits)
-        .filter(([, edit]) => !edit.resolved)
+        .filter(([, edit]) => !edit.resolvedWith)
         .map(([id, edit]) => ({ id, title: edit.title })),
     [localEdits],
   )
-  const resolvedDocumentIds = useMemo(
+  const resolvedPairs = useMemo(
     () =>
-      Object.entries(localEdits)
-        .filter(([, edit]) => edit.resolved)
-        .map(([id]) => id),
+      Object.entries(localEdits).flatMap(([id, edit]) =>
+        (edit.resolvedWith ?? []).map((peer): [string, string] => [id, peer]),
+      ),
     [localEdits],
   )
 
@@ -54,9 +54,9 @@ export function DocumentGraph() {
   const effectiveEvidenceIds = useMemo(
     () =>
       graphHighlightEnabled
-        ? focusConflictDocuments(evidenceDocumentIds, graphData?.edges ?? [])
+        ? focusConflictDocuments(evidenceDocumentIds, graphData?.edges ?? [], resolvedPairs)
         : noEvidence,
-    [graphHighlightEnabled, evidenceDocumentIds, graphData, noEvidence],
+    [graphHighlightEnabled, evidenceDocumentIds, graphData, noEvidence, resolvedPairs],
   )
   const links = useMemo<DocumentLink[]>(
     () =>
@@ -83,9 +83,9 @@ export function DocumentGraph() {
       evidenceDocumentIds: effectiveEvidenceIds,
       positionOverrides: draggedPositionsRef.current,
       modifiedDocuments,
-      resolvedDocumentIds,
+      resolvedPairs,
     })
-  }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments, resolvedDocumentIds])
+  }, [filteredDocuments, links, effectiveEvidenceIds, modifiedDocuments, resolvedPairs])
 
   const [sigma, setSigma] = useState<Sigma | null>(null)
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
@@ -104,10 +104,10 @@ export function DocumentGraph() {
         edges: graphData?.edges ?? [],
         titleOf,
         modifiedDocuments,
-        resolvedDocumentIds,
+        resolvedPairs,
       }),
     }
-  }, [built, selectedEdge, graphData, modifiedDocuments, resolvedDocumentIds])
+  }, [built, selectedEdge, graphData, modifiedDocuments, resolvedPairs])
 
   // 드래그가 끝나면 sigma 그래프에 반영된 최종 좌표를 기억합니다.
   useEffect(() => {

@@ -153,7 +153,16 @@ function AnswerBubble({
             {editProposals.map((proposal) => (
               <EditProposalCard
                 key={`${proposal.chunkId}:${proposal.before}`}
-                proposal={proposal}
+                proposal={{
+                  ...proposal,
+                  peerDocumentIds: [
+                    ...new Set(
+                      evidence
+                        .map((item) => item.documentId)
+                        .filter((id) => id !== proposal.documentId),
+                    ),
+                  ],
+                }}
               />
             ))}
           </div>

@@ -252,7 +252,7 @@ describe('간선 종류와 글자', () => {
         { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
         { source: 'a', target: 'b', type: 'REFERENCES', label: '참조' },
       ],
-      resolvedDocumentIds: ['b'],
+      resolvedPairs: [['a', 'b']],
     })
     const attributes = graph.getEdgeAttributes(graph.edge('a', 'b'))
     expect(attributes.type).toBe('REFERENCES')
@@ -260,6 +260,19 @@ describe('간선 종류와 글자', () => {
     expect(attributes.warning).toBeUndefined()
     expect(hasConflicts).toBe(false)
     expect(hasWarnings).toBe(false)
+  })
+
+  it('다른 문서와의 충돌은 해소 처리와 무관하게 남긴다', () => {
+    const { graph } = buildDocumentGraph({
+      documents: [doc('a', 'REPORT'), doc('b', 'ETC'), doc('c', 'ETC')],
+      links: [
+        { source: 'a', target: 'b', type: 'CONFLICTS', label: '충돌' },
+        { source: 'a', target: 'c', type: 'CONFLICTS', label: '충돌' },
+      ],
+      resolvedPairs: [['a', 'b']],
+    })
+    expect(graph.hasEdge('a', 'b')).toBe(false)
+    expect(graph.getEdgeAttribute(graph.edge('a', 'c'), 'type')).toBe('CONFLICTS')
   })
 
   it('같은 문서 쌍은 충돌을 우선하고 글자를 합친다', () => {

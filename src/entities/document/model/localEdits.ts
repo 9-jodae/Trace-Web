@@ -8,11 +8,19 @@ export function isLocalEditMode() {
   return import.meta.env.DEV
 }
 
+/**
+ * 재적재가 연결된 환경에서만 수정 제안을 서버에 저장합니다(docs199-Server #89, #93).
+ * 연결 전 저장은 문서를 검색에서 빠지게 하므로 기본은 꺼 둡니다.
+ */
+export function isServerEditEnabled() {
+  return import.meta.env.VITE_EDIT_PROPOSAL_SAVE === 'true'
+}
+
 export interface LocalEdit {
   title: string
   text: string
-  /** 수정 제안을 적용해 충돌을 해소한 저장. 직접 고친 저장은 관련 간선을 경고합니다. */
-  resolved?: boolean
+  /** 수정 제안으로 충돌을 해소했다고 본 상대 문서. 있으면 관련 간선을 경고하지 않고, 이 쌍의 충돌만 지웁니다. */
+  resolvedWith?: string[]
 }
 
 interface LocalEditState {

@@ -1,6 +1,17 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { AnswerEditProposal } from '@/entities/answer'
-import { downloadDocument, isLocalEditMode, useLocalEditStore } from '@/entities/document'
+import {
+  adminDownloadDocument,
+  adminGetDocument,
+  adminReviseDocument,
+  documentFileName,
+  invalidateAfterDocumentChange,
+  isLocalEditMode,
+  isServerEditEnabled,
+  useLocalEditStore,
+} from '@/entities/document'
+import { graphKeys } from '@/entities/graph'
 import { toErrorMessage } from '@/shared/api'
 import { buttonPrimary, buttonSecondary } from '@/shared/ui'
 
@@ -11,24 +22,39 @@ export function EditProposalCard({ proposal }: { proposal: AnswerEditProposal })
   const [decision, setDecision] = useState<Decision>('pending')
   const [error, setError] = useState<string | null>(null)
   const saveEdit = useLocalEditStore((state) => state.saveEdit)
+  const queryClient = useQueryClient()
   const localMode = isLocalEditMode()
+  const canApply = localMode || isServerEditEnabled()
 
   const apply = async () => {
     setError(null)
     setDecision('applying')
     try {
       const saved = useLocalEditStore.getState().edits[proposal.documentId]?.text
-      const text = saved ?? (await (await downloadDocument(proposal.documentId)).text())
+      const text = saved ?? (await (await adminDownloadDocument(proposal.documentId)).text())
       // 그사이 문서가 바뀌었거나 같은 문장이 여럿이면 어디를 고칠지 알 수 없습니다.
       if (text.split(proposal.before).length !== 2) {
         setError('문서 내용이 바뀌어 적용할 수 없습니다')
         setDecision('pending')
         return
       }
+      if (!localMode) {
+        const after = text.replace(proposal.before, () => proposal.after)
+        const { document } = await adminGetDocument(proposal.documentId)
+        await adminReviseDocument(document.id, {
+          file: new File([after], documentFileName(document), { type: 'text/plain' }),
+          author: document.author,
+          authoredAt: document.authoredAt,
+        })
+        await invalidateAfterDocumentChange(queryClient)
+        await queryClient.invalidateQueries({ queryKey: graphKeys.all })
+        setDecision('applied')
+        return
+      }
       saveEdit(proposal.documentId, {
         title: proposal.source,
         text: text.replace(proposal.before, () => proposal.after),
-        resolved: true,
+        resolvedWith: proposal.peerDocumentIds ?? [],
       })
       setDecision('applied')
     } catch (failure) {
@@ -51,7 +77,9 @@ export function EditProposalCard({ proposal }: { proposal: AnswerEditProposal })
       {proposal.reason && <p className="text-xs text-ink-dim">{proposal.reason}</p>}
       {decision === 'applied' && (
         <p role="status" className="text-xs text-emerald-300">
-          변경했습니다. 로컬 시험이라 서버 문서는 그대로이고, 새로고침하면 돌아갑니다.
+          {localMode
+            ? '변경했습니다. 로컬 시험이라 서버 문서와 답변은 그대로이고, 새로고침하면 돌아갑니다.'
+            : '저장했습니다. 다시 적재하고 비교한 뒤 문제가 없으면 간선 경고가 사라집니다.'}
         </p>
       )}
       {decision === 'kept' && (
@@ -64,7 +92,7 @@ export function EditProposalCard({ proposal }: { proposal: AnswerEditProposal })
           {error}
         </p>
       )}
-      {!localMode && (
+      {!canApply && (
         <p className="text-xs text-ink-dim">문서 저장 연결 전이라 아직 적용할 수 없습니다.</p>
       )}
       {(decision === 'pending' || decision === 'applying') && (
@@ -72,7 +100,7 @@ export function EditProposalCard({ proposal }: { proposal: AnswerEditProposal })
           <button
             type="button"
             onClick={() => void apply()}
-            disabled={!localMode || decision === 'applying'}
+            disabled={!canApply || decision === 'applying'}
             className={buttonPrimary}
           >
             변경

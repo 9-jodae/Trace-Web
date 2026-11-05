@@ -1,5 +1,5 @@
 import type { GraphEdge } from '@/entities/graph'
-import type { ModifiedDocument } from './buildGraph'
+import { isResolvedPair, type ModifiedDocument } from './buildGraph'
 
 export type EdgeDetailItem =
   | { kind: 'CONFLICT'; item: string; values: { title: string; value: string }[] }
@@ -14,14 +14,14 @@ export function describeEdge({
   edges,
   titleOf,
   modifiedDocuments = [],
-  resolvedDocumentIds = [],
+  resolvedPairs = [],
 }: {
   source: string
   target: string
   edges: GraphEdge[]
   titleOf: (documentId: string) => string
   modifiedDocuments?: ModifiedDocument[]
-  resolvedDocumentIds?: string[]
+  resolvedPairs?: [string, string][]
 }): EdgeDetailItem[] {
   const pair = edges.filter(
     (edge) =>
@@ -30,9 +30,9 @@ export function describeEdge({
   )
   const items: EdgeDetailItem[] = []
   for (const edge of pair) {
-    const resolved =
-      resolvedDocumentIds.includes(edge.source) || resolvedDocumentIds.includes(edge.target)
-    if (edge.type !== 'CONFLICTS' || resolved) continue
+    if (edge.type !== 'CONFLICTS' || isResolvedPair(resolvedPairs, edge.source, edge.target)) {
+      continue
+    }
     const detail = edge.detail && 'item' in edge.detail ? edge.detail : null
     if (!detail) continue
     items.push({
@@ -73,12 +73,20 @@ export function describeEdge({
 }
 
 /** 인용 문서 중 서로 충돌하는 쌍이 있으면 그 문서만 강조합니다. 없으면 인용 문서를 그대로 둡니다. */
-export function focusConflictDocuments(documentIds: string[], edges: GraphEdge[]): string[] {
+export function focusConflictDocuments(
+  documentIds: string[],
+  edges: GraphEdge[],
+  resolvedPairs: [string, string][] = [],
+): string[] {
   const cited = new Set(documentIds)
   const conflicting = new Set(
     edges
       .filter(
-        (edge) => edge.type === 'CONFLICTS' && cited.has(edge.source) && cited.has(edge.target),
+        (edge) =>
+          edge.type === 'CONFLICTS' &&
+          cited.has(edge.source) &&
+          cited.has(edge.target) &&
+          !isResolvedPair(resolvedPairs, edge.source, edge.target),
       )
       .flatMap((edge) => [edge.source, edge.target]),
   )

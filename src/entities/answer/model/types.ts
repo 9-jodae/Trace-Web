@@ -45,6 +45,8 @@ export interface AnswerEditProposal {
   after: string
   reason: string
   sample?: boolean
+  /** 답변이 함께 인용한 문서. 웹이 채우며 충돌 쌍을 고르는 데 씁니다. */
+  peerDocumentIds?: string[]
 }
 
 export interface AnswerKeyword {

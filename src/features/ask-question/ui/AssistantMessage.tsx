@@ -115,7 +115,7 @@ export function TypingIndicator({ startedAt }: { startedAt: number }) {
   )
 }
 
-/** 디스코드처럼 입력창 바로 위에 "문서119가 답변을 생성 중…"을 띄웁니다. 대화 목록의 상태 문구와 겹쳐 낭독되지 않게 숨깁니다. */
+/** 디스코드처럼 입력창 바로 위에 "Trace가 답변을 생성 중…"을 띄웁니다. 대화 목록의 상태 문구와 겹쳐 낭독되지 않게 숨깁니다. */
 export function TypingStatusBar() {
   return (
     <div className="flex items-center gap-2 px-7 pb-2 text-xs text-ink-dim" aria-hidden>

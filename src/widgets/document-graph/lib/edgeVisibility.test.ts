@@ -14,9 +14,10 @@ describe('isEdgeVisible', () => {
     expect(isEdgeVisible(edge('none'))).toBe(false)
   })
 
-  it('답변 근거에 닿는 선만 보인다', () => {
+  it('답변 근거 문서끼리의 선만 보인다', () => {
     expect(isEdgeVisible(edge('evidence'))).toBe(true)
-    expect(isEdgeVisible(edge('neighbor'))).toBe(true)
+    // 근거와 이웃 사이 선, 근거 밖으로 올라온 경고 선도 그리지 않는다
+    expect(isEdgeVisible(edge('neighbor'))).toBe(false)
     expect(isEdgeVisible(edge('dimmed'))).toBe(false)
   })
 

@@ -101,6 +101,38 @@ export function layoutByType(documents: Document[], legend: TypeLegendItem[]) {
   return positions
 }
 
+/** 근거 노드 사이에 여유를 더 두어, 커진 원끼리 닿아 보이지 않게 합니다. */
+const EVIDENCE_GAP = 4
+
+/**
+ * 근거로 강조된(그래서 평소보다 큰) 노드끼리만 서로 밀어내 겹침을 풉니다. 근거는 최대 3개뿐이라
+ * 비용이 작고, 근거가 아닌 노드의 배치(계산된 값이든 드래그로 옮긴 값이든)는 건드리지 않습니다.
+ */
+function separateEvidenceNodes(graph: Graph<NodeAttributes>, evidenceIds: Set<string>) {
+  const ids = [...evidenceIds].filter((id) => graph.hasNode(id))
+  for (let pass = 0; pass < 4; pass += 1) {
+    let moved = false
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const a = graph.getNodeAttributes(ids[i] as string)
+        const b = graph.getNodeAttributes(ids[j] as string)
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const distance = Math.hypot(dx, dy)
+        const minDistance = (a.size + b.size) / 2 + EVIDENCE_GAP
+        if (distance >= minDistance) continue
+        moved = true
+        const push = (minDistance - distance) / 2
+        // 두 노드가 완전히 같은 자리에 있으면 임의의 방향으로 벌립니다.
+        const [ux, uy] = distance > 0 ? [dx / distance, dy / distance] : [1, 0]
+        graph.mergeNodeAttributes(ids[i] as string, { x: a.x - ux * push, y: a.y - uy * push })
+        graph.mergeNodeAttributes(ids[j] as string, { x: b.x + ux * push, y: b.y + uy * push })
+      }
+    }
+    if (!moved) break
+  }
+}
+
 /** REFERENCES 엣지 색(파랑, 노드 톤에 맞춤). */
 const REFERENCE_EDGE_COLOR = 'rgba(96,165,250,0.25)'
 /** CONFLICTS 엣지 색(주황, 문서끼리 값이 다르다는 경고 느낌). */
@@ -153,6 +185,9 @@ export function buildDocumentGraph({
           : (colorOf.get(document.documentType) ?? documentTypeColor(document.documentType)),
     })
   }
+  // 근거 노드는 평소보다 훨씬 커져서(6→11), 해바라기 배치나 드래그로 우연히 가까웠던 자리가
+  // 서로 겹쳐 보일 수 있습니다. 근거 노드끼리만 떨어뜨립니다(그 외 노드는 건드리지 않음).
+  separateEvidenceNodes(graph, evidence)
   for (const link of links) {
     if (link.source === link.target) continue
     if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue

@@ -1,4 +1,6 @@
 export { resetChatStore, useChatStore, type ChatMessage } from './model/chatStore'
 export { useAskQuestion, useIsAsking } from './model/useAskQuestion'
+export { EXAMPLE_QUESTIONS } from './lib/exampleQuestions'
+export { useTypewriter } from './lib/useTypewriter'
 export { ChatView } from './ui/ChatView'
 export { GraphHighlightToggle } from './ui/GraphHighlightToggle'

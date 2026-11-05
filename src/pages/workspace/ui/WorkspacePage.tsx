@@ -1,10 +1,12 @@
 import { ExternalLink, X } from 'lucide-react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
+import { useChatStore } from '@/features/ask-question'
 import { useTabStore, type DocumentPreview } from '@/features/document-tabs'
 import { ChatPanel } from '@/widgets/chat-panel'
 import { DocumentGraph } from '@/widgets/document-graph'
 import { DocumentViewer } from '@/widgets/document-viewer'
 import { EditorArea } from '@/widgets/editor-area'
+import { HomeComposer } from '@/widgets/home-composer'
 import { Sidebar } from '@/widgets/sidebar'
 
 // 패널을 줄여도 글자가 잘리지 않을 최소 크기(px). 숫자는 픽셀, 문자열은 퍼센트입니다
@@ -20,13 +22,23 @@ const horizontalHandle =
   'h-1.5 cursor-row-resize bg-border-dark transition-colors hover:bg-blue-400/50 data-[separator=active]:bg-blue-400/70'
 
 /**
- * 메인 화면. 첫 질문 전에도 빈 화면 대신 노드만 있는 그래프와 채팅을 바로 보여 줍니다.
- * 질문하면 그래프에 답변 근거 문서를 잇는 선이 그려집니다.
+ * 메인 화면. 첫 질문 전에는 가운데 큰 입력창(HomeComposer)을, 질문을 보내면 그래프·문서 탭과
+ * 채팅 화면을 보여 줍니다. 둘 다 왼쪽 네비게이션은 공통입니다.
  */
 export function WorkspacePage() {
+  const hasConversation = useChatStore((state) => state.messages.length > 0)
+
   return (
     <div className="flex h-full bg-canvas text-ink">
       <Sidebar />
+      {hasConversation ? <AnswerLayout /> : <HomeComposer />}
+    </div>
+  )
+}
+
+function AnswerLayout() {
+  return (
+    <>
       <Group orientation="horizontal" className="min-h-0 flex-1">
         <Panel defaultSize="63" minSize={GRAPH_MIN_WIDTH}>
           <EditorArea
@@ -39,7 +51,7 @@ export function WorkspacePage() {
           <RightPanel />
         </Panel>
       </Group>
-    </div>
+    </>
   )
 }
 

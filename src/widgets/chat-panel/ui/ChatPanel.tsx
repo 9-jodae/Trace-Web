@@ -19,6 +19,7 @@ export function ChatPanel() {
         onOpenSource={(source) =>
           openDocument({ documentId: source.documentId, title: source.documentTitle })
         }
+        onClearFilters={() => useDocumentFilterStore.getState().reset()}
       />
     </div>
   )

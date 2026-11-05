@@ -97,7 +97,7 @@ describe('ChatView', () => {
 
   // "새 대화" 버튼은 widgets/sidebar로 옮겨졌으므로 여기서는 스토어 동작만 확인합니다.
   it('새 대화를 시작하면 대화 내용과 대화 ID를 지운다', async () => {
-    restore = mockServer(() => ok(answer('c1', [])))
+    restore = mockServer(() => ok(answer('c1', [source('k1', 'd1')])))
     renderChat()
 
     await ask('질문')
@@ -106,5 +106,51 @@ describe('ChatView', () => {
 
     expect(screen.queryByText('최대 5일까지 이월할 수 있습니다.')).not.toBeInTheDocument()
     expect(useChatStore.getState().conversationId).toBeNull()
+  })
+
+  it('근거가 없으면 확인할 수 없다는 안내와 재시도 버튼을 보여준다', async () => {
+    restore = mockServer(() => ok(answer('c1', [])))
+    renderChat()
+
+    await ask('환율 기준일은?')
+
+    expect(await screen.findByText('사내 문서에서 확인할 수 없습니다')).toBeInTheDocument()
+    expect(screen.queryByText('최대 5일까지 이월할 수 있습니다.')).not.toBeInTheDocument()
+  })
+
+  it('"다른 표현으로 질문"을 누르면 원래 질문을 입력창에 채운다', async () => {
+    restore = mockServer(() => ok(answer('c1', [])))
+    renderChat()
+
+    await ask('환율 기준일은?')
+    await userEvent.click(await screen.findByRole('button', { name: '다른 표현으로 질문' }))
+
+    expect(screen.getByLabelText('질문')).toHaveValue('환율 기준일은?')
+  })
+
+  it('"필터 해제하고 다시 찾기"를 누르면 필터를 지우고 같은 질문을 다시 보낸다', async () => {
+    const urls: string[] = []
+    restore = mockServer((config) => {
+      urls.push(config.url ?? '')
+      return ok(answer('c1', []))
+    })
+    const onClearFilters = vi.fn<() => void>()
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <ChatView
+          onOpenSource={vi.fn<(source: AnswerSource) => void>()}
+          onClearFilters={onClearFilters}
+        />
+      </QueryClientProvider>,
+    )
+
+    await ask('환율 기준일은?')
+    await screen.findByText('사내 문서에서 확인할 수 없습니다')
+    await userEvent.click(screen.getByRole('button', { name: '필터 해제하고 다시 찾기' }))
+
+    await screen.findAllByText('사내 문서에서 확인할 수 없습니다')
+    expect(onClearFilters).toHaveBeenCalledTimes(1)
+    expect(urls).toEqual(['/api/conversations/messages', '/api/conversations/c1/messages'])
   })
 })

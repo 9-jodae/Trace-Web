@@ -139,6 +139,56 @@ function separateEvidenceNodes(graph: Graph<NodeAttributes>, evidenceIds: Set<st
   }
 }
 
+/** 연결선과 관계없는 노드 사이에 둘 최소 여유. */
+const EDGE_NODE_CLEARANCE = 10
+
+/**
+ * 연결선이 양 끝과 관계없는 다른 노드 위를 그대로 지나가 보이지 않도록, 선에 너무 가까운
+ * 노드를 옆으로 밀어냅니다. 배치 자체는 유형 기준이라 어떤 노드끼리 연결되는지 모르고 정해지므로,
+ * 다 그린 뒤 가볍게 보정하는 패스입니다(교차를 100% 없앤다는 보장은 아닙니다).
+ */
+function avoidEdgeNodeCrossings(graph: Graph<NodeAttributes>) {
+  const edges = graph.edges().map((edge) => {
+    const [source, target] = graph.extremities(edge)
+    return { source, target }
+  })
+  if (edges.length === 0) return
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    let moved = false
+    for (const { source, target } of edges) {
+      const a = graph.getNodeAttributes(source)
+      const b = graph.getNodeAttributes(target)
+      const abx = b.x - a.x
+      const aby = b.y - a.y
+      const lengthSq = abx * abx + aby * aby
+      if (lengthSq === 0) continue
+
+      graph.forEachNode((nodeId, node) => {
+        if (nodeId === source || nodeId === target) return
+        const t = ((node.x - a.x) * abx + (node.y - a.y) * aby) / lengthSq
+        // 선분 양 끝 가까이는 원래 이웃이라 자연스레 가까울 수 있어 건드리지 않습니다.
+        if (t < 0.12 || t > 0.88) return
+        const closestX = a.x + t * abx
+        const closestY = a.y + t * aby
+        const dx = node.x - closestX
+        const dy = node.y - closestY
+        const distance = Math.hypot(dx, dy)
+        const clearance = node.size / 2 + EDGE_NODE_CLEARANCE
+        if (distance >= clearance) return
+        moved = true
+        const push = clearance - distance
+        // 선과 완전히 겹치면(distance 0) 선의 수직 방향으로 밉니다.
+        const length = Math.sqrt(lengthSq)
+        const [nx, ny] =
+          distance > 0 ? [dx / distance, dy / distance] : [-aby / length, abx / length]
+        graph.mergeNodeAttributes(nodeId, { x: node.x + nx * push, y: node.y + ny * push })
+      })
+    }
+    if (!moved) break
+  }
+}
+
 /** REFERENCES 엣지 색(파랑, 노드 톤에 맞춤). */
 const REFERENCE_EDGE_COLOR = 'rgba(96,165,250,0.25)'
 /** CONFLICTS 엣지 색(주황, 문서끼리 값이 다르다는 경고 느낌). */
@@ -222,6 +272,8 @@ export function buildDocumentGraph({
     }
     graph.addEdge(link.source, link.target, { ...edgeStyle(type), label: link.label })
   }
+
+  avoidEdgeNodeCrossings(graph)
 
   let hasReferences = false
   let hasConflicts = false

@@ -126,7 +126,7 @@ const SIGMA_OPTIONS: Partial<SigmaOptions<NodeAttributes, EdgeAttributes>> = {
       },
       {
         when: (attributes: { type?: string }) => attributes.type === 'CONFLICTS',
-        then: { labelColor: '#fb923c' },
+        then: { labelColor: '#fca5a5' },
       },
       {
         when: (attributes: { warning?: boolean }) => attributes.warning === true,

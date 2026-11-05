@@ -4,7 +4,7 @@ import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
  * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
- * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=주황, TOPIC=청록).
+ * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=빨강, TOPIC=청록).
  * label은 선 위에 표시할 글자입니다.
  */
 type LinkType = 'REFERENCES' | 'CONFLICTS' | 'TOPIC'
@@ -240,8 +240,8 @@ export function avoidEdgeNodeCrossings(graph: Graph<NodeAttributes>, pinned: Set
 
 /** REFERENCES 엣지 색(파랑, 노드 톤에 맞춤). */
 const REFERENCE_EDGE_COLOR = 'rgba(147,197,253,0.95)'
-/** CONFLICTS 엣지 색(주황, 문서끼리 값이 다르다는 경고 느낌). */
-const CONFLICT_EDGE_COLOR = 'rgba(251,146,60,0.55)'
+/** CONFLICTS 엣지 색(빨강, 문서끼리 값이 달라 확인이 필요하다는 경고). */
+const CONFLICT_EDGE_COLOR = 'rgba(248,113,113,0.95)'
 /** TOPIC 엣지 색(청록, 같은 주제로 묶인 문서). */
 const TOPIC_EDGE_COLOR = 'rgba(45, 212, 191, 0.75)'
 
@@ -253,6 +253,11 @@ const EDGE_STYLE: Record<LinkType, { rank: number; size: number; color: string }
 
 function edgeStyle(type: LinkType) {
   return { type, size: EDGE_STYLE[type].size, color: EDGE_STYLE[type].color }
+}
+
+/** 충돌 간선의 경고 문구. 서버가 항목을 주면 무엇이 다른지 함께 보여 줍니다. */
+export function conflictWarning(item?: string) {
+  return item ? `경고! 내용 충돌 · ${item}` : '경고! 내용 충돌'
 }
 
 /** 근거끼리 잇는 선은 한 단계 더 굵게 그려, 답변이 어떤 문서 쌍을 엮었는지 먼저 보이게 합니다. */
@@ -299,12 +304,12 @@ function markModifiedReferences(
   }
 }
 
-/** 한 문서 쌍의 관계 글자를 합칩니다. 주제와 참조가 함께 있으면 "보안 참조"처럼 읽히게 붙입니다. */
+/** 한 문서 쌍의 관계 글자를 합칩니다. 경고를 맨 앞에 둡니다. 주제와 참조가 함께 있으면 "보안 참조"처럼 읽히게 붙입니다. */
 function edgeLabel(parts: Map<LinkType, string>) {
   const topic = parts.get('TOPIC')
   const reference = parts.get('REFERENCES')
   const relation = topic && reference ? `${topic} ${reference}` : (topic ?? reference)
-  return [relation, parts.get('CONFLICTS')].filter(Boolean).join(' · ') || undefined
+  return [parts.get('CONFLICTS'), relation].filter(Boolean).join(' · ') || undefined
 }
 
 /**

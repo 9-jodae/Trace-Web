@@ -11,6 +11,7 @@ import { toErrorMessage } from '@/shared/api'
 import { describeEdge, focusConflictDocuments, type EdgeDetailItem } from '../lib/edgeDetail'
 import {
   buildDocumentGraph,
+  conflictWarning,
   DIMMED_COLOR,
   type DocumentLink,
   type TypeLegendItem,
@@ -81,7 +82,10 @@ export function DocumentGraph() {
         source: edge.source,
         target: edge.target,
         type: edge.type,
-        label: edge.label,
+        label:
+          edge.type === 'CONFLICTS'
+            ? conflictWarning(edge.detail && 'item' in edge.detail ? edge.detail.item : undefined)
+            : edge.label,
         securityRisk: edge.warnings?.some((warning) => warning.type === 'SECURITY_RISK'),
       })),
     [graphData],
@@ -560,8 +564,8 @@ function Legend({
           )}
           {hasConflicts && (
             <li className="flex items-center gap-2 text-ink-dim">
-              <span className="h-0.5 w-3 rounded-full bg-[rgb(251,146,60)]" />
-              충돌
+              <span className="h-0.5 w-3 rounded-full bg-[rgb(248,113,113)]" />
+              경고: 내용 충돌
             </li>
           )}
           {hasTopics && (

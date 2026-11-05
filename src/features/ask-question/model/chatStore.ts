@@ -22,6 +22,11 @@ interface ChatState {
   messages: ChatMessage[]
   /** 가장 최근 답변의 근거 문서 ID. 그래프에서 강조합니다. */
   evidenceDocumentIds: string[]
+  /**
+   * 가장 최근 답변의 핵심 인용. 문서 뷰어가 원문에서 이 문구만 하이라이트합니다.
+   * 새 질문을 하면 비우므로 이전 답변의 인용은 원문에 칠하지 않습니다.
+   */
+  latestEvidence: AnswerEvidence[]
   /** 채팅 헤더의 "관계 그래프" 토글. 꺼두면 근거 강조를 그래프에 반영하지 않습니다. */
   graphHighlightEnabled: boolean
   sequence: number
@@ -54,6 +59,7 @@ const initialState = {
   conversationId: null,
   messages: [] as ChatMessage[],
   evidenceDocumentIds: [] as string[],
+  latestEvidence: [] as AnswerEvidence[],
   graphHighlightEnabled: true,
   sequence: 0,
   contextId: 0,
@@ -67,6 +73,7 @@ export const useChatStore = create<ChatState>()((set) => ({
     set((state) => ({
       sequence: state.sequence + 1,
       evidenceDocumentIds: [],
+      latestEvidence: [],
       messages: [...state.messages, { id: `m${state.sequence + 1}`, kind: 'question', text }],
     })),
 
@@ -75,6 +82,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       conversationId,
       sequence: state.sequence + 1,
       evidenceDocumentIds: [...new Set(sources.map((source) => source.documentId))],
+      latestEvidence: evidence,
       messages: [
         ...state.messages,
         { id: `m${state.sequence + 1}`, kind: 'answer', text, sources, evidence, keywords },
@@ -110,6 +118,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         contextId: nextContextId(),
         messages,
         evidenceDocumentIds,
+        latestEvidence: lastAnswer?.kind === 'answer' ? lastAnswer.evidence : [],
         sequence: state.sequence + messages.length,
       }
     }),

@@ -57,11 +57,12 @@ describe('buildReconstructedMessages', () => {
     const messages = buildReconstructedMessages(detail(), evidenceByChunkId)
 
     expect(messages).toEqual([
-      { id: 'm1', kind: 'question', text: '연차 이월은?' },
+      { id: 'm1', kind: 'question', text: '연차 이월은?', createdAt: '2026-01-01T00:00:00Z' },
       {
         id: 'm2',
         kind: 'answer',
         text: '최대 5일까지 이월할 수 있습니다.',
+        createdAt: '2026-01-01T00:00:10Z',
         sources: [
           {
             id: 'k1',

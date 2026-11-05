@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '@/features/ask-question'
 import { fail, mockServer, ok } from '@/shared/testing'
@@ -62,7 +61,7 @@ describe('DocumentGraph', () => {
     ).toBeInTheDocument()
   })
 
-  it('근거가 있으면 근거 포커스 토글과 단계 범례를 보이고, 끄면 전체 보기로 바뀐다', async () => {
+  it('근거가 있어도 그래프는 오류 없이 범례를 보여준다', async () => {
     vi.stubGlobal('WebGL2RenderingContext', class {})
     useChatStore.setState({ evidenceDocumentIds: ['d1'], graphHighlightEnabled: true })
     restore = mockServer((config) => {
@@ -90,13 +89,8 @@ describe('DocumentGraph', () => {
     })
     renderGraph()
 
-    const toggle = await screen.findByRole('switch', { name: '근거 포커스' })
-    expect(toggle).toHaveAttribute('aria-checked', 'true')
-    expect(await screen.findByText('근거 1 · 직접 연결 1')).toBeInTheDocument()
-
-    await userEvent.click(toggle)
-    expect(useChatStore.getState().graphHighlightEnabled).toBe(false)
-    expect(await screen.findByText('전체 보기 중')).toBeInTheDocument()
+    expect(await screen.findByLabelText('문서 유형 범례')).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: '근거 포커스' })).not.toBeInTheDocument()
 
     useChatStore.setState({ evidenceDocumentIds: [], graphHighlightEnabled: true })
     vi.unstubAllGlobals()

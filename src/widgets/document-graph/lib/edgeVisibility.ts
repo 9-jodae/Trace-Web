@@ -12,7 +12,7 @@ export function isEdgeVisible({
   selectedNode,
   hoveredNode,
 }: {
-  attributes: Pick<EdgeAttributes, 'focus'>
+  attributes: Pick<EdgeAttributes, 'answer'>
   source: string
   target: string
   selectedNode: string | null
@@ -21,5 +21,5 @@ export function isEdgeVisible({
   const touches = (node: string | null) => node !== null && (source === node || target === node)
   if (selectedNode !== null) return touches(selectedNode)
   if (touches(hoveredNode)) return true
-  return attributes.focus === 'evidence'
+  return attributes.answer === true
 }

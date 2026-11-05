@@ -148,4 +148,20 @@ describe('AdminDocumentsPage', () => {
     renderAt('/admin/documents')
     expect(await screen.findByRole('alert')).toHaveTextContent('문서 관리 권한이 없습니다.')
   })
+
+  it('제목이나 경로로 검색하면 전체 목록에서 걸러 보여 준다', async () => {
+    const other = { ...DOC, id: 'd2', title: '연차 지침', relativePath: '인사/연차 지침.md' }
+    serve({
+      documents: () =>
+        ok({ items: [DOC, other], page: 0, size: 100, totalElements: 2, totalPages: 1 }),
+    })
+    const router = renderAt('/admin/documents')
+    await screen.findByText('출장비')
+
+    await userEvent.type(screen.getByPlaceholderText('제목·경로'), '연차')
+
+    expect(await screen.findByText('연차 지침')).toBeInTheDocument()
+    expect(screen.queryByText('출장비')).not.toBeInTheDocument()
+    expect(router.state.location.search).toContain('q=')
+  })
 })

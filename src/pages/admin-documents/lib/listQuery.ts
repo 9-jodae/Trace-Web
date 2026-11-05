@@ -9,6 +9,7 @@ export function parseListQuery(params: URLSearchParams): AdminListQuery {
     sourceId: params.get('source') || null,
     status: isProcessingStatus(status) ? status : null,
     documentType: params.get('type') || null,
+    search: params.get('q') ?? '',
     page: Number.isInteger(page) && page > 0 ? page : 0,
   }
 }
@@ -19,6 +20,7 @@ export function toListSearch(query: AdminListQuery): URLSearchParams {
   if (query.sourceId) params.set('source', query.sourceId)
   if (query.status) params.set('status', query.status)
   if (query.documentType) params.set('type', query.documentType)
+  if (query.search) params.set('q', query.search)
   if (query.page > 0) params.set('page', String(query.page))
   return params
 }

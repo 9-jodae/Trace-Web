@@ -5,6 +5,8 @@ export interface AdminListQuery {
   sourceId: string | null
   status: ProcessingStatus | null
   documentType: string | null
+  /** 제목·경로 검색어. 비어 있으면 서버 목록을 그대로 씁니다 */
+  search: string
   /** 0부터 */
   page: number
 }

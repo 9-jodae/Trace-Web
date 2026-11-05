@@ -25,6 +25,7 @@ export {
   isNewVersion,
   useAdminDocument,
   useAdminDocuments,
+  useAdminDocumentSearch,
 } from './api/adminDocumentApi'
 export type {
   AdminDocumentListParams,

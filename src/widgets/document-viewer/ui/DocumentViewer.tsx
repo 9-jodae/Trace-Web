@@ -10,6 +10,7 @@ import {
   type ProcessingStatus,
 } from '@/entities/document'
 import { ApiRequestError, toErrorMessage } from '@/shared/api'
+import { EvidencePanel } from './EvidencePanel'
 import { MarkdownContent } from './MarkdownContent'
 
 const PdfContent = lazy(() => import('./PdfContent'))
@@ -43,6 +44,9 @@ function StatusBadge({ status }: { status: ProcessingStatus | null }) {
 export function DocumentViewer({ documentId }: { documentId: string }) {
   const queryClient = useQueryClient()
   const closeDocument = useTabStore((state) => state.closeDocument)
+  const focusChunkId = useTabStore(
+    (state) => state.documentTabs.find((tab) => tab.documentId === documentId)?.focusChunkId,
+  )
 
   const { data, isPending, error, refetch } = useDocument(documentId)
 
@@ -113,92 +117,93 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
     }
   }, [documentId, queryClient])
 
-  if (isPending) {
-    return <CenteredMessage>문서를 불러오는 중…</CenteredMessage>
-  }
-
-  if (error) {
-    const isNotFound =
-      error instanceof ApiRequestError && (error.status === 404 || error.code === 'NOT_FOUND')
-    if (isNotFound) {
-      return (
-        <CenteredMessage>
-          <p role="alert">문서를 찾을 수 없거나 볼 권한이 없습니다</p>
-          <button
-            type="button"
-            onClick={() => closeDocument(documentId)}
-            className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
-          >
-            탭 닫기
-          </button>
-        </CenteredMessage>
-      )
-    }
-    return (
-      <CenteredMessage>
-        <p role="alert">{toErrorMessage(error)}</p>
-        <button
-          type="button"
-          onClick={() => void refetch()}
-          className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
-        >
-          다시 시도
-        </button>
-      </CenteredMessage>
-    )
-  }
-
-  const { document } = data
+  const document = data?.document
+  const isNotFound =
+    error instanceof ApiRequestError && (error.status === 404 || error.code === 'NOT_FOUND')
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-slate-900">{document.title}</h2>
-              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-700">
-                v{document.currentVersion}
-              </span>
-              <StatusBadge status={currentJob?.status ?? null} />
+      {document && (
+        <header className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-base font-semibold text-slate-900">
+                  {document.title}
+                </h2>
+                <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+                  v{document.currentVersion}
+                </span>
+                <StatusBadge status={currentJob?.status ?? null} />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-slate-500">{document.relativePath}</p>
             </div>
-            <p className="mt-0.5 truncate text-xs text-slate-500">{document.relativePath}</p>
+            <button
+              type="button"
+              onClick={() => void handleDownload()}
+              className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              다운로드
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleDownload()}
-            className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-          >
-            다운로드
-          </button>
-        </div>
-        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
-          <div className="flex items-center gap-1">
-            <dt className="text-slate-400">유형</dt>
-            <dd>{document.documentType ?? '분류 전'}</dd>
-          </div>
-          <div className="flex items-center gap-1">
-            <dt className="text-slate-400">작성자</dt>
-            <dd>{document.author ?? '-'}</dd>
-          </div>
-          <div className="flex items-center gap-1">
-            <dt className="text-slate-400">작성일</dt>
-            <dd>{document.authoredAt ?? '-'}</dd>
-          </div>
-          <div className="flex items-center gap-1">
-            <dt className="text-slate-400">보안 등급</dt>
-            <dd>{document.clearance}</dd>
-          </div>
-        </dl>
-        {downloadActionError && (
-          <p role="alert" className="text-xs text-red-600">
-            {downloadActionError}
-          </p>
-        )}
-      </header>
+          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+            <div className="flex items-center gap-1">
+              <dt className="text-slate-400">유형</dt>
+              <dd>{document.documentType ?? '분류 전'}</dd>
+            </div>
+            <div className="flex items-center gap-1">
+              <dt className="text-slate-400">작성자</dt>
+              <dd>{document.author ?? '-'}</dd>
+            </div>
+            <div className="flex items-center gap-1">
+              <dt className="text-slate-400">작성일</dt>
+              <dd>{document.authoredAt ?? '-'}</dd>
+            </div>
+            <div className="flex items-center gap-1">
+              <dt className="text-slate-400">보안 등급</dt>
+              <dd>{document.clearance}</dd>
+            </div>
+          </dl>
+          {downloadActionError && (
+            <p role="alert" className="text-xs text-red-600">
+              {downloadActionError}
+            </p>
+          )}
+        </header>
+      )}
+
+      {focusChunkId && (
+        <EvidencePanel key={focusChunkId} documentId={documentId} chunkId={focusChunkId} />
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {!isPreviewable ? (
+        {isPending ? (
+          <CenteredMessage>문서를 불러오는 중…</CenteredMessage>
+        ) : error ? (
+          isNotFound ? (
+            <CenteredMessage>
+              <p role="alert">문서를 찾을 수 없거나 볼 권한이 없습니다</p>
+              <button
+                type="button"
+                onClick={() => closeDocument(documentId)}
+                className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
+              >
+                탭 닫기
+              </button>
+            </CenteredMessage>
+          ) : (
+            <CenteredMessage>
+              <p role="alert">{toErrorMessage(error)}</p>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
+              >
+                다시 시도
+              </button>
+            </CenteredMessage>
+          )
+        ) : !isPreviewable ? (
           <CenteredMessage>
             <p>미리보기를 지원하지 않는 형식입니다</p>
           </CenteredMessage>

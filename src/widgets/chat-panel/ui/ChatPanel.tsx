@@ -11,10 +11,14 @@ export function ChatPanel() {
         채팅
         <NewConversationButton />
       </div>
-      {/* 근거를 누르면 해당 문서 탭을 엽니다. 원문 하이라이트는 결정 후 구현합니다. */}
+      {/* 근거를 누르면 해당 문서 탭을 열고 근거 청크를 표시합니다. */}
       <ChatView
         onOpenSource={(source) =>
-          openDocument({ documentId: source.documentId, title: source.documentTitle })
+          openDocument({
+            documentId: source.documentId,
+            title: source.documentTitle,
+            chunkId: source.id,
+          })
         }
       />
     </div>

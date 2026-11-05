@@ -1,6 +1,6 @@
 import { FileText, Quote, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
+import { isNoEvidenceAnswer, type AnswerEvidence, type AnswerSource } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
 import { AnswerMarkdown } from './AnswerMarkdown'
 
@@ -91,7 +91,8 @@ function AnswerBubble({
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
-  if (sources.length === 0) {
+  // answerType이 아직 안 내려오는 동안의 임시 판별입니다. entities/answer/model/answerType.ts 참고.
+  if (isNoEvidenceAnswer(sources, text)) {
     return (
       <NoEvidenceAnswer
         originalQuestion={originalQuestion}
@@ -133,21 +134,23 @@ function AnswerBubble({
           ))}
         </ul>
       )}
-      <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
-        {sources.map((source, index) => (
-          <li key={source.id}>
-            <button
-              type="button"
-              onClick={() => onOpen(source)}
-              className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
-            >
-              <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
-              <FileText className="size-3.5 shrink-0 text-ink-muted" aria-hidden />
-              <span className="flex-1 truncate text-sm text-ink">{source.documentTitle}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {sources.length > 0 && (
+        <ul aria-label="근거" className="flex flex-col gap-1 border-t border-border-dark pt-2">
+          {sources.map((source, index) => (
+            <li key={source.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(source)}
+                className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left hover:bg-white/5"
+              >
+                <span className="w-4 shrink-0 font-mono text-[13px] text-ink-dim">{index + 1}</span>
+                <FileText className="size-3.5 shrink-0 text-ink-muted" aria-hidden />
+                <span className="flex-1 truncate text-sm text-ink">{source.documentTitle}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

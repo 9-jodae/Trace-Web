@@ -21,14 +21,14 @@ function normalizeExtension(extension: string): string {
 function StatusBadge({ status }: { status: ProcessingStatus | null }) {
   if (status === 'PENDING' || status === 'PROCESSING') {
     return (
-      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+      <span className="rounded bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
         처리 중
       </span>
     )
   }
   if (status === 'FAILED') {
     return (
-      <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+      <span className="rounded bg-red-950/40 px-2 py-0.5 text-xs font-medium text-red-300">
         처리 실패
       </span>
     )
@@ -127,7 +127,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
           <button
             type="button"
             onClick={() => closeDocument(documentId)}
-            className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
+            className="rounded-md border border-border-dark-strong px-3 py-1 text-ink-dim hover:text-ink"
           >
             탭 닫기
           </button>
@@ -140,7 +140,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
         <button
           type="button"
           onClick={() => void refetch()}
-          className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
+          className="rounded-md border border-border-dark-strong px-3 py-1 text-ink-dim hover:text-ink"
         >
           다시 시도
         </button>
@@ -152,46 +152,46 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+      <header className="flex flex-col gap-2 border-b border-border-dark bg-panel px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-base font-semibold text-slate-900">{document.title}</h2>
-              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+              <h2 className="truncate text-base font-semibold text-ink">{document.title}</h2>
+              <span className="rounded bg-surface-raised px-1.5 py-0.5 text-xs font-medium text-ink-dim">
                 v{document.currentVersion}
               </span>
               <StatusBadge status={currentJob?.status ?? null} />
             </div>
-            <p className="mt-0.5 truncate text-xs text-slate-500">{document.relativePath}</p>
+            <p className="mt-0.5 truncate text-xs text-ink-muted">{document.relativePath}</p>
           </div>
           <button
             type="button"
             onClick={() => void handleDownload()}
-            className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            className="shrink-0 rounded-md border border-border-dark-strong bg-surface-raised px-3 py-1 text-xs font-medium text-ink-dim hover:text-ink"
           >
             다운로드
           </button>
         </div>
-        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-dim">
           <div className="flex items-center gap-1">
-            <dt className="text-slate-400">유형</dt>
+            <dt className="text-ink-muted">유형</dt>
             <dd>{document.documentType ?? '분류 전'}</dd>
           </div>
           <div className="flex items-center gap-1">
-            <dt className="text-slate-400">작성자</dt>
+            <dt className="text-ink-muted">작성자</dt>
             <dd>{document.author ?? '-'}</dd>
           </div>
           <div className="flex items-center gap-1">
-            <dt className="text-slate-400">작성일</dt>
+            <dt className="text-ink-muted">작성일</dt>
             <dd>{document.authoredAt ?? '-'}</dd>
           </div>
           <div className="flex items-center gap-1">
-            <dt className="text-slate-400">보안 등급</dt>
+            <dt className="text-ink-muted">보안 등급</dt>
             <dd>{document.clearance}</dd>
           </div>
         </dl>
         {downloadActionError && (
-          <p role="alert" className="text-xs text-red-600">
+          <p role="alert" className="text-xs text-red-300">
             {downloadActionError}
           </p>
         )}
@@ -212,7 +212,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
             <button
               type="button"
               onClick={() => void handleManualRetryContent()}
-              className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-100"
+              className="rounded-md border border-border-dark-strong px-3 py-1 text-ink-dim hover:text-ink"
             >
               다시 시도
             </button>
@@ -240,7 +240,7 @@ export function DocumentViewer({ documentId }: { documentId: string }) {
 
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-sm text-slate-400">
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-sm text-ink-muted">
       {children}
     </div>
   )

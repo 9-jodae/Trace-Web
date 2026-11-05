@@ -16,8 +16,8 @@ export default function PdfContent({ url, onError }: { url: string; onError: () 
       <Document
         file={url}
         suspense={false}
-        loading={<p className="text-sm text-slate-400">PDF를 불러오는 중…</p>}
-        error={<p className="text-sm text-slate-400">PDF를 불러오지 못했습니다.</p>}
+        loading={<p className="text-sm text-ink-muted">PDF를 불러오는 중…</p>}
+        error={<p className="text-sm text-ink-muted">PDF를 불러오지 못했습니다.</p>}
         onLoadSuccess={({ numPages: count }) => setNumPages(count)}
         onLoadError={() => onError()}
         onSourceError={() => onError()}

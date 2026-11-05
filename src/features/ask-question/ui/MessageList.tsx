@@ -222,7 +222,7 @@ function AnswerBubble({
         )}
       </div>
       {/* 인사 답변과 되묻는 문장에는 붙이지 않고 거절 문장에만 재시도 버튼을 보여 줍니다.
-          임시 판별입니다. docs199-Server #82가 머지되면 answerType === 'NO_EVIDENCE'로 바꿉니다. */}
+          임시 판별입니다. Trace-Server #82가 머지되면 answerType === 'NO_EVIDENCE'로 바꿉니다. */}
       {sources.length === 0 && missingSourceCount === 0 && text.trim() === NO_EVIDENCE_ANSWER && (
         <div className="flex flex-wrap gap-1.5">
           <button

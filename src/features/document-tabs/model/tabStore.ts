@@ -17,7 +17,16 @@ export interface DocumentTab {
   focusHighlights?: EvidencePhrases
 }
 
+/** 그래프에서 고른 문서. 그래프를 가리지 않도록 오른쪽 패널에 미리 보여 줍니다. */
+export interface DocumentPreview {
+  documentId: string
+  title: string
+}
+
 interface TabState {
+  preview: DocumentPreview | null
+  openPreview: (document: DocumentPreview) => void
+  closePreview: () => void
   documentTabs: DocumentTab[]
   activeTabId: string
   sequence: number
@@ -33,6 +42,7 @@ interface TabState {
 }
 
 const initialState = {
+  preview: null as DocumentPreview | null,
   documentTabs: [] as DocumentTab[],
   activeTabId: GRAPH_TAB_ID,
   sequence: 0,
@@ -41,6 +51,9 @@ const initialState = {
 // 그래프 탭은 항상 첫 번째에 고정되고 닫을 수 없습니다. 문서 탭은 연 순서대로 쌓입니다.
 export const useTabStore = create<TabState>()((set) => ({
   ...initialState,
+
+  openPreview: (preview) => set({ preview }),
+  closePreview: () => set({ preview: null }),
 
   openDocument: ({ documentId, title, chunkId, highlights }) =>
     set((state) => {

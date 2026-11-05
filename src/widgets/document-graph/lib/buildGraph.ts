@@ -3,7 +3,7 @@ import type { Document } from '@/entities/document'
 import { documentTypeColor, documentTypeLabel } from '@/entities/document'
 
 /**
- * 문서 간 연결선. docs199-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
+ * 문서 간 연결선. Trace-Server GET /api/graph(Issue #22)의 edges와 맞춥니다.
  * type은 엣지 색을 구분하는 데 씁니다(REFERENCES=파랑, CONFLICTS=빨강, TOPIC=청록).
  * label은 선 위에 표시할 글자입니다.
  */
@@ -42,6 +42,8 @@ export interface EdgeAttributes {
   size: number
   color: string
   label?: string
+  /** 양 끝 문서 중 한쪽에서 가장 중요한 선. 노드를 고르지 않았을 때는 이 선만 그립니다. */
+  primary?: boolean
 }
 
 /** 호버하지 않은 간선을 흐리게 보일 때 쓰는 색. 거의 보이지 않을 만큼만 남겨 구조의 윤곽만 드러냅니다. */
@@ -388,8 +390,30 @@ export function buildDocumentGraph({
   })
 
   const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
+  markPrimaryEdges(graph)
 
   return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings }
+}
+
+/** 경고, 충돌, 주제, 참조 순으로 중요합니다. */
+function edgePriority(attributes: EdgeAttributes) {
+  return attributes.warning ? 3 : EDGE_STYLE[attributes.type].rank
+}
+
+/** 문서마다 가장 중요한 선 하나를 고릅니다. 같은 순위면 먼저 들어온 선을 씁니다. */
+export function markPrimaryEdges(graph: Graph<NodeAttributes, EdgeAttributes>) {
+  graph.forEachNode((node) => {
+    let best: string | null = null
+    let bestPriority = -1
+    graph.forEachEdge(node, (edge, attributes) => {
+      const priority = edgePriority(attributes)
+      if (priority > bestPriority) {
+        best = edge
+        bestPriority = priority
+      }
+    })
+    if (best !== null) graph.setEdgeAttribute(best, 'primary', true)
+  })
 }
 
 /** 호버한 노드의 바로 이웃을 그 둘레에 떨어뜨려 놓을 거리(그래프 좌표 단위). */

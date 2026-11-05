@@ -1,7 +1,7 @@
 import type { SourceKind } from '@/entities/document/@x/source'
 import type { Clearance } from '@/entities/user/@x/source'
 
-// docs199-Server의 SourceRecord(GET /api/admin/sources)와 맞춥니다.
+// Trace-Server의 SourceRecord(GET /api/admin/sources)와 맞춥니다.
 
 export interface Source {
   id: string

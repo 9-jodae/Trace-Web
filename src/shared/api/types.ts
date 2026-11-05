@@ -1,4 +1,4 @@
-// 서버 공통 응답 형식. docs199-Server의 docs/conventions.md와 맞춥니다.
+// 서버 공통 응답 형식. Trace-Server의 docs/conventions.md와 맞춥니다.
 
 export interface ApiError {
   code: string

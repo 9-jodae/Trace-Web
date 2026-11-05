@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 /**
  * 개발 서버에서만 쓰는 시험 저장. 로컬 Spring이 운영에 붙어 있어도 문서를 바꾸지 않도록 메모리에만 두며,
- * 새로고침하면 사라집니다. 재적재가 연결되면 서버 저장으로 시험합니다(docs199-Server #89).
+ * 새로고침하면 사라집니다. 재적재가 연결되면 서버 저장으로 시험합니다(Trace-Server #89).
  */
 export function isLocalEditMode() {
   // 실제 저장 경로를 개발 서버에서 시험할 때는 설정을 켜서 메모리 저장을 끕니다.
@@ -10,7 +10,7 @@ export function isLocalEditMode() {
 }
 
 /**
- * 재적재가 연결된 환경에서만 수정 제안을 서버에 저장합니다(docs199-Server #89, #93).
+ * 재적재가 연결된 환경에서만 수정 제안을 서버에 저장합니다(Trace-Server #89, #93).
  * 연결 전 저장은 문서를 검색에서 빠지게 하므로 기본은 꺼 둡니다.
  */
 export function isServerEditEnabled() {

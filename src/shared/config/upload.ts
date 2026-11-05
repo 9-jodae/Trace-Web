@@ -1,4 +1,4 @@
-// 업로드 미리 거르기 기준. 서버 기본값(docs199-Server docs/document-management.md)과 맞춥니다.
+// 업로드 미리 거르기 기준. 서버 기본값(Trace-Server docs/document-management.md)과 맞춥니다.
 
 /** 업로드할 수 있는 확장자(소문자). 서버 ALLOWED_EXTENSIONS 기본값 */
 export const ALLOWED_EXTENSIONS = ['pdf', 'md'] as const

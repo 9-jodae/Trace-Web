@@ -86,4 +86,13 @@ describe('tabStore', () => {
     expect(tabOf('b')?.focusChunkId).toBe('chunk-2')
     expect(ids()).toEqual(['a', 'b'])
   })
+
+  it('미리보기는 탭을 열지 않고 하나만 둔다', () => {
+    useTabStore.getState().openPreview({ documentId: 'a', title: 'A' })
+    useTabStore.getState().openPreview({ documentId: 'b', title: 'B' })
+    expect(useTabStore.getState().preview).toEqual({ documentId: 'b', title: 'B' })
+    expect(ids()).toEqual([])
+    useTabStore.getState().closePreview()
+    expect(useTabStore.getState().preview).toBeNull()
+  })
 })

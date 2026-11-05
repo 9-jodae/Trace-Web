@@ -56,6 +56,8 @@ export interface EdgeAttributes {
    * 선(직접 연결 노드끼리 포함)은 'dimmed'입니다.
    */
   focus: FocusLevel
+  /** 양 끝 문서 중 한쪽에서 가장 중요한 선. 노드를 고르지 않았을 때는 이 선만 그립니다. */
+  primary?: boolean
 }
 
 /** 다크 배경(그래프 영역)에서 포커스 중이 아닌 노드를 흐리게 보일 때 쓰는 색(파란 톤에 맞춤). */
@@ -419,8 +421,30 @@ export function buildDocumentGraph({
   })
 
   const hasWarnings = graph.someEdge((_edge, attributes) => attributes.warning === true)
+  markPrimaryEdges(graph)
 
   return { graph, legend, hasReferences, hasConflicts, hasTopics, hasWarnings, focus }
+}
+
+/** 경고, 충돌, 주제, 참조 순으로 중요합니다. */
+function edgePriority(attributes: EdgeAttributes) {
+  return attributes.warning ? 3 : EDGE_STYLE[attributes.type].rank
+}
+
+/** 문서마다 가장 중요한 선 하나를 고릅니다. 같은 순위면 먼저 들어온 선을 씁니다. */
+export function markPrimaryEdges(graph: Graph<NodeAttributes, EdgeAttributes>) {
+  graph.forEachNode((node) => {
+    let best: string | null = null
+    let bestPriority = -1
+    graph.forEachEdge(node, (edge, attributes) => {
+      const priority = edgePriority(attributes)
+      if (priority > bestPriority) {
+        best = edge
+        bestPriority = priority
+      }
+    })
+    if (best !== null) graph.setEdgeAttribute(best, 'primary', true)
+  })
 }
 
 /**

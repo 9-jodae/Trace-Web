@@ -26,7 +26,8 @@ function supportsWebGL() {
 
 /**
  * 볼 수 있는 모든 문서를 한꺼번에 노드로 표시하고 유형별로 색을 나눕니다.
- * 노드를 누르면 문서 탭을 열고, 가장 최근 답변의 근거 문서를 강조합니다.
+ * 문서마다 가장 중요한 선 하나만 그리고, 노드를 누르면 그 문서의 선을 모두 보이며 오른쪽 패널에
+ * 문서를 띄웁니다. 가장 최근 답변의 근거 문서를 강조합니다.
  * 연결선은 문서 관계 그래프 API(GET /api/graph, Issue #22)에서 가져옵니다. 이 요청이 실패해도
  * 노드 목록 자체는 /api/documents로 따로 받으므로, 연결선만 없이 그래프는 그대로 보여줍니다.
  */
@@ -37,7 +38,9 @@ export function DocumentGraph() {
   const answerAboutConflict = useChatStore((state) => state.answerAboutConflict)
   const graphHighlightEnabled = useChatStore((state) => state.graphHighlightEnabled)
   const toggleGraphHighlight = useChatStore((state) => state.toggleGraphHighlight)
-  const openDocument = useTabStore((state) => state.openDocument)
+  const openPreview = useTabStore((state) => state.openPreview)
+  const closePreview = useTabStore((state) => state.closePreview)
+  const preview = useTabStore((state) => state.preview)
   const { filter } = useDocumentFilterStore()
   const localEdits = useLocalEditStore((state) => state.edits)
   const modifiedDocuments = useMemo(
@@ -188,13 +191,17 @@ export function DocumentGraph() {
     }
   }, [sigma, effectiveEvidenceIds])
 
+  // 노드를 누르면 그 문서의 선을 모두 보이고, 그래프를 가리지 않게 오른쪽 패널에 문서를 띄웁니다.
+  // 고른 노드는 미리보기와 같은 값을 써서, 미리보기를 닫으면 선도 기본 보기로 돌아갑니다.
   const onNodeClick = useCallback(
     (documentId: string) => {
       const title = built?.graph.getNodeAttribute(documentId, 'label') ?? documentId
-      openDocument({ documentId, title })
+      openPreview({ documentId, title })
     },
-    [built, openDocument],
+    [built, openPreview],
   )
+  const previewId = preview?.documentId
+  const shownNode = previewId && built?.graph.hasNode(previewId) ? previewId : null
 
   const focusing = (built?.focus.evidence ?? 0) > 0
 
@@ -254,6 +261,8 @@ export function DocumentGraph() {
                   onEdgeClick={setSelectedEdge}
                   onNodeHover={setHover}
                   onReady={onReady}
+                  onStageClick={closePreview}
+                  selectedNode={shownNode}
                 />
               </Suspense>
             </div>

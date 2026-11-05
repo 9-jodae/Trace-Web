@@ -119,13 +119,12 @@ export function useAdminDocument(id: string) {
 }
 
 /**
- * 업로드·개정·삭제·권한 수정 뒤에 관리 목록·상세와 직원용 전체 문서 목록(그래프)을 함께 새로 받습니다.
+ * 업로드·개정·삭제·권한 수정 뒤에 문서 쿼리를 모두 새로 받습니다. 관리 목록·상세뿐 아니라 직원용
+ * 전체 문서 목록(그래프)과 문서 탭의 상세·처리 상태도 포함해, 열려 있던 문서 탭이 옛 버전을 보이지 않게 합니다.
+ * 원문 파일은 버전 번호가 키에 있어 상세가 새 버전을 받으면 새로 받습니다.
  */
 export function invalidateAfterDocumentChange(queryClient: QueryClient) {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: adminDocumentKeys.all }),
-    queryClient.invalidateQueries({ queryKey: documentKeys.everyAccessible }),
-  ])
+  return queryClient.invalidateQueries({ queryKey: documentKeys.all })
 }
 
 /** CREATED·UPDATED 중 기존 문서의 다음 버전인지. 서버는 새 버전도 CREATED로 줄 수 있습니다. */

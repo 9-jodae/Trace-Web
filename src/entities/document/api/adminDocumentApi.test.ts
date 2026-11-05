@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query'
 import type { InternalAxiosRequestConfig } from 'axios'
 import { afterEach, describe, expect, it } from 'vitest'
 import { file as fileReply, mockServer, ok } from '@/shared/testing'
@@ -7,9 +8,12 @@ import {
   adminReviseDocument,
   adminUpdateAccess,
   adminUploadDocuments,
+  adminDocumentKeys,
   buildUploadForm,
+  invalidateAfterDocumentChange,
   isNewVersion,
 } from './adminDocumentApi'
+import { documentKeys } from './documentApi'
 
 let restore: () => void = () => {}
 
@@ -125,5 +129,22 @@ describe('isNewVersion', () => {
     expect(isNewVersion(result('CREATED', 2))).toBe(true)
     expect(isNewVersion(result('CREATED', 1))).toBe(false)
     expect(isNewVersion(result('UNCHANGED', 3))).toBe(false)
+  })
+})
+
+describe('invalidateAfterDocumentChange', () => {
+  it('관리 화면뿐 아니라 문서 탭의 상세·상태와 그래프 목록도 새로 받게 한다', async () => {
+    const client = new QueryClient()
+    const keys = [
+      adminDocumentKeys.detail('d1'),
+      documentKeys.everyAccessible,
+      documentKeys.detail('d1'),
+      documentKeys.status('d1'),
+    ]
+    for (const key of keys) client.setQueryData(key, {})
+
+    await invalidateAfterDocumentChange(client)
+
+    for (const key of keys) expect(client.getQueryState(key)?.isInvalidated).toBe(true)
   })
 })

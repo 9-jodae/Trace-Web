@@ -1,4 +1,4 @@
-import { FileText, Quote, TriangleAlert } from 'lucide-react'
+import { FileText, Quote } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { AnswerEvidence, AnswerSource } from '@/entities/answer'
 import type { ChatMessage } from '../model/chatStore'
@@ -94,18 +94,6 @@ function AnswerBubble({
   onRetryWithoutFilters: (questionText: string) => void
   onRephrase: (questionText: string) => void
 }) {
-  // 근거 없이 온 답변만 "확인할 수 없음"으로 보여줍니다. 과거 대화의 근거를 지금 볼 수 없게 된
-  // 경우(문서 삭제·개정·권한 변경)는 저장된 답변을 그대로 보여주고 빠진 근거 수만 알립니다.
-  if (sources.length === 0 && missingSourceCount === 0) {
-    return (
-      <NoEvidenceAnswer
-        originalQuestion={originalQuestion}
-        onRetryWithoutFilters={onRetryWithoutFilters}
-        onRephrase={onRephrase}
-      />
-    )
-  }
-
   return (
     <div className="flex max-w-96 flex-col gap-3 text-[15px]">
       <AnswerMarkdown text={text} />
@@ -155,36 +143,7 @@ function AnswerBubble({
           ))}
         </ul>
       )}
-      {missingSourceCount > 0 && (
-        <p className="text-xs text-ink-muted">
-          근거 {missingSourceCount}개는 문서가 개정·삭제되었거나 볼 권한이 없어 표시할 수 없습니다
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** 내가 볼 수 있는 문서 중에 근거가 없을 때. 추측으로 답하지 않고 다음 행동을 제안합니다. */
-function NoEvidenceAnswer({
-  originalQuestion,
-  onRetryWithoutFilters,
-  onRephrase,
-}: {
-  originalQuestion: string
-  onRetryWithoutFilters: (questionText: string) => void
-  onRephrase: (questionText: string) => void
-}) {
-  return (
-    <div className="flex max-w-96 flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4 text-[15px]">
-      <p className="flex items-center gap-1.5 font-semibold text-amber-400">
-        <TriangleAlert className="size-4 shrink-0" aria-hidden />
-        사내 문서에서 확인할 수 없습니다
-      </p>
-      <p className="text-sm text-ink-dim">
-        내가 볼 수 있는 문서 중에서 관련 근거를 찾지 못했습니다. 추측으로 답하지 않습니다.
-      </p>
-      <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-medium text-ink-muted">이렇게 해보세요</p>
+      {sources.length === 0 && missingSourceCount === 0 && (
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
@@ -203,7 +162,12 @@ function NoEvidenceAnswer({
             다른 표현으로 질문
           </button>
         </div>
-      </div>
+      )}
+      {missingSourceCount > 0 && (
+        <p className="text-xs text-ink-muted">
+          근거 {missingSourceCount}개는 문서가 개정·삭제되었거나 볼 권한이 없어 표시할 수 없습니다
+        </p>
+      )}
     </div>
   )
 }

@@ -270,11 +270,33 @@ export default function SigmaCanvas({
   )
 }
 
+/**
+ * 지금 그래프 범위에 맞춰 화면을 다시 맞춥니다. autoRescale "once"는 처음 그릴 때의 범위를 고정해 두는데,
+ * 그때 그래프가 비어 있거나 영역 크기가 0이면 노드가 모두 화면 밖에 그려집니다(문서 탭에 갔다가 돌아온 경우).
+ */
+function refitView(sigma: Sigma) {
+  const { width, height } = sigma.getDimensions()
+  if (width === 0 || height === 0 || sigma.getGraph().order === 0) return false
+  sigma.setSetting('autoRescale', true)
+  sigma.refresh()
+  sigma.setSetting('autoRescale', 'once')
+  sigma.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 })
+  return true
+}
+
 function GraphLoader({ graph }: { graph: Graph<NodeAttributes> }) {
   const loadGraph = useLoadGraph<NodeAttributes>()
+  const sigma = useSigma()
   useEffect(() => {
     loadGraph(graph, true)
-  }, [graph, loadGraph])
+    // 새로 불러온 그래프에 화면을 맞춥니다. 영역 크기가 아직 0이면 크기가 잡힐 때 맞춥니다
+    if (refitView(sigma)) return
+    const observer = new ResizeObserver(() => {
+      if (refitView(sigma)) observer.disconnect()
+    })
+    observer.observe(sigma.getContainer())
+    return () => observer.disconnect()
+  }, [graph, loadGraph, sigma])
   return null
 }
 
